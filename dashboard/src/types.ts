@@ -350,7 +350,15 @@ export interface QuotaData {
   employee_mapping_count?: number;
 }
 
-export type ViewId = "overview" | "divisions" | "bu" | "employees" | "leaderboard" | "leaders" | "accounts";
+export type ViewId =
+  | "overview"
+  | "divisions"
+  | "bu"
+  | "employees"
+  | "leaderboard"
+  | "leaders"
+  | "accounts"
+  | "admin";
 
 export type PeriodKey = "q1" | "q2" | "h1" | "h2" | "annual";
 

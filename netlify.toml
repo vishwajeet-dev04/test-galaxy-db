@@ -8,6 +8,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Logo.dev publishable key (safe in client bundles). Override in Netlify UI if rotated.
+  VITE_LOGO_DEV_TOKEN = "pk_Zrbz3T6jS6OTYbCWuVmrnQ"
 
 # SPA fallback — serve index.html for all routes
 [[redirects]]

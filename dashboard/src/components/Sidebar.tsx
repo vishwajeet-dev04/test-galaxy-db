@@ -6,9 +6,11 @@ import {
   Trophy,
   Crown,
   Briefcase,
+  Upload,
   X,
 } from "lucide-react";
 import type { ViewId } from "../types";
+import { useAuth } from "../context/AuthContext";
 
 interface SidebarProps {
   active: ViewId;
@@ -18,7 +20,7 @@ interface SidebarProps {
   onMobileClose?: () => void;
 }
 
-const NAV: { id: ViewId; label: string; icon: typeof LayoutDashboard }[] = [
+const ALL_NAV: { id: ViewId; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "divisions", label: "RTMs", icon: Building2 },
   { id: "bu", label: "Business Units", icon: Layers },
@@ -26,9 +28,13 @@ const NAV: { id: ViewId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "leaders", label: "Leaders", icon: Crown },
   { id: "employees", label: "Employees", icon: Users },
   { id: "leaderboard", label: "Leaderboard", icon: Trophy },
+  { id: "admin", label: "Admin Uploads", icon: Upload, adminOnly: true },
 ];
 
 export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: SidebarProps) {
+  const { isAdmin } = useAuth();
+  const nav = ALL_NAV.filter((item) => !item.adminOnly || isAdmin);
+
   const handleNav = (view: ViewId) => {
     onChange(view);
     onMobileClose?.();
@@ -87,7 +93,7 @@ export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: Sid
           <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
             Navigate
           </p>
-          {NAV.map(({ id, label, icon: Icon }) => {
+          {nav.map(({ id, label, icon: Icon }) => {
             const isActive = active === id;
             return (
               <button

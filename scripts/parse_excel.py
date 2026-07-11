@@ -1452,10 +1452,28 @@ def status_flag(attainment_pct):
     return "red"
 
 
-def main():
+def main(
+    excel_path=None,
+    pipeline_path=None,
+    sales_team_path=None,
+    output_path=None,
+):
+    """Parse quota workbooks into dashboard JSON.
+
+    Optional path overrides support admin uploads without changing defaults.
+    """
+    global EXCEL_PATH, PIPELINE_PATH, SALES_TEAM_PATH, OUTPUT_PATH
+    if excel_path is not None:
+        EXCEL_PATH = Path(excel_path)
+    if pipeline_path is not None:
+        PIPELINE_PATH = Path(pipeline_path)
+    if sales_team_path is not None:
+        SALES_TEAM_PATH = Path(sales_team_path)
+    if output_path is not None:
+        OUTPUT_PATH = Path(output_path)
+
     if not EXCEL_PATH.exists():
-        print(f"Excel file not found: {EXCEL_PATH}", file=sys.stderr)
-        sys.exit(1)
+        raise FileNotFoundError(f"Excel file not found: {EXCEL_PATH}")
 
     xl = pd.ExcelFile(EXCEL_PATH)
     employee_mapping = load_employee_mapping()
@@ -1582,6 +1600,12 @@ def main():
         print(f"  Pipeline deals: {pipeline['summary']['total_deals']} (₹{pipeline['summary']['total_revenue_cr']} Cr)")
         print(f"  Accounts: {len(accounts)}")
 
+    return output
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except FileNotFoundError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)

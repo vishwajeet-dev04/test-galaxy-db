@@ -2,9 +2,11 @@ import { useState, useCallback, useMemo } from "react";
 import { RefreshCw, Menu } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
 import { Breadcrumbs } from "./components/Breadcrumbs";
-import { DashboardControls } from "./components/DashboardControls";
+import { UserMenu } from "./components/UserMenu";
 import { DashboardProvider } from "./context/DashboardContext";
+import { useAuth } from "./context/AuthContext";
 import { useQuotaData } from "./hooks/useQuotaData";
+import { LoginView } from "./views/LoginView";
 import { OverviewView } from "./views/OverviewView";
 import { DivisionsView } from "./views/DivisionsView";
 import { BUView } from "./views/BUView";
@@ -12,14 +14,15 @@ import { EmployeesView } from "./views/EmployeesView";
 import { LeaderboardView } from "./views/LeaderboardView";
 import { LeadersView } from "./views/LeadersView";
 import { AccountsView } from "./views/AccountsView";
+import { AdminUploadsView } from "./views/AdminUploadsView";
 import type { DrillState, ViewId } from "./types";
 import { VIEW_META } from "./theme";
 import { formatCr, formatPct } from "./utils/format";
 
 const DEFAULT_DRILL: DrillState = { view: "overview" };
 
-export default function App() {
-  const { data, loading, error } = useQuotaData();
+function DashboardApp() {
+  const { data, loading, error, refresh } = useQuotaData();
   const [drill, setDrill] = useState<DrillState>(DEFAULT_DRILL);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -60,6 +63,13 @@ export default function App() {
         <div className="max-w-md rounded-2xl border border-galaxy-primary/20 bg-white p-8 text-center shadow-lg">
           <p className="font-semibold text-galaxy-primary">Unable to load dashboard</p>
           <p className="mt-2 text-sm text-slate-500">{error}</p>
+          <button
+            type="button"
+            onClick={refresh}
+            className="mt-4 rounded-xl bg-galaxy-navy px-4 py-2 text-sm font-semibold text-white"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -102,12 +112,12 @@ export default function App() {
                 </div>
               </div>
 
-              <DashboardControls />
+              <UserMenu />
 
               <div className="hidden items-center gap-2 xl:flex">
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
-                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPct(data.kpis.h1_attainment_pct)}</p>
+                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPct(data.kpis.h1_attainment_pct ?? data.kpis.ic_h1_attainment_pct)}</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals</p>
@@ -133,9 +143,25 @@ export default function App() {
             {drill.view === "leaders" && <LeadersView data={data} />}
             {drill.view === "employees" && <EmployeesView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "leaderboard" && <LeaderboardView data={data} onDrill={onDrill} />}
+            {drill.view === "admin" && <AdminUploadsView onDataRefresh={refresh} />}
           </div>
         </main>
       </div>
     </DashboardProvider>
   );
+}
+
+export default function App() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="app-shell flex min-h-screen items-center justify-center">
+        <RefreshCw className="h-6 w-6 animate-spin text-galaxy-navy" />
+      </div>
+    );
+  }
+
+  if (!user) return <LoginView />;
+  return <DashboardApp />;
 }

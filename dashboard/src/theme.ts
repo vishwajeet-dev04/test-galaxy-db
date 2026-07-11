@@ -34,4 +34,5 @@ export const VIEW_META: Record<
   leaders: { title: "Leaders Dashboard – Bottomline", subtitle: "Cumulative team bottomline & attainment" },
   leaderboard: { title: "Leaderboard", subtitle: "Ranked sales performance" },
   accounts: { title: "Accounts", subtitle: "Customer closed value · BU mix · quota contribution" },
+  admin: { title: "Admin", subtitle: "Upload quota, pipeline & sales team workbooks" },
 };

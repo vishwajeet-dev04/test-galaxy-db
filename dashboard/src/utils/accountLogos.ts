@@ -139,7 +139,7 @@ export function getAccountLogoCandidates(account: string): string[] {
   if (!domain) return [];
 
   const urls: string[] = [];
-  const token = import.meta.env.VITE_LOGO_DEV_TOKEN as string | undefined;
+  const token = (import.meta.env.VITE_LOGO_DEV_TOKEN as string | undefined)?.trim();
 
   // Logo.dev image CDN — requires publishable key (pk_…), not secret (sk_…)
   if (token && token.startsWith("pk_")) {
@@ -154,9 +154,11 @@ export function getAccountLogoCandidates(account: string): string[] {
     urls.push(`https://img.logo.dev/${domain}?${params.toString()}`);
   }
 
-  // Fallbacks if Logo.dev is unset / misses
+  // Fallbacks if Logo.dev is unset / misses (Clearbit is unreliable; keep Unavatar + hi-res favicon)
   urls.push(`https://unavatar.io/${domain}?fallback=false`);
-  urls.push(`https://logo.clearbit.com/${domain}`);
+  urls.push(
+    `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`,
+  );
 
   return urls;
 }

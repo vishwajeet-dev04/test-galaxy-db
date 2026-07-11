@@ -10,3 +10,8 @@ dashboard/.env
 dashboard/.env.local
 *.env
 !*.env.example
+!.env.production
+!dashboard/.env.production
+backend/galaxy.db
+backend/**/__pycache__/
+*.db
