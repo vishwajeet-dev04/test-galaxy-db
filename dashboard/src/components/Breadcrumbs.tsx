@@ -16,6 +16,7 @@ const VIEW_LABELS: Record<string, string> = {
   leaders: "Leaders",
   leaderboard: "Leaderboard",
   accounts: "Accounts",
+  brands: "Brands",
 };
 
 export function Breadcrumbs({ drill, onNavigate }: BreadcrumbsProps) {
@@ -28,6 +29,7 @@ export function Breadcrumbs({ drill, onNavigate }: BreadcrumbsProps) {
   if (drill.persona) crumbs.push({ label: drill.persona });
   if (drill.employee) crumbs.push({ label: drill.employee });
   if (drill.account) crumbs.push({ label: drill.account });
+  if (drill.brand) crumbs.push({ label: drill.brand });
 
   return (
     <nav className="flex items-center gap-1">

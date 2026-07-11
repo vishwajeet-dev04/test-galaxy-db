@@ -1001,6 +1001,116 @@ def build_org_accounts(all_deals, ic_h1_quota_cr=None, pipeline_topline_cr=None,
     return accounts
 
 
+def build_org_brands(all_deals, ic_h1_quota_cr=None, pipeline_topline_cr=None, pipeline_bottomline_cr=None):
+    """Org-wide brand rollup from closed-won deals (Brand column in Opportunity Pipeline)."""
+    brands_map = {}
+    for d in all_deals:
+        if d.get("excluded_from_achievement") or d.get("exclude_from_pipeline_totals"):
+            continue
+        brand = (d.get("brand") or "Others").strip() or "Others"
+        if brand not in brands_map:
+            brands_map[brand] = {
+                "brand": brand,
+                "deal_count": 0,
+                "revenue_inr": 0.0,
+                "bottomline_inr": 0.0,
+                "quota_credit_inr": 0.0,
+                "employees": set(),
+                "accounts": set(),
+                "rtm_divisions": set(),
+                "bus": {},
+                "deals": [],
+            }
+        row = brands_map[brand]
+        row["deal_count"] += 1
+        row["revenue_inr"] += d.get("amount_inr") or 0
+        row["bottomline_inr"] += d.get("bottomline_inr") or 0
+        row["quota_credit_inr"] += d.get("quota_credit_inr") or 0
+        if d.get("employee"):
+            row["employees"].add(d["employee"])
+        if d.get("account"):
+            row["accounts"].add(d["account"])
+        rtm = d.get("rtm_division")
+        if rtm:
+            row["rtm_divisions"].add(rtm)
+        bu = d.get("bu") or "Other"
+        if bu not in row["bus"]:
+            row["bus"][bu] = {
+                "bu": bu,
+                "deal_count": 0,
+                "revenue_inr": 0.0,
+                "bottomline_inr": 0.0,
+            }
+        row["bus"][bu]["deal_count"] += 1
+        row["bus"][bu]["revenue_inr"] += d.get("amount_inr") or 0
+        row["bus"][bu]["bottomline_inr"] += d.get("bottomline_inr") or 0
+        row["deals"].append(d)
+
+    ic_quota = float(ic_h1_quota_cr or 0)
+    pipe_tl = float(pipeline_topline_cr or 0)
+    pipe_bl = float(pipeline_bottomline_cr or 0)
+
+    brands = []
+    for row in brands_map.values():
+        rev = row["revenue_inr"]
+        bl = row["bottomline_inr"]
+        credit = row["quota_credit_inr"]
+        rev_cr = round(rev / 1e7, 4)
+        bl_cr = round(bl / 1e7, 4)
+        credit_cr = round(credit / 1e7, 4)
+        gp_pct = round(bl / rev * 100, 2) if rev else 0.0
+        by_bu = []
+        for bu_row in row["bus"].values():
+            by_bu.append(
+                {
+                    "bu": bu_row["bu"],
+                    "deal_count": bu_row["deal_count"],
+                    "revenue_inr": round(bu_row["revenue_inr"], 2),
+                    "revenue_cr": round(bu_row["revenue_inr"] / 1e7, 4),
+                    "bottomline_inr": round(bu_row["bottomline_inr"], 2),
+                    "bottomline_cr": round(bu_row["bottomline_inr"] / 1e7, 4),
+                }
+            )
+        by_bu.sort(key=lambda x: x["revenue_inr"], reverse=True)
+        primary_bu = by_bu[0]["bu"] if by_bu else None
+        # Top accounts for this brand by deal topline
+        acct_rev = {}
+        for d in row["deals"]:
+            a = d.get("account") or "Unknown"
+            acct_rev[a] = acct_rev.get(a, 0) + (d.get("amount_inr") or 0)
+        top_accounts = [
+            {"account": a, "revenue_cr": round(v / 1e7, 4)}
+            for a, v in sorted(acct_rev.items(), key=lambda x: x[1], reverse=True)[:8]
+        ]
+        brands.append(
+            {
+                "brand": row["brand"],
+                "deal_count": row["deal_count"],
+                "revenue_inr": round(rev, 2),
+                "revenue_cr": rev_cr,
+                "bottomline_inr": round(bl, 2),
+                "bottomline_cr": bl_cr,
+                "quota_credit_inr": round(credit, 2),
+                "quota_credit_cr": credit_cr,
+                "gp_pct": gp_pct,
+                "pct_of_ic_h1_quota": round(rev_cr / ic_quota * 100, 3) if ic_quota else None,
+                "pct_of_pipeline_topline": round(rev_cr / pipe_tl * 100, 2) if pipe_tl else None,
+                "pct_of_pipeline_bottomline": round(bl_cr / pipe_bl * 100, 2) if pipe_bl else None,
+                "employees": sorted(row["employees"]),
+                "employee_count": len(row["employees"]),
+                "account_count": len(row["accounts"]),
+                "rtm_divisions": sorted(row["rtm_divisions"]),
+                "primary_bu": primary_bu,
+                "by_bu": by_bu,
+                "top_accounts": top_accounts,
+                "deals": sorted(row["deals"], key=lambda x: x.get("amount_inr") or 0, reverse=True),
+            }
+        )
+
+    brands.sort(key=lambda x: x["revenue_inr"], reverse=True)
+    return brands
+
+
 def attach_pipeline_to_individuals(individuals, pipeline):
     if not pipeline:
         empty = {
@@ -1509,8 +1619,15 @@ def main():
     leaders_dashboard = build_leaders_dashboard(individuals, pipeline, leaders)
 
     accounts = []
+    brands = []
     if pipeline:
         accounts = build_org_accounts(
+            pipeline["all_deals"],
+            ic_h1_quota_cr=ic_h1["quota"],
+            pipeline_topline_cr=pipeline["summary"]["total_revenue_cr"],
+            pipeline_bottomline_cr=pipeline["summary"]["total_bottomline_cr"],
+        )
+        brands = build_org_brands(
             pipeline["all_deals"],
             ic_h1_quota_cr=ic_h1["quota"],
             pipeline_topline_cr=pipeline["summary"]["total_revenue_cr"],
@@ -1566,6 +1683,7 @@ def main():
         "rtm_by_bu": rtm_by_bu,
         "pipeline": pipeline["summary"] if pipeline else None,
         "accounts": accounts,
+        "brands": brands,
         "target_quota": target_quota,
         "employee_mapping_count": len(employee_mapping),
     }
@@ -1581,6 +1699,7 @@ def main():
     if pipeline:
         print(f"  Pipeline deals: {pipeline['summary']['total_deals']} (₹{pipeline['summary']['total_revenue_cr']} Cr)")
         print(f"  Accounts: {len(accounts)}")
+        print(f"  Brands: {len(brands)}")
 
 
 if __name__ == "__main__":

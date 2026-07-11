@@ -12,6 +12,7 @@ import { EmployeesView } from "./views/EmployeesView";
 import { LeaderboardView } from "./views/LeaderboardView";
 import { LeadersView } from "./views/LeadersView";
 import { AccountsView } from "./views/AccountsView";
+import { BrandsView } from "./views/BrandsView";
 import type { DrillState, ViewId } from "./types";
 import { VIEW_META } from "./theme";
 import { formatCr, formatPct } from "./utils/format";
@@ -39,7 +40,13 @@ export default function App() {
   const viewMeta = useMemo(() => VIEW_META[drill.view] ?? VIEW_META.overview, [drill.view]);
 
   const hasBreadcrumbs =
-    drill.view !== "overview" || drill.division || drill.bu || drill.persona || drill.employee || drill.account;
+    drill.view !== "overview" ||
+    drill.division ||
+    drill.bu ||
+    drill.persona ||
+    drill.employee ||
+    drill.account ||
+    drill.brand;
 
   if (loading) {
     return (
@@ -130,6 +137,7 @@ export default function App() {
             {drill.view === "divisions" && <DivisionsView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "bu" && <BUView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "accounts" && <AccountsView data={data} drill={drill} onDrill={onDrill} />}
+            {drill.view === "brands" && <BrandsView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "leaders" && <LeadersView data={data} />}
             {drill.view === "employees" && <EmployeesView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "leaderboard" && <LeaderboardView data={data} onDrill={onDrill} />}

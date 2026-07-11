@@ -179,6 +179,35 @@ export interface AccountRecord {
   deals: PipelineDeal[];
 }
 
+export interface BrandTopAccount {
+  account: string;
+  revenue_cr: number;
+}
+
+/** Org-wide brand rollup (Brands tab) */
+export interface BrandRecord {
+  brand: string;
+  deal_count: number;
+  revenue_inr: number;
+  revenue_cr: number;
+  bottomline_inr: number;
+  bottomline_cr: number;
+  quota_credit_inr: number;
+  quota_credit_cr: number;
+  gp_pct: number;
+  pct_of_ic_h1_quota: number | null;
+  pct_of_pipeline_topline: number | null;
+  pct_of_pipeline_bottomline: number | null;
+  employees: string[];
+  employee_count: number;
+  account_count: number;
+  rtm_divisions: string[];
+  primary_bu: string | null;
+  by_bu: AccountBuBreakdown[];
+  top_accounts: BrandTopAccount[];
+  deals: PipelineDeal[];
+}
+
 export interface EmployeePipeline {
   deal_count: number;
   deal_count_total?: number;
@@ -346,11 +375,20 @@ export interface QuotaData {
   rtm_by_bu: Record<string, RTMRecord[]>;
   pipeline: PipelineSummary | null;
   accounts?: AccountRecord[];
+  brands?: BrandRecord[];
   target_quota?: Record<string, unknown>;
   employee_mapping_count?: number;
 }
 
-export type ViewId = "overview" | "divisions" | "bu" | "employees" | "leaderboard" | "leaders" | "accounts";
+export type ViewId =
+  | "overview"
+  | "divisions"
+  | "bu"
+  | "employees"
+  | "leaderboard"
+  | "leaders"
+  | "accounts"
+  | "brands";
 
 export type PeriodKey = "q1" | "q2" | "h1" | "h2" | "annual";
 
@@ -361,4 +399,5 @@ export interface DrillState {
   persona?: string;
   employee?: string;
   account?: string;
+  brand?: string;
 }

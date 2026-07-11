@@ -6,6 +6,7 @@ import {
   Trophy,
   Crown,
   Briefcase,
+  Tag,
   X,
 } from "lucide-react";
 import type { ViewId } from "../types";
@@ -23,6 +24,7 @@ const NAV: { id: ViewId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "divisions", label: "RTMs", icon: Building2 },
   { id: "bu", label: "Business Units", icon: Layers },
   { id: "accounts", label: "Accounts", icon: Briefcase },
+  { id: "brands", label: "Brands", icon: Tag },
   { id: "leaders", label: "Leaders", icon: Crown },
   { id: "employees", label: "Employees", icon: Users },
   { id: "leaderboard", label: "Leaderboard", icon: Trophy },
