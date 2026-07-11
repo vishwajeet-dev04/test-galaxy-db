@@ -1,0 +1,487 @@
+import { useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Users, Building2, Briefcase } from "lucide-react";
+import { FilterBar } from "../components/FilterBar";
+import { DealRow } from "../components/DealRow";
+import { Avatar } from "../components/Avatar";
+import { useDashboard } from "../context/DashboardContext";
+import type { QuotaData, DrillState, Individual, ClosedAccount, PeriodKey, PeriodMetrics } from "../types";
+import { formatCr, formatPct, attainmentColor, attainmentBg } from "../utils/format";
+import { ui } from "../theme";
+
+interface EmployeesViewProps {
+  data: QuotaData;
+  drill: DrillState;
+  onDrill: (drill: Partial<DrillState>) => void;
+}
+
+function ClosedAccountsSection({ pipeline }: { pipeline: Individual["pipeline"] }) {
+  const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
+
+  if (!pipeline.deal_count) {
+    return (
+      <div className="mt-6 rounded-xl border border-dashed border-galaxy-border bg-galaxy-surface/40 p-5 text-center">
+        <p className="text-sm text-galaxy-muted">No closed-won deals in pipeline for this period (1 Apr – 21 Jun)</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h4 className="flex items-center gap-2 font-medium text-galaxy-navy">
+            <Building2 className="h-4 w-4" />
+            Closed Accounts
+          </h4>
+          <p className="text-xs text-galaxy-muted">
+            {pipeline.account_count} accounts · {pipeline.deal_count} deals counted
+            {pipeline.deal_count_total && pipeline.deal_count_total !== pipeline.deal_count && (
+              <span> ({pipeline.deal_count_total} total)</span>
+            )}
+            {" · "}
+            <span className="text-galaxy-navy">Topline {formatCr(pipeline.total_revenue_cr)}</span>
+            {" · "}
+            <span className="text-emerald-700">BL {formatCr(pipeline.total_bottomline_cr ?? 0)}</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {pipeline.closed_accounts.map((acct: ClosedAccount) => (
+          <div key={acct.account} className="overflow-hidden rounded-xl border border-galaxy-border bg-white">
+            <button
+              onClick={() => setExpandedAccount(expandedAccount === acct.account ? null : acct.account)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-galaxy-surface/50"
+            >
+              {expandedAccount === acct.account ? (
+                <ChevronDown className="h-4 w-4 shrink-0 text-galaxy-navy" />
+              ) : (
+                <ChevronRight className="h-4 w-4 shrink-0 text-galaxy-muted" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-galaxy-navy">{acct.account}</p>
+                <p className="text-xs text-galaxy-muted">
+                  {acct.deal_count} deal{acct.deal_count !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <p className="font-mono text-sm font-medium text-galaxy-navy">{formatCr(acct.revenue_cr)}</p>
+            </button>
+
+            {expandedAccount === acct.account && (
+              <div className="border-t border-galaxy-border bg-galaxy-surface/30 px-4 py-3">
+                <div className="space-y-2">
+                  {acct.deals.map((deal) => (
+                    <DealRow key={deal.opportunity_number} deal={deal} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmployeeDetail({ emp }: { emp: Individual }) {
+  const periods = [
+    { label: "Q1", data: emp.q1 },
+    { label: "Q2", data: emp.q2 },
+    { label: "H1", data: emp.h1 },
+    { label: "H2", data: emp.h2 },
+    { label: "Annual", data: emp.annual },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-galaxy-navy/20 bg-galaxy-navy/5 p-6 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Avatar name={emp.name} size="xl" ring />
+          <div>
+            <h3 className="text-lg font-semibold text-galaxy-navy">{emp.name}</h3>
+            <p className="text-sm text-galaxy-muted">
+              {emp.division} · {emp.persona} · {emp.fy}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {emp.rank_division && emp.rank_division !== "-" && (
+            <span className="rounded-lg bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
+              Rank #{emp.rank_division}
+            </span>
+          )}
+          {emp.pipeline.deal_count > 0 && (
+            <span className="rounded-lg bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+              {emp.pipeline.account_count} closed accounts
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-5">
+        {periods.map(({ label, data }) => (
+          <div key={label} className={`${ui.cardInner} p-3`}>
+            <p className="text-xs uppercase text-galaxy-muted">{label}</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-galaxy-navy">{formatCr(data.actuals)}</p>
+            <p className="text-xs text-galaxy-muted">/ {formatCr(data.quota)}</p>
+            <p className={`mt-1 font-mono text-sm ${attainmentColor(data.attainment_pct)}`}>
+              {formatPct(data.attainment_pct)}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {(emp.deals.total || emp.deals.led_by_count || emp.deals.contributed_count) && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          {emp.deals.total != null && (
+            <div className={`${ui.cardInner} p-3`}>
+              <p className="text-xs text-galaxy-muted">Total Deals</p>
+              <p className="font-mono text-xl text-galaxy-navy">{emp.deals.total}</p>
+            </div>
+          )}
+          {emp.deals.led_by_count != null && (
+            <div className={`${ui.cardInner} p-3`}>
+              <p className="text-xs text-galaxy-muted">Led-By Deals</p>
+              <p className="font-mono text-xl text-galaxy-navy">{emp.deals.led_by_count}</p>
+              <p className="text-xs text-galaxy-muted">{formatCr(emp.deals.led_by_rev)}</p>
+            </div>
+          )}
+          {emp.deals.contributed_count != null && (
+            <div className={`${ui.cardInner} p-3`}>
+              <p className="text-xs text-galaxy-muted">Contributed Deals</p>
+              <p className="font-mono text-xl text-galaxy-navy">{emp.deals.contributed_count}</p>
+              <p className="text-xs text-galaxy-muted">{formatCr(emp.deals.contributed_rev)}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <ClosedAccountsSection pipeline={emp.pipeline} />
+    </div>
+  );
+}
+
+interface DivisionGroup {
+  division: string;
+  employees: Individual[];
+  h1Quota: number;
+  h1Actuals: number;
+  h1Attainment: number;
+  pipelineDeals: number;
+  pipelineAccounts: number;
+}
+
+const RTM_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South"]);
+const EMPLOYEE_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"]);
+
+function periodData(emp: Individual, period: PeriodKey): PeriodMetrics {
+  return emp[period];
+}
+
+function periodLabel(period: PeriodKey): string {
+  const labels: Record<PeriodKey, string> = {
+    q1: "Q1",
+    q2: "Q2",
+    h1: "H1",
+    h2: "H2",
+    annual: "Annual",
+  };
+  return labels[period];
+}
+
+export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
+  const { period, setPeriod } = useDashboard();
+  const [search, setSearch] = useState("");
+  const [divisionFilter, setDivisionFilter] = useState(drill.division ?? "");
+  const [personaFilter, setPersonaFilter] = useState(drill.persona ?? "");
+  const [hasDealsOnly, setHasDealsOnly] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const selected = drill.employee;
+  const selectedEmp = selected ? data.individuals.find((e) => e.name === selected) : null;
+
+  const divisions = useMemo(
+    () =>
+      [
+        ...new Set(
+          data.individuals
+            .map((e) => e.division)
+            .filter((d) => d && (EMPLOYEE_DIVISIONS.has(d) || RTM_DIVISIONS.has(d)))
+        ),
+      ].sort() as string[],
+    [data]
+  );
+  const personas = useMemo(() => [...new Set(data.individuals.map((e) => e.persona))].sort(), [data]);
+
+  const filtered = useMemo(() => {
+    return data.individuals.filter((e) => {
+      if (["Total", "Total Opportunity"].includes(e.name)) return false;
+      const isHrushikesh = /hrushikesh/i.test(e.name);
+      if (!e.division || (!EMPLOYEE_DIVISIONS.has(e.division) && !isHrushikesh)) return false;
+      const q = search.toLowerCase();
+      if (q) {
+        const nameMatch = e.name.toLowerCase().includes(q);
+        const accountMatch = e.pipeline.closed_accounts.some((a) => a.account.toLowerCase().includes(q));
+        if (!nameMatch && !accountMatch) return false;
+      }
+      if (divisionFilter && e.division !== divisionFilter) return false;
+      if (personaFilter && e.persona !== personaFilter) return false;
+      if (hasDealsOnly && e.pipeline.deal_count === 0) return false;
+      return true;
+    });
+  }, [data.individuals, search, divisionFilter, personaFilter, hasDealsOnly]);
+
+  const groupedByDivision = useMemo((): DivisionGroup[] => {
+    const map = new Map<string, Individual[]>();
+    for (const emp of filtered) {
+      const div = emp.division ?? "Unknown";
+      if (!map.has(div)) map.set(div, []);
+      map.get(div)!.push(emp);
+    }
+
+    return [...map.entries()]
+      .map(([division, employees]) => {
+        const h1Quota = employees.reduce((s, e) => s + (e.h1.quota ?? 0), 0);
+        const h1Actuals = employees.reduce((s, e) => s + (e.h1.actuals ?? 0), 0);
+        return {
+          division,
+          employees: employees.sort((a, b) => (b.h1.actuals ?? 0) - (a.h1.actuals ?? 0)),
+          h1Quota,
+          h1Actuals,
+          h1Attainment: h1Quota ? (h1Actuals / h1Quota) * 100 : 0,
+          pipelineDeals: employees.reduce((s, e) => s + e.pipeline.deal_count, 0),
+          pipelineAccounts: employees.reduce((s, e) => s + e.pipeline.account_count, 0),
+        };
+      })
+      .sort((a, b) => b.h1Actuals - a.h1Actuals);
+  }, [filtered]);
+
+  const toggleDivision = (div: string) => {
+    setCollapsed((prev) => ({ ...prev, [div]: !prev[div] }));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className={ui.pageTitle}>Employees</h2>
+        <p className={ui.pageSub}>
+          Grouped by RTM division · period selector drives actuals column · closed-won accounts from pipeline
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
+          <span className="font-semibold text-slate-600">CRM indicators:</span>
+          <span><span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> A Booked</span>
+          <span><span className="inline-block h-2 w-2 rounded-full bg-sky-500" /> B Billed</span>
+          <span><span className="inline-block h-2 w-2 rounded-full bg-violet-500" /> C Received</span>
+          <span className="text-slate-400">· Grey = pending CRM update</span>
+        </div>
+      </div>
+
+      {selectedEmp && <EmployeeDetail emp={selectedEmp} />}
+
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search by name or account..."
+        filters={[
+          {
+            key: "division",
+            label: "Division",
+            value: divisionFilter,
+            onChange: setDivisionFilter,
+            options: [{ label: "All Divisions", value: "" }, ...divisions.map((d) => ({ label: d, value: d }))],
+          },
+          {
+            key: "persona",
+            label: "Persona",
+            value: personaFilter,
+            onChange: setPersonaFilter,
+            options: [{ label: "All Personas", value: "" }, ...personas.map((p) => ({ label: p, value: p }))],
+          },
+          {
+            key: "deals",
+            label: "Pipeline",
+            value: hasDealsOnly ? "yes" : "",
+            onChange: (v) => setHasDealsOnly(v === "yes"),
+            options: [
+              { label: "All Employees", value: "" },
+              { label: "With Closed Deals", value: "yes" },
+            ],
+          },
+        ]}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Period</span>
+        {(["q1", "q2", "h1", "h2", "annual"] as PeriodKey[]).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              period === p
+                ? "bg-galaxy-navy text-white shadow-sm"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {periodLabel(p)}
+          </button>
+        ))}
+      </div>
+
+      <p className="text-sm text-galaxy-muted">
+        Showing {filtered.length} employees across {groupedByDivision.length} division
+        {groupedByDivision.length !== 1 ? "s" : ""}
+        {data.pipeline && (
+          <span className="ml-2 text-galaxy-blue">
+            · Pipeline: {data.pipeline.total_deals} deals · {formatCr(data.pipeline.total_revenue_cr)}
+          </span>
+        )}
+      </p>
+
+      <div className="space-y-4">
+        {groupedByDivision.map((group) => {
+          const isCollapsed = collapsed[group.division] ?? false;
+
+          return (
+            <div key={group.division} className={ui.tableWrap}>
+              <button
+                onClick={() => toggleDivision(group.division)}
+                className="flex w-full items-center gap-4 border-b border-galaxy-border bg-galaxy-surface/50 px-5 py-4 text-left transition hover:bg-galaxy-surface"
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="h-5 w-5 shrink-0 text-galaxy-navy" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 shrink-0 text-galaxy-navy" />
+                )}
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-galaxy-navy/10">
+                    <Users className="h-4 w-4 text-galaxy-navy" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-galaxy-navy">{group.division}</h3>
+                    <p className="text-xs text-galaxy-muted">
+                      {group.employees.length} employees
+                      {group.pipelineDeals > 0 && (
+                        <span className="ml-2 text-emerald-600">
+                          · {group.pipelineAccounts} accounts · {group.pipelineDeals} closed deals
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="hidden text-right sm:block">
+                  <p className="font-mono text-sm font-medium text-galaxy-navy">{formatCr(group.h1Actuals)}</p>
+                  <p className="text-xs text-galaxy-muted">of {formatCr(group.h1Quota)}</p>
+                </div>
+                <div className="w-28">
+                  <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                    <div
+                      className={`h-full rounded-full ${attainmentBg(group.h1Attainment)}`}
+                      style={{ width: `${Math.min(group.h1Attainment, 100)}%` }}
+                    />
+                  </div>
+                  <p className={`mt-1 text-right font-mono text-xs ${attainmentColor(group.h1Attainment)}`}>
+                    {formatPct(group.h1Attainment)}
+                  </p>
+                </div>
+              </button>
+
+              {!isCollapsed && (
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr className={ui.tableHead}>
+                      <th className="px-4 py-3">Employee</th>
+                      <th className="px-4 py-3">Persona</th>
+                      <th className="px-4 py-3">Closed Accounts</th>
+                      <th className="px-4 py-3 text-right">{periodLabel(period)} Actuals</th>
+                      <th className="px-4 py-3 text-right">Q1 Quota</th>
+                      <th className="px-4 py-3 text-right">Q2 Quota</th>
+                      <th className="px-4 py-3 text-right">H1 Quota</th>
+                      <th className="px-4 py-3 text-right">{periodLabel(period)} Att%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.employees.map((emp) => {
+                      const pd = periodData(emp, period);
+                      const att = pd.attainment_pct ?? 0;
+                      const isSelected = emp.name === selected;
+                      const topAccounts = emp.pipeline.closed_accounts.slice(0, 2);
+
+                      return (
+                        <tr
+                          key={emp.name}
+                          onClick={() => onDrill({ employee: emp.name })}
+                          className={`${ui.tableRow} ${isSelected ? ui.tableRowSelected : ""}`}
+                        >
+                          <td className="px-4 py-3 font-medium text-galaxy-navy">
+                            <span className="inline-flex flex-wrap items-center gap-2.5">
+                              <Avatar name={emp.name} size="sm" />
+                              <span>{emp.name}</span>
+                              {(emp.reference_only || /hrushikesh/i.test(emp.name)) && (
+                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                                  Reference only
+                                </span>
+                              )}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={ui.badge}>{emp.persona}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {emp.pipeline.account_count > 0 ? (
+                              <div className="space-y-1">
+                                {topAccounts.map((a) => (
+                                  <div key={a.account} className="flex items-center gap-1.5 text-xs">
+                                    <Briefcase className="h-3 w-3 shrink-0 text-galaxy-blue" />
+                                    <span className="truncate text-galaxy-text">{a.account}</span>
+                                    {a.deal_count > 1 && (
+                                      <span className="shrink-0 text-galaxy-muted">×{a.deal_count}</span>
+                                    )}
+                                  </div>
+                                ))}
+                                {emp.pipeline.account_count > 2 && (
+                                  <p className="text-[10px] text-galaxy-muted">
+                                    +{emp.pipeline.account_count - 2} more account
+                                    {emp.pipeline.account_count - 2 !== 1 ? "s" : ""}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-galaxy-muted">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-medium text-galaxy-navy">
+                            {formatCr(pd.actuals)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(emp.q1.quota)}</td>
+                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(emp.q2.quota)}</td>
+                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(emp.h1.quota)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
+                                <div
+                                  className={`h-full ${attainmentBg(att)}`}
+                                  style={{ width: `${Math.min(att, 100)}%` }}
+                                />
+                              </div>
+                              <span className={`font-mono text-xs ${attainmentColor(att)}`}>{formatPct(att)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
+        })}
+
+        {groupedByDivision.length === 0 && (
+          <div className={`${ui.card} p-8 text-center`}>
+            <p className="text-galaxy-muted">No employees match your filters.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
