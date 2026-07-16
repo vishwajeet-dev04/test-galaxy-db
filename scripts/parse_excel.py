@@ -16,7 +16,7 @@ from quota_rules import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-EXCEL_PATH = ROOT / "files" / "Galaxy Quota Tracker - 08072026.xlsx"
+EXCEL_PATH = ROOT / "files" / "Galaxy Quota Tracker - 14072026.xlsx"
 PIPELINE_PATH = ROOT / "files" / "Opportunity Pipeline Q1.xlsx"
 SALES_TEAM_PATH = ROOT / "files" / "Sales Team - S1, S2 , CB, GB, South.xlsx"
 EMPLOYEE_MAPPING_PATH = ROOT / "data" / "Employee_Mapping.csv"
@@ -420,7 +420,7 @@ def parse_bu_level(xl):
         if sheet not in xl.sheet_names:
             continue
         df = pd.read_excel(xl, sheet_name=sheet, header=1)
-        total_rows = df[df["RTM Name"].astype(str).str.contains("Total", na=False)]
+        total_rows = df[df["RTM Name"].astype(str).str.contains("RTM Total", case=False, na=False)]
         if total_rows.empty:
             continue
         row = total_rows.iloc[0]
@@ -1223,7 +1223,7 @@ def build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota):
 
     return {
         "q1": pack("q1", ic_q1, include_pipeline=True, show_attainment=True),
-        "q2": pack("q2", ic_q2, show_attainment=False),
+        "q2": pack("q2", ic_q2, show_attainment=(ic_q2.get("actuals") or 0) > 0),
         "h1": pack("h1", ic_h1, include_pipeline=True, show_attainment=True),
         "q3": pack("q3", ic_q3, show_attainment=(ic_q3["actuals"] or 0) > 0),
         "q4": pack("q4", ic_q4, show_attainment=(ic_q4["actuals"] or 0) > 0),

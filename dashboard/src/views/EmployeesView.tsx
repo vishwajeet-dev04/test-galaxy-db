@@ -123,7 +123,13 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
           <div key={label} className={`${ui.cardInner} p-3`}>
             <p className="text-xs uppercase text-galaxy-muted">{label}</p>
             <p className="mt-1 font-mono text-lg font-semibold text-galaxy-navy">{formatCr(data.actuals)}</p>
-            <p className="text-xs text-galaxy-muted">/ {formatCr(data.quota)}</p>
+            {data.quota != null ? (
+              <p className="text-xs text-galaxy-muted">/ {formatCr(data.quota)}</p>
+            ) : (
+              <div className="mt-1 mb-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                Quota not available
+              </div>
+            )}
             <p className={`mt-1 font-mono text-sm ${attainmentColor(data.attainment_pct)}`}>
               {formatPct(data.attainment_pct)}
             </p>

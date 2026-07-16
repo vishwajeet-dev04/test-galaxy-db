@@ -1,22 +1,19 @@
-import { useMemo, useState } from "react";
-import { Briefcase, CircleDollarSign, Users } from "lucide-react";
-import { KpiCard } from "../components/KpiCard";
+import { useState } from "react";
 import { ChartCard } from "../components/ChartCard";
 import { SectionHeader } from "../components/SectionHeader";
 import { PerformerList } from "../components/PerformerList";
 import { PerformanceCard } from "../components/PerformanceCard";
 import { InfoTooltip } from "../components/InfoTooltip";
 import { Avatar } from "../components/Avatar";
-import { QuotaVsActualChart } from "../components/charts/QuotaVsActualChart";
 import { DonutChart } from "../components/charts/DonutChart";
 import type { QuotaData, DrillState, PeriodSnapshot } from "../types";
 import { formatCr, formatPct } from "../utils/format";
 import {
-  PERFORMANCE_PERIOD_OPTIONS,
   getPeriodElapsedLabel,
   type PerformancePeriodKey,
+  PERFORMANCE_PERIOD_OPTIONS,
 } from "../utils/fiscal";
-import { ui } from "../theme";
+
 
 interface OverviewViewProps {
   data: QuotaData;
@@ -25,7 +22,7 @@ interface OverviewViewProps {
 
 function periodCardProps(key: PerformancePeriodKey, snapshot: PeriodSnapshot | undefined) {
   if (!snapshot) return null;
-  const labels: Record<PerformancePeriodKey, "Q1" | "Q2" | "H1" | "H2" | "Q3" | "Q4" | "Annual"> = {
+  const labels: Record<PerformancePeriodKey, "Q1" | "Q2" | "H1" | "Q3" | "Q4" | "H2" | "Annual"> = {
     q1: "Q1",
     q2: "Q2",
     h1: "H1",
@@ -50,73 +47,92 @@ function periodCardProps(key: PerformancePeriodKey, snapshot: PeriodSnapshot | u
 }
 
 export function OverviewView({ data, onDrill }: OverviewViewProps) {
-  const [periodFilter, setPeriodFilter] = useState<PerformancePeriodKey>("h1");
   const { kpis, bu_level, pipeline, period_metrics, rtm_divisions, at_risk_ics, top_attainers } = data;
 
-  const selectedSnapshot = period_metrics?.[periodFilter];
-  const cardProps = useMemo(
-    () => periodCardProps(periodFilter, selectedSnapshot),
-    [periodFilter, selectedSnapshot]
-  );
+  const [selectedChartPeriod, setSelectedChartPeriod] = useState<PerformancePeriodKey>("q1");
 
-  const pipelineByRtm =
-    pipeline?.by_rtm?.map((d) => ({ name: d.division, value: d.revenue_cr })) ??
-    (rtm_divisions ?? []).map((d) => ({ name: d.division, value: d.h1.actuals ?? 0 }));
+  const getChartData = () => {
+    const rtmData = (rtm_divisions ?? []).map((d) => {
+      let val = 0;
+      if (selectedChartPeriod === "q3" || selectedChartPeriod === "q4") {
+        val = (d.h2?.actuals ?? 0) / 2;
+      } else {
+        val = (d as any)[selectedChartPeriod]?.actuals ?? 0;
+      }
+      return { name: d.division, value: val };
+    });
+    const buData = (bu_level ?? []).map((b) => {
+      let val = 0;
+      if (selectedChartPeriod === "q3" || selectedChartPeriod === "q4") {
+        val = ((b as any).h2?.actuals ?? 0) / 2;
+      } else {
+        val = (b as any)[selectedChartPeriod]?.actuals ?? 0;
+      }
+      return { name: b.bu, value: val };
+    });
+    return { rtmData, buData };
+  };
 
-  const pipelineByBu = pipeline?.by_bu.map((b) => ({ name: b.bu, value: b.revenue_cr })) ?? [];
+  const { rtmData: pipelineByRtm, buData: pipelineByBu } = getChartData();
 
   const topByPct = top_attainers?.by_attainment_pct ?? [];
   const topByValue = top_attainers?.by_value_closed ?? [];
 
-  const buChart = bu_level.map((b) => ({
-    name: b.bu,
-    quota: b.h1.quota ?? 0,
-    actuals: b.h1.actuals ?? 0,
-    attainment: b.h1.attainment_pct ?? 0,
-  }));
+  // Pre-computed per-period card props — used by the explicit-placement grid below
+  const pm = period_metrics;
+  const q1Props    = periodCardProps("q1",     pm?.q1);
+  const q2Props    = periodCardProps("q2",     pm?.q2);
+  const h1Props    = periodCardProps("h1",     pm?.h1);
+  const q3Props    = periodCardProps("q3",     pm?.q3);
+  const q4Props    = periodCardProps("q4",     pm?.q4);
+  const h2Props    = periodCardProps("h2",     pm?.h2);
+  const annualProps = periodCardProps("annual", pm?.annual);
 
   return (
     <div className="space-y-8 lg:space-y-10">
       <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <SectionHeader
-            label="Performance"
-            description="Actual vs quota · select period filter · % of quarter/half elapsed on cards"
-          />
-          <select
-            value={periodFilter}
-            onChange={(e) => setPeriodFilter(e.target.value as PerformancePeriodKey)}
-            className={`${ui.select} py-2 text-sm`}
-            aria-label="Period filter"
-          >
-            {PERFORMANCE_PERIOD_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SectionHeader
+          label="Performance by Period"
+          description="Fiscal performance tracking"
+        />
+        {/*
+          Layout: 3-col × 2-row grid for Q1/Q2/H1 + Q3/Q4/H2, Annual tall card in col 4.
+          On < xl: 3 cols, Annual spans full width below.
+          On xl+: 4 cols, Annual at col-start-4 spanning both rows.
+        */}
+        <div className="grid grid-cols-3 gap-3 xl:grid-rows-2 xl:[grid-template-columns:repeat(3,minmax(0,1fr))_minmax(0,250px)]">
+          {/* Row 1 — Q1, Q2, H1 */}
+          <div className="xl:col-start-1 xl:row-start-1">
+            {q1Props && <PerformanceCard {...q1Props} />}
+          </div>
+          <div className="xl:col-start-2 xl:row-start-1">
+            {q2Props && <PerformanceCard {...q2Props} />}
+          </div>
+          <div className="xl:col-start-3 xl:row-start-1">
+            {h1Props && <PerformanceCard {...h1Props} />}
+          </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <KpiCard
-            variant="hero"
-            label="Total Employees"
-            value={String(kpis.total_employees)}
-            sub={`${kpis.total_divisions} RTMs · ${kpis.total_bus} BUs`}
-            icon={<Users className="h-5 w-5" />}
-            accent="border-l-galaxy-blue"
-          />
-          {cardProps && <PerformanceCard {...cardProps} />}
-          {pipeline && (
-            <KpiCard
-              variant="hero"
-              label="Closed Opportunities"
-              value={String(pipeline.total_deals)}
-              sub={`${formatCr(pipeline.total_revenue_cr)} · ${pipeline.period}`}
-              icon={<CircleDollarSign className="h-5 w-5" />}
-              accent="border-l-emerald-500"
-            />
-          )}
+          {/* Row 2 — Q3, Q4, H2 */}
+          <div className="xl:col-start-1 xl:row-start-2">
+            {q3Props && <PerformanceCard {...q3Props} />}
+          </div>
+          <div className="xl:col-start-2 xl:row-start-2">
+            {q4Props && <PerformanceCard {...q4Props} />}
+          </div>
+          <div className="xl:col-start-3 xl:row-start-2">
+            {h2Props && <PerformanceCard {...h2Props} />}
+          </div>
+
+          {/* Annual — full-width below on small screens; narrow col 4 spanning rows 1–2 on xl */}
+          <div className="col-span-3 xl:col-span-1 xl:col-start-4 xl:row-start-1 xl:row-span-2 xl:flex xl:items-center">
+            {annualProps && (
+              <PerformanceCard
+                {...annualProps}
+                compact={true}
+                className="xl:w-full border-l-[3px] border-l-galaxy-navy bg-slate-50/60"
+              />
+            )}
+          </div>
         </div>
       </section>
 
@@ -149,7 +165,23 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
       )}
 
       <section className="space-y-4">
-        <SectionHeader label="Closed Opportunity Analysis" description="Closed-won distribution by RTM & BU" />
+        <SectionHeader
+          label="Closed Opportunity Analysis"
+          description="Closed-won distribution by RTM & BU"
+          rightContent={
+            <select
+              value={selectedChartPeriod}
+              onChange={(e) => setSelectedChartPeriod(e.target.value as PerformancePeriodKey)}
+              className="rounded-lg border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 focus:border-galaxy-blue focus:ring-1 focus:ring-galaxy-blue"
+            >
+              {PERFORMANCE_PERIOD_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          }
+        />
         <div className="grid gap-5 lg:grid-cols-2">
           <ChartCard
             title={
@@ -237,42 +269,7 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <SectionHeader label="Business units" description="H1 quota vs actuals" />
-        <ChartCard
-          title="BU Performance"
-          subtitle="Click a bar to drill down"
-          action={{ label: "Explore BUs", onClick: () => onDrill({ view: "bu" }) }}
-        >
-          <QuotaVsActualChart data={buChart} onBarClick={(bu) => onDrill({ view: "bu", bu })} height={280} />
-        </ChartCard>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <KpiCard
-            label="Sales Force"
-            value={String(kpis.total_employees)}
-            sub={`${kpis.total_divisions} RTMs · ${kpis.total_bus} BUs`}
-            icon={<Users className="h-5 w-5" />}
-            accent="border-l-galaxy-blue"
-          />
-          <KpiCard
-            label="H1 BU Quota"
-            value={formatCr(kpis.h1_quota_cr)}
-            sub="Service-level target"
-            icon={<Briefcase className="h-5 w-5" />}
-            accent="border-l-galaxy-navy"
-          />
-          {pipeline && (
-            <KpiCard
-              label="Closed Accounts"
-              value={String(pipeline.unique_accounts)}
-              sub={`${pipeline.unique_employees} reps contributing`}
-              icon={<CircleDollarSign className="h-5 w-5" />}
-              accent="border-l-emerald-500"
-            />
-          )}
-        </div>
-      </section>
     </div>
   );
 }
