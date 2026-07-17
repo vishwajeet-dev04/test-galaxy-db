@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  Building2,
   CircleDollarSign,
   Layers,
   TrendingUp,
@@ -296,13 +295,6 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          label="Closed Accounts"
-          value={String(accounts.length)}
-          sub={`${insights.totalDeals} deals closed`}
-          icon={<Building2 className="h-5 w-5" />}
-          accent="border-l-galaxy-navy"
-        />
         <KpiCard
           label="Account Topline"
           value={formatCr(insights.totalTl)}

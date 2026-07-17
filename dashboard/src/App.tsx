@@ -128,21 +128,17 @@ export default function App() {
                     </p>
                   </div>
                 )}
-                {drill.view === "overview" && (
-                  <>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Employees</p>
-                      <p className="font-mono text-sm font-bold text-galaxy-navy">{data.kpis.total_employees}</p>
-                      <p className="text-[9px] text-slate-400">{data.kpis.total_divisions} RTMs · {data.kpis.total_bus} BUs</p>
-                    </div>
-                    {data.pipeline && (
-                      <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Closed Opps</p>
-                        <p className="font-mono text-sm font-bold text-galaxy-navy">{data.pipeline.total_deals}</p>
-                        <p className="text-[9px] text-slate-400">{formatCr(data.pipeline.total_revenue_cr)}</p>
-                      </div>
-                    )}
-                  </>
+                <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Employees</p>
+                  <p className="font-mono text-sm font-bold text-galaxy-navy">{data.kpis.total_employees}</p>
+                  <p className="text-[9px] text-slate-400">{data.kpis.total_divisions} RTMs · {data.kpis.total_bus} BUs</p>
+                </div>
+                {data.pipeline && (
+                  <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Closed Opps</p>
+                    <p className="font-mono text-sm font-bold text-galaxy-navy">{data.pipeline.total_deals}</p>
+                    <p className="text-[9px] text-slate-400">{formatCr(data.pipeline.total_revenue_cr)}</p>
+                  </div>
                 )}
               </div>
             </div>

@@ -47,7 +47,7 @@ function periodCardProps(key: PerformancePeriodKey, snapshot: PeriodSnapshot | u
 }
 
 export function OverviewView({ data, onDrill }: OverviewViewProps) {
-  const { kpis, bu_level, pipeline, period_metrics, rtm_divisions, at_risk_ics, top_attainers } = data;
+  const { bu_level, period_metrics, rtm_divisions, at_risk_ics, top_attainers } = data;
 
   const [selectedChartPeriod, setSelectedChartPeriod] = useState<PerformancePeriodKey>("q1");
 
@@ -80,12 +80,12 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
 
   // Pre-computed per-period card props — used by the explicit-placement grid below
   const pm = period_metrics;
-  const q1Props    = periodCardProps("q1",     pm?.q1);
-  const q2Props    = periodCardProps("q2",     pm?.q2);
-  const h1Props    = periodCardProps("h1",     pm?.h1);
-  const q3Props    = periodCardProps("q3",     pm?.q3);
-  const q4Props    = periodCardProps("q4",     pm?.q4);
-  const h2Props    = periodCardProps("h2",     pm?.h2);
+  const q1Props = periodCardProps("q1", pm?.q1);
+  const q2Props = periodCardProps("q2", pm?.q2);
+  const h1Props = periodCardProps("h1", pm?.h1);
+  const q3Props = periodCardProps("q3", pm?.q3);
+  const q4Props = periodCardProps("q4", pm?.q4);
+  const h2Props = periodCardProps("h2", pm?.h2);
   const annualProps = periodCardProps("annual", pm?.annual);
 
   return (
