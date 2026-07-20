@@ -120,7 +120,7 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
             {q4Props && <PerformanceCard {...q4Props} />}
           </div>
           <div className="xl:col-start-3 xl:row-start-2">
-            {h2Props && <PerformanceCard {...h2Props} />}
+            {h2Props && <PerformanceCard {...h2Props} showTargetOnNoData={true} />}
           </div>
 
           {/* Annual — full-width below on small screens; narrow col 4 spanning rows 1–2 on xl */}

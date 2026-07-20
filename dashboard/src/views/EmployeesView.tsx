@@ -170,9 +170,9 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
 interface DivisionGroup {
   division: string;
   employees: Individual[];
-  h1Quota: number;
-  h1Actuals: number;
-  h1Attainment: number;
+  periodQuota: number;
+  periodActuals: number;
+  periodAttainment: number;
   pipelineDeals: number;
   pipelineAccounts: number;
 }
@@ -247,20 +247,21 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
 
     return [...map.entries()]
       .map(([division, employees]) => {
-        const h1Quota = employees.reduce((s, e) => s + (e.h1.quota ?? 0), 0);
-        const h1Actuals = employees.reduce((s, e) => s + (e.h1.actuals ?? 0), 0);
+        const periodQuota = employees.reduce((s, e) => s + (e[period].quota ?? 0), 0);
+        const periodActuals = employees.reduce((s, e) => s + (e[period].actuals ?? 0), 0);
         return {
           division,
-          employees: employees.sort((a, b) => (b.h1.actuals ?? 0) - (a.h1.actuals ?? 0)),
-          h1Quota,
-          h1Actuals,
-          h1Attainment: h1Quota ? (h1Actuals / h1Quota) * 100 : 0,
+          // Sort employees by selected period's actuals descending
+          employees: employees.sort((a, b) => (b[period].actuals ?? 0) - (a[period].actuals ?? 0)),
+          periodQuota,
+          periodActuals,
+          periodAttainment: periodQuota ? (periodActuals / periodQuota) * 100 : 0,
           pipelineDeals: employees.reduce((s, e) => s + e.pipeline.deal_count, 0),
           pipelineAccounts: employees.reduce((s, e) => s + e.pipeline.account_count, 0),
         };
       })
-      .sort((a, b) => b.h1Actuals - a.h1Actuals);
-  }, [filtered]);
+      .sort((a, b) => b.periodActuals - a.periodActuals);
+  }, [filtered, period]);
 
   const toggleDivision = (div: string) => {
     setCollapsed((prev) => ({ ...prev, [div]: !prev[div] }));
@@ -375,18 +376,21 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                   </div>
                 </div>
                 <div className="hidden text-right sm:block">
-                  <p className="font-mono text-sm font-medium text-galaxy-navy">{formatCr(group.h1Actuals)}</p>
-                  <p className="text-xs text-galaxy-muted">of {formatCr(group.h1Quota)}</p>
+                  <p className="font-mono text-sm font-medium text-galaxy-navy">{formatCr(group.periodActuals)}</p>
+                  {group.periodQuota > 0
+                    ? <p className="text-xs text-galaxy-muted">of {formatCr(group.periodQuota)}</p>
+                    : <p className="text-xs text-galaxy-muted">{periodLabel(period)} quota n/a</p>
+                  }
                 </div>
                 <div className="w-28">
                   <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                     <div
-                      className={`h-full rounded-full ${attainmentBg(group.h1Attainment)}`}
-                      style={{ width: `${Math.min(group.h1Attainment, 100)}%` }}
+                      className={`h-full rounded-full ${attainmentBg(group.periodQuota > 0 ? group.periodAttainment : null)}`}
+                      style={{ width: `${Math.min(group.periodAttainment, 100)}%` }}
                     />
                   </div>
-                  <p className={`mt-1 text-right font-mono text-xs ${attainmentColor(group.h1Attainment)}`}>
-                    {formatPct(group.h1Attainment)}
+                  <p className={`mt-1 text-right font-mono text-xs ${attainmentColor(group.periodQuota > 0 ? group.periodAttainment : null)}`}>
+                    {group.periodQuota > 0 ? formatPct(group.periodAttainment) : "—"}
                   </p>
                 </div>
               </button>
@@ -399,9 +403,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                       <th className="px-4 py-3">Persona</th>
                       <th className="px-4 py-3">Closed Accounts</th>
                       <th className="px-4 py-3 text-right">{periodLabel(period)} Actuals</th>
-                      <th className="px-4 py-3 text-right">Q1 Quota</th>
-                      <th className="px-4 py-3 text-right">Q2 Quota</th>
-                      <th className="px-4 py-3 text-right">H1 Quota</th>
+                      <th className="px-4 py-3 text-right">{periodLabel(period)} Quota</th>
                       <th className="px-4 py-3 text-right">{periodLabel(period)} Att%</th>
                     </tr>
                   </thead>
@@ -458,19 +460,23 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                           <td className="px-4 py-3 text-right font-mono font-medium text-galaxy-navy">
                             {formatCr(pd.actuals)}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(emp.q1.quota)}</td>
-                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(emp.q2.quota)}</td>
-                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(emp.h1.quota)}</td>
+                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">
+                            {pd.quota != null ? formatCr(pd.quota) : <span className="text-xs text-galaxy-muted">—</span>}
+                          </td>
                           <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
-                                <div
-                                  className={`h-full ${attainmentBg(att)}`}
-                                  style={{ width: `${Math.min(att, 100)}%` }}
-                                />
+                            {pd.quota != null ? (
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
+                                  <div
+                                    className={`h-full ${attainmentBg(att)}`}
+                                    style={{ width: `${Math.min(att, 100)}%` }}
+                                  />
+                                </div>
+                                <span className={`font-mono text-xs ${attainmentColor(att)}`}>{formatPct(att)}</span>
                               </div>
-                              <span className={`font-mono text-xs ${attainmentColor(att)}`}>{formatPct(att)}</span>
-                            </div>
+                            ) : (
+                              <span className="text-xs text-galaxy-muted">—</span>
+                            )}
                           </td>
                         </tr>
                       );

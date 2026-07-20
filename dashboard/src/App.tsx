@@ -15,7 +15,7 @@ import { AccountsView } from "./views/AccountsView";
 import { BrandsView } from "./views/BrandsView";
 import type { DrillState, ViewId } from "./types";
 import { VIEW_META } from "./theme";
-import { formatCr, formatPct } from "./utils/format";
+import { formatCr, formatPctCard } from "./utils/format";
 
 const DEFAULT_DRILL: DrillState = { view: "overview" };
 
@@ -114,7 +114,7 @@ export default function App() {
               <div className="hidden flex-wrap items-center gap-2 xl:flex">
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
-                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPct(data.kpis.h1_attainment_pct)}</p>
+                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPctCard(data.kpis.h1_attainment_pct)}</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals</p>

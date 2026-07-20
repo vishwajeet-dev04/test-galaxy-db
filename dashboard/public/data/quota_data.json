@@ -1,23 +1,23 @@
 {
   "meta": {
     "source": "Galaxy Quota Tracker - 14072026.xlsx",
-    "generated_at": "2026-07-16T17:42:25.868672",
+    "generated_at": "2026-07-20T16:32:51.990199",
     "fy": "FY 25-26",
     "currency": "\u20b9 Cr",
     "pipeline_period": "Q1 FY 25-26",
     "timeline_week": 3
   },
   "kpis": {
-    "h1_quota_cr": 0,
-    "h1_actuals_cr": 197.16,
-    "h1_attainment_pct": 0,
+    "h1_quota_cr": 498.0,
+    "h1_actuals_cr": 236.27,
+    "h1_attainment_pct": 47.44,
     "annual_quota_cr": 1236.0,
     "ic_h1_quota_cr": 498.0,
-    "ic_h1_actuals_cr": 198.24,
-    "ic_h1_attainment_pct": 39.81,
-    "ic_q1_quota_cr": 0,
+    "ic_h1_actuals_cr": 217.22,
+    "ic_h1_attainment_pct": 43.62,
+    "ic_q1_quota_cr": 196.72,
     "ic_q1_actuals_cr": 93.52,
-    "ic_q1_attainment_pct": 0,
+    "ic_q1_attainment_pct": 47.54,
     "total_employees": 31,
     "total_divisions": 5,
     "total_bus": 5,
@@ -31,9 +31,9 @@
       "bu_quota": 97.5,
       "bu_actuals": 92.41,
       "bu_attainment_pct": 94.78,
-      "ic_quota": 0,
+      "ic_quota": 196.72,
       "ic_actuals": 93.52,
-      "ic_attainment_pct": 0,
+      "ic_attainment_pct": 47.54,
       "pipeline_value_cr": 118.74,
       "closed_deals": 326,
       "show_attainment": true,
@@ -42,11 +42,11 @@
     },
     "q2": {
       "bu_quota": 97.5,
-      "bu_actuals": 104.75,
-      "bu_attainment_pct": 107.44,
-      "ic_quota": 0,
-      "ic_actuals": 104.72,
-      "ic_attainment_pct": 0,
+      "bu_actuals": 103.24,
+      "bu_attainment_pct": 105.89,
+      "ic_quota": 320.32,
+      "ic_actuals": 123.7,
+      "ic_attainment_pct": 38.62,
       "pipeline_value_cr": 0,
       "closed_deals": 0,
       "show_attainment": true,
@@ -58,8 +58,8 @@
       "bu_actuals": 197.16,
       "bu_attainment_pct": 202.22,
       "ic_quota": 498.0,
-      "ic_actuals": 198.24,
-      "ic_attainment_pct": 39.81,
+      "ic_actuals": 217.22,
+      "ic_attainment_pct": 43.62,
       "pipeline_value_cr": 118.74,
       "closed_deals": 326,
       "show_attainment": true,
@@ -110,8 +110,8 @@
       "bu_actuals": 197.16,
       "bu_attainment_pct": 15.95,
       "ic_quota": 1113.5,
-      "ic_actuals": 198.24,
-      "ic_attainment_pct": 17.8,
+      "ic_actuals": 217.22,
+      "ic_attainment_pct": 19.51,
       "pipeline_value_cr": 0,
       "closed_deals": 0,
       "show_attainment": true,
@@ -123,19 +123,19 @@
     {
       "division": "S1",
       "q1": {
-        "quota": null,
+        "quota": 108.175,
         "actuals": 36.917492693,
-        "attainment_pct": null
+        "attainment_pct": 34.13
       },
       "q2": {
-        "quota": null,
-        "actuals": 2.815454013,
-        "attainment_pct": null
+        "quota": 194.17499999999998,
+        "actuals": 15.365604012999999,
+        "attainment_pct": 7.91
       },
       "h1": {
         "quota": 307.35,
-        "actuals": 39.73294670600001,
-        "attainment_pct": 12.93
+        "actuals": 52.283096705999995,
+        "attainment_pct": 17.01
       },
       "h2": {
         "quota": 352.65,
@@ -144,8 +144,8 @@
       },
       "annual": {
         "quota": 660.0,
-        "actuals": 39.73294670600001,
-        "attainment_pct": 6.02
+        "actuals": 52.283096705999995,
+        "attainment_pct": 7.92
       },
       "employee_count": 6,
       "status": "red"
@@ -153,19 +153,19 @@
     {
       "division": "S2",
       "q1": {
-        "quota": null,
+        "quota": 54.849999999999994,
         "actuals": 15.396570527999998,
-        "attainment_pct": null
+        "attainment_pct": 28.07
       },
       "q2": {
-        "quota": null,
-        "actuals": 98.7862969,
-        "attainment_pct": null
+        "quota": 84.14999999999999,
+        "actuals": 103.765402577,
+        "attainment_pct": 123.31
       },
       "h1": {
         "quota": 107.75,
-        "actuals": 114.18286742800001,
-        "attainment_pct": 105.97
+        "actuals": 119.16197310499999,
+        "attainment_pct": 110.59
       },
       "h2": {
         "quota": 138.25,
@@ -174,8 +174,8 @@
       },
       "annual": {
         "quota": 246.0,
-        "actuals": 114.18286742800001,
-        "attainment_pct": 46.42
+        "actuals": 119.16197310499999,
+        "attainment_pct": 48.44
       },
       "employee_count": 6,
       "status": "green"
@@ -183,19 +183,19 @@
     {
       "division": "CB",
       "q1": {
-        "quota": null,
+        "quota": 18.5,
         "actuals": 15.80339576,
-        "attainment_pct": null
+        "attainment_pct": 85.42
       },
       "q2": {
-        "quota": null,
-        "actuals": 1.45,
-        "attainment_pct": null
+        "quota": 29.5,
+        "actuals": 2.9,
+        "attainment_pct": 9.83
       },
       "h1": {
         "quota": 48.0,
-        "actuals": 17.25339576,
-        "attainment_pct": 35.94
+        "actuals": 18.70339576,
+        "attainment_pct": 38.97
       },
       "h2": {
         "quota": 79.5,
@@ -204,8 +204,8 @@
       },
       "annual": {
         "quota": 127.5,
-        "actuals": 17.25339576,
-        "attainment_pct": 13.53
+        "actuals": 18.70339576,
+        "attainment_pct": 14.67
       },
       "employee_count": 4,
       "status": "amber"
@@ -213,14 +213,14 @@
     {
       "division": "GB",
       "q1": {
-        "quota": null,
+        "quota": 4.699999999999999,
         "actuals": 15.114382618,
-        "attainment_pct": null
+        "attainment_pct": 3.22
       },
       "q2": {
-        "quota": null,
+        "quota": 5.0,
         "actuals": 0.9072392,
-        "attainment_pct": null
+        "attainment_pct": 18.14
       },
       "h1": {
         "quota": 12.899999999999999,
@@ -243,14 +243,14 @@
     {
       "division": "South",
       "q1": {
-        "quota": null,
+        "quota": 10.5,
         "actuals": 10.289626889,
-        "attainment_pct": null
+        "attainment_pct": 98.0
       },
       "q2": {
-        "quota": null,
+        "quota": 7.5,
         "actuals": 0.7593349,
-        "attainment_pct": null
+        "attainment_pct": 10.12
       },
       "h1": {
         "quota": 22.0,
@@ -343,20 +343,6 @@
       "h1_attainment_pct": 1.61
     },
     {
-      "name": "Sankeerth Bhargav",
-      "division": "S2",
-      "h1_actuals": 0.2833,
-      "h1_quota": 11.75,
-      "h1_attainment_pct": 2.41
-    },
-    {
-      "name": "Chirag Palande",
-      "division": "S1",
-      "h1_actuals": 1.1087674,
-      "h1_quota": 27.5,
-      "h1_attainment_pct": 4.03
-    },
-    {
       "name": "Abrar Memon",
       "division": "South",
       "h1_actuals": 0.301257089,
@@ -366,9 +352,9 @@
     {
       "name": "Tasneem K",
       "division": "S1",
-      "h1_actuals": 17.747241492,
+      "h1_actuals": 19.437241492000002,
       "h1_quota": 130.35,
-      "h1_attainment_pct": 13.62
+      "h1_attainment_pct": 14.91
     },
     {
       "name": "Shilpa Kavde",
@@ -383,9 +369,9 @@
       {
         "name": "Rohit Deshmukh",
         "division": "S2",
-        "h1_actuals": 101.01663405000001,
+        "h1_actuals": 101.529896627,
         "h1_quota": 76.0,
-        "h1_attainment_pct": 132.92
+        "h1_attainment_pct": 133.59
       },
       {
         "name": "Shubhangi Srinivasan",
@@ -397,9 +383,9 @@
       {
         "name": "Prachi Mayekar",
         "division": "CB",
-        "h1_actuals": 14.347684399999999,
+        "h1_actuals": 15.7976844,
         "h1_quota": 15.0,
-        "h1_attainment_pct": 95.65
+        "h1_attainment_pct": 105.32
       },
       {
         "name": "Shaik Khadhar",
@@ -420,9 +406,16 @@
       {
         "name": "Rohit Deshmukh",
         "division": "S2",
-        "h1_actuals": 101.01663405000001,
+        "h1_actuals": 101.529896627,
         "h1_quota": 76.0,
-        "h1_attainment_pct": 132.92
+        "h1_attainment_pct": 133.59
+      },
+      {
+        "name": "Tasneem K",
+        "division": "S1",
+        "h1_actuals": 19.437241492000002,
+        "h1_quota": 130.35,
+        "h1_attainment_pct": 14.91
       },
       {
         "name": "Prashant Ddugu",
@@ -439,18 +432,11 @@
         "h1_attainment_pct": 75.55
       },
       {
-        "name": "Tasneem K",
-        "division": "S1",
-        "h1_actuals": 17.747241492,
-        "h1_quota": 130.35,
-        "h1_attainment_pct": 13.62
-      },
-      {
         "name": "Prachi Mayekar",
         "division": "CB",
-        "h1_actuals": 14.347684399999999,
+        "h1_actuals": 15.7976844,
         "h1_quota": 15.0,
-        "h1_attainment_pct": 95.65
+        "h1_attainment_pct": 105.32
       }
     ]
   },
@@ -466,19 +452,19 @@
       "team_size": 6,
       "status": "green",
       "q1": {
-        "quota": 0,
+        "quota": 54.85,
         "actuals": 15.4,
-        "attainment_pct": 0
+        "attainment_pct": 28.07
       },
       "q2": {
-        "quota": 0,
-        "actuals": 98.79,
-        "attainment_pct": 0
+        "quota": 84.15,
+        "actuals": 103.77,
+        "attainment_pct": 123.31
       },
       "h1": {
         "quota": 107.75,
-        "actuals": 114.18,
-        "attainment_pct": 105.97
+        "actuals": 119.16,
+        "attainment_pct": 110.59
       },
       "pipeline": {
         "deal_count": 25,
@@ -492,9 +478,9 @@
           "name": "Rohit Deshmukh",
           "division": "S2",
           "persona": "IC",
-          "h1_actuals": 101.01663405000001,
+          "h1_actuals": 101.529896627,
           "h1_quota": 76.0,
-          "h1_attainment_pct": 132.92,
+          "h1_attainment_pct": 133.59,
           "pipeline_topline_cr": 2.2971,
           "pipeline_bottomline_cr": 0.3351,
           "deal_count": 9
@@ -503,12 +489,23 @@
           "name": "Chetna Sharma",
           "division": "S2",
           "persona": "IC",
-          "h1_actuals": 11.771068571999999,
+          "h1_actuals": 12.402107771999999,
           "h1_quota": 20.0,
-          "h1_attainment_pct": 58.86,
+          "h1_attainment_pct": 62.01,
           "pipeline_topline_cr": 11.7711,
           "pipeline_bottomline_cr": 1.7396,
           "deal_count": 7
+        },
+        {
+          "name": "Sankeerth Bhargav",
+          "division": "S2",
+          "persona": "IC",
+          "h1_actuals": 4.1181038999999995,
+          "h1_quota": 11.75,
+          "h1_attainment_pct": 35.05,
+          "pipeline_topline_cr": 0,
+          "pipeline_bottomline_cr": 0,
+          "deal_count": 0
         },
         {
           "name": "TBH (Varsha)",
@@ -520,17 +517,6 @@
           "pipeline_topline_cr": 1.0555,
           "pipeline_bottomline_cr": 0.0559,
           "deal_count": 4
-        },
-        {
-          "name": "Sankeerth Bhargav",
-          "division": "S2",
-          "persona": "IC",
-          "h1_actuals": 0.2833,
-          "h1_quota": 11.75,
-          "h1_attainment_pct": 2.41,
-          "pipeline_topline_cr": 0,
-          "pipeline_bottomline_cr": 0,
-          "deal_count": 0
         },
         {
           "name": "TBH (Arpit)",
@@ -697,19 +683,19 @@
       "team_size": 6,
       "status": "red",
       "q1": {
-        "quota": 0,
+        "quota": 108.17,
         "actuals": 55.93,
-        "attainment_pct": 0
+        "attainment_pct": 51.71
       },
       "q2": {
-        "quota": 0,
-        "actuals": 2.82,
-        "attainment_pct": 0
+        "quota": 194.18,
+        "actuals": 15.37,
+        "attainment_pct": 7.91
       },
       "h1": {
         "quota": 307.35,
-        "actuals": 58.75,
-        "attainment_pct": 19.11
+        "actuals": 71.3,
+        "attainment_pct": 23.2
       },
       "pipeline": {
         "deal_count": 89,
@@ -719,6 +705,17 @@
         "gp_pct": 14.9
       },
       "team_members": [
+        {
+          "name": "Tasneem K",
+          "division": "S1",
+          "persona": "IC",
+          "h1_actuals": 19.437241492000002,
+          "h1_quota": 130.35,
+          "h1_attainment_pct": 14.91,
+          "pipeline_topline_cr": 0,
+          "pipeline_bottomline_cr": 0,
+          "deal_count": 0
+        },
         {
           "name": "Prashant Ddugu",
           "division": "S1",
@@ -742,15 +739,15 @@
           "deal_count": 41
         },
         {
-          "name": "Tasneem K",
+          "name": "Chirag Palande",
           "division": "S1",
           "persona": "IC",
-          "h1_actuals": 17.747241492,
-          "h1_quota": 130.35,
-          "h1_attainment_pct": 13.62,
-          "pipeline_topline_cr": 0,
-          "pipeline_bottomline_cr": 0,
-          "deal_count": 0
+          "h1_actuals": 11.968917399999999,
+          "h1_quota": 27.5,
+          "h1_attainment_pct": 43.52,
+          "pipeline_topline_cr": 0.1287,
+          "pipeline_bottomline_cr": 0.0079,
+          "deal_count": 3
         },
         {
           "name": "Pratik Kadam",
@@ -762,17 +759,6 @@
           "pipeline_topline_cr": 0,
           "pipeline_bottomline_cr": 0,
           "deal_count": 0
-        },
-        {
-          "name": "Chirag Palande",
-          "division": "S1",
-          "persona": "IC",
-          "h1_actuals": 1.1087674,
-          "h1_quota": 27.5,
-          "h1_attainment_pct": 4.03,
-          "pipeline_topline_cr": 0.1287,
-          "pipeline_bottomline_cr": 0.0079,
-          "deal_count": 3
         },
         {
           "name": "Riya Bhatt",
@@ -928,19 +914,19 @@
       "team_size": 4,
       "status": "amber",
       "q1": {
-        "quota": 5.0,
+        "quota": 18.5,
         "actuals": 15.83,
-        "attainment_pct": 316.52
+        "attainment_pct": 85.55
       },
       "q2": {
-        "quota": 10.0,
-        "actuals": 1.46,
-        "attainment_pct": 14.61
+        "quota": 29.5,
+        "actuals": 2.91,
+        "attainment_pct": 9.87
       },
       "h1": {
         "quota": 48.0,
-        "actuals": 17.29,
-        "attainment_pct": 36.02
+        "actuals": 18.74,
+        "attainment_pct": 39.04
       },
       "pipeline": {
         "deal_count": 40,
@@ -954,9 +940,9 @@
           "name": "Prachi Mayekar",
           "division": "CB",
           "persona": "IC",
-          "h1_actuals": 14.347684399999999,
+          "h1_actuals": 15.7976844,
           "h1_quota": 15.0,
-          "h1_attainment_pct": 95.65,
+          "h1_attainment_pct": 105.32,
           "pipeline_topline_cr": 12.8977,
           "pipeline_bottomline_cr": 0.6614,
           "deal_count": 10
@@ -1137,14 +1123,14 @@
       "team_size": 11,
       "status": "green",
       "q1": {
-        "quota": 3.0,
+        "quota": 12.7,
         "actuals": 15.11,
-        "attainment_pct": 503.81
+        "attainment_pct": 119.01
       },
       "q2": {
-        "quota": 5.0,
+        "quota": 18.0,
         "actuals": 0.91,
-        "attainment_pct": 18.14
+        "attainment_pct": 5.04
       },
       "h1": {
         "quota": 28.9,
@@ -1423,14 +1409,14 @@
       "team_size": 4,
       "status": "green",
       "q1": {
-        "quota": 0,
+        "quota": 10.5,
         "actuals": 10.29,
-        "attainment_pct": 0
+        "attainment_pct": 98.0
       },
       "q2": {
-        "quota": 0,
+        "quota": 7.5,
         "actuals": 0.76,
-        "attainment_pct": 0
+        "attainment_pct": 10.12
       },
       "h1": {
         "quota": 22.0,
@@ -1632,14 +1618,14 @@
       "team_size": 1,
       "status": "green",
       "q1": {
-        "quota": 0,
+        "quota": 0.4,
         "actuals": 3.81,
-        "attainment_pct": 0
+        "attainment_pct": 953.15
       },
       "q2": {
-        "quota": 0,
+        "quota": 0.65,
         "actuals": 0.02,
-        "attainment_pct": 0
+        "attainment_pct": 2.61
       },
       "h1": {
         "quota": 1.05,
@@ -1876,19 +1862,19 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 35.075,
         "actuals": 15.920587479000002,
-        "attainment_pct": null
+        "attainment_pct": 45.39
       },
       "q2": {
-        "quota": null,
-        "actuals": 1.826654013,
-        "attainment_pct": null
+        "quota": 95.275,
+        "actuals": 3.5166540129999997,
+        "attainment_pct": 3.69
       },
       "h1": {
         "quota": 130.35,
-        "actuals": 17.747241492,
-        "attainment_pct": 13.62
+        "actuals": 19.437241492000002,
+        "attainment_pct": 14.91
       },
       "h2": {
         "quota": 129.65,
@@ -1897,11 +1883,11 @@
       },
       "annual": {
         "quota": 260.0,
-        "actuals": 17.747241492,
-        "attainment_pct": 6.83
+        "actuals": 19.437241492000002,
+        "attainment_pct": 7.48
       },
       "deals": {
-        "total": 10.0,
+        "total": 11.0,
         "led_by_count": null,
         "led_by_rev": null,
         "contributed_count": null,
@@ -1929,14 +1915,14 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 20.0,
         "actuals": 0.5798,
-        "attainment_pct": null
+        "attainment_pct": 2.9
       },
       "q2": {
-        "quota": null,
+        "quota": 38.0,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 59.0,
@@ -1982,14 +1968,14 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 3.0,
         "actuals": 1.400457036,
-        "attainment_pct": null
+        "attainment_pct": 46.68
       },
       "q2": {
-        "quota": null,
+        "quota": 2.0,
         "actuals": 0.0087,
-        "attainment_pct": null
+        "attainment_pct": 0.43
       },
       "h1": {
         "quota": 5.0,
@@ -2035,14 +2021,14 @@
       "fy": "FY 25-26",
       "persona": "TL",
       "q1": {
-        "quota": null,
+        "quota": 28.799999999999997,
         "actuals": 19.016648178000004,
-        "attainment_pct": null
+        "attainment_pct": 66.03
       },
       "q2": {
-        "quota": null,
+        "quota": 31.949999999999996,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 60.5,
@@ -2088,19 +2074,19 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 13.0,
         "actuals": 0.1286674,
-        "attainment_pct": null
+        "attainment_pct": 0.99
       },
       "q2": {
-        "quota": null,
-        "actuals": 0.9801,
-        "attainment_pct": null
+        "quota": 10.0,
+        "actuals": 11.84025,
+        "attainment_pct": 118.4
       },
       "h1": {
         "quota": 27.5,
-        "actuals": 1.1087674,
-        "attainment_pct": 4.03
+        "actuals": 11.968917399999999,
+        "attainment_pct": 43.52
       },
       "h2": {
         "quota": 32.5,
@@ -2109,11 +2095,11 @@
       },
       "annual": {
         "quota": 60.0,
-        "actuals": 1.1087674,
-        "attainment_pct": 1.85
+        "actuals": 11.968917399999999,
+        "attainment_pct": 19.95
       },
       "deals": {
-        "total": 5.0,
+        "total": 9.0,
         "led_by_count": null,
         "led_by_rev": null,
         "contributed_count": null,
@@ -2394,14 +2380,14 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 8.299999999999999,
         "actuals": 18.887980778000003,
-        "attainment_pct": null
+        "attainment_pct": 2.28
       },
       "q2": {
-        "quota": null,
+        "quota": 16.949999999999996,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 25.0,
@@ -5668,19 +5654,19 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 29.0,
         "actuals": 2.29711715,
-        "attainment_pct": null
+        "attainment_pct": 7.92
       },
       "q2": {
-        "quota": null,
-        "actuals": 98.7195169,
-        "attainment_pct": null
+        "quota": 53.0,
+        "actuals": 99.232779477,
+        "attainment_pct": 1.87
       },
       "h1": {
         "quota": 76.0,
-        "actuals": 101.01663405000001,
-        "attainment_pct": 132.92
+        "actuals": 101.529896627,
+        "attainment_pct": 133.59
       },
       "h2": {
         "quota": 59.0,
@@ -5689,11 +5675,11 @@
       },
       "annual": {
         "quota": 135.0,
-        "actuals": 101.01663405000001,
-        "attainment_pct": 74.83
+        "actuals": 101.529896627,
+        "attainment_pct": 75.21
       },
       "deals": {
-        "total": 14.0,
+        "total": 19.0,
         "led_by_count": null,
         "led_by_rev": null,
         "contributed_count": null,
@@ -6418,19 +6404,19 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 8.0,
         "actuals": 11.771068571999999,
-        "attainment_pct": null
+        "attainment_pct": 147.14
       },
       "q2": {
-        "quota": null,
-        "actuals": 0.0,
-        "attainment_pct": null
+        "quota": 10.0,
+        "actuals": 0.6310392,
+        "attainment_pct": 6.31
       },
       "h1": {
         "quota": 20.0,
-        "actuals": 11.771068571999999,
-        "attainment_pct": 58.86
+        "actuals": 12.402107771999999,
+        "attainment_pct": 62.01
       },
       "h2": {
         "quota": 49.0,
@@ -6439,11 +6425,11 @@
       },
       "annual": {
         "quota": 69.0,
-        "actuals": 11.771068571999999,
-        "attainment_pct": 17.06
+        "actuals": 12.402107771999999,
+        "attainment_pct": 17.97
       },
       "deals": {
-        "total": 7.0,
+        "total": 8.0,
         "led_by_count": null,
         "led_by_rev": null,
         "contributed_count": null,
@@ -7044,19 +7030,19 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 2.75,
         "actuals": 0.21652,
-        "attainment_pct": null
+        "attainment_pct": 7.87
       },
       "q2": {
-        "quota": null,
-        "actuals": 0.06678,
-        "attainment_pct": null
+        "quota": 2.75,
+        "actuals": 3.9015839,
+        "attainment_pct": 141.88
       },
       "h1": {
         "quota": 11.75,
-        "actuals": 0.2833,
-        "attainment_pct": 2.41
+        "actuals": 4.1181038999999995,
+        "attainment_pct": 35.05
       },
       "h2": {
         "quota": 30.25,
@@ -7065,11 +7051,11 @@
       },
       "annual": {
         "quota": 42.0,
-        "actuals": 0.2833,
-        "attainment_pct": 0.67
+        "actuals": 4.1181038999999995,
+        "attainment_pct": 9.81
       },
       "deals": {
-        "total": 4.0,
+        "total": 5.0,
         "led_by_count": null,
         "led_by_rev": null,
         "contributed_count": null,
@@ -7097,14 +7083,14 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 7.300000000000001,
         "actuals": 1.055468973,
-        "attainment_pct": null
+        "attainment_pct": 14.46
       },
       "q2": {
-        "quota": null,
+        "quota": 9.8,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": null,
@@ -7489,14 +7475,14 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 6.75,
         "actuals": 0.05639583299999999,
-        "attainment_pct": null
+        "attainment_pct": 0.84
       },
       "q2": {
-        "quota": null,
+        "quota": 6.75,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": null,
@@ -7721,14 +7707,14 @@
       "fy": "FY 25-26",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 1.05,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "q2": {
-        "quota": null,
+        "quota": 1.8499999999999999,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": null,
@@ -7774,19 +7760,19 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 7.5,
         "actuals": 12.8976844,
-        "attainment_pct": null
+        "attainment_pct": 1.72
       },
       "q2": {
-        "quota": null,
-        "actuals": 1.45,
-        "attainment_pct": null
+        "quota": 7.5,
+        "actuals": 2.9,
+        "attainment_pct": 38.67
       },
       "h1": {
         "quota": 15.0,
-        "actuals": 14.347684399999999,
-        "attainment_pct": 95.65
+        "actuals": 15.7976844,
+        "attainment_pct": 105.32
       },
       "h2": {
         "quota": 18.0,
@@ -7795,11 +7781,11 @@
       },
       "annual": {
         "quota": 33.0,
-        "actuals": 14.347684399999999,
-        "attainment_pct": 43.48
+        "actuals": 15.7976844,
+        "attainment_pct": 47.87
       },
       "deals": {
-        "total": 11.0,
+        "total": 12.0,
         "led_by_count": null,
         "led_by_rev": null,
         "contributed_count": null,
@@ -8658,14 +8644,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 5.0,
         "actuals": 2.9018713600000003,
-        "attainment_pct": null
+        "attainment_pct": 58.04
       },
       "q2": {
-        "quota": null,
+        "quota": 10.0,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 15.0,
@@ -10838,14 +10824,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 1.0,
         "actuals": 0.00384,
-        "attainment_pct": null
+        "attainment_pct": 0.38
       },
       "q2": {
-        "quota": null,
+        "quota": 2.0,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 3.0,
@@ -11123,14 +11109,14 @@
       "fy": "FY 26-27",
       "persona": "IC, Cloud",
       "q1": {
-        "quota": null,
+        "quota": 2.0,
         "actuals": 1.345843057,
-        "attainment_pct": null
+        "attainment_pct": 67.29
       },
       "q2": {
-        "quota": null,
+        "quota": 3.0,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 5.0,
@@ -11998,14 +11984,14 @@
       "fy": "FY 26-27",
       "persona": "IC, Cyber security",
       "q1": {
-        "quota": null,
+        "quota": 1.0,
         "actuals": 0.3020589,
-        "attainment_pct": null
+        "attainment_pct": 30.21
       },
       "q2": {
-        "quota": null,
+        "quota": 2.0,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 3.0,
@@ -12051,14 +12037,14 @@
       "fy": "FY 26-27",
       "persona": "IC, Cyber security",
       "q1": {
-        "quota": null,
+        "quota": 2.0,
         "actuals": 5.518517561,
-        "attainment_pct": null
+        "attainment_pct": 2.76
       },
       "q2": {
-        "quota": null,
+        "quota": 3.0,
         "actuals": 0.86,
-        "attainment_pct": null
+        "attainment_pct": 28.67
       },
       "h1": {
         "quota": 5.0,
@@ -12104,14 +12090,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 3.0,
         "actuals": 6.4578697,
-        "attainment_pct": null
+        "attainment_pct": 2.15
       },
       "q2": {
-        "quota": null,
+        "quota": 1.0,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 4.0,
@@ -13124,14 +13110,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 1.0,
         "actuals": 1.4900934,
-        "attainment_pct": null
+        "attainment_pct": 149.01
       },
       "q2": {
-        "quota": null,
+        "quota": 2.0,
         "actuals": 0.0208654,
-        "attainment_pct": null
+        "attainment_pct": 1.04
       },
       "h1": {
         "quota": 3.0,
@@ -14209,14 +14195,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 0.1,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "q2": {
-        "quota": null,
+        "quota": 0.5,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 0.6,
@@ -14262,14 +14248,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 0.5,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "q2": {
-        "quota": null,
+        "quota": 1.0,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 1.5,
@@ -14315,14 +14301,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 0.1,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "q2": {
-        "quota": null,
+        "quota": 0.5,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 0.6,
@@ -14368,12 +14354,12 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 0.0,
         "actuals": 0.0,
         "attainment_pct": null
       },
       "q2": {
-        "quota": null,
+        "quota": 0.0,
         "actuals": 0.0210638,
         "attainment_pct": null
       },
@@ -14421,14 +14407,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 2.0,
         "actuals": 0.041457089,
-        "attainment_pct": null
+        "attainment_pct": 2.07
       },
       "q2": {
-        "quota": null,
+        "quota": 2.0,
         "actuals": 0.2598,
-        "attainment_pct": null
+        "attainment_pct": 12.99
       },
       "h1": {
         "quota": 4.0,
@@ -14973,14 +14959,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 2.5,
         "actuals": 1.1067547,
-        "attainment_pct": null
+        "attainment_pct": 44.27
       },
       "q2": {
-        "quota": null,
+        "quota": 2.5,
         "actuals": 0.4995349,
-        "attainment_pct": null
+        "attainment_pct": 19.98
       },
       "h1": {
         "quota": 5.0,
@@ -17657,14 +17643,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 3.0,
         "actuals": 3.8053236,
-        "attainment_pct": null
+        "attainment_pct": 126.84
       },
       "q2": {
-        "quota": null,
+        "quota": 3.0,
         "actuals": 0.0,
-        "attainment_pct": null
+        "attainment_pct": 0.0
       },
       "h1": {
         "quota": 6.0,
@@ -18653,12 +18639,12 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 3.0,
         "actuals": 5.3360915,
-        "attainment_pct": null
+        "attainment_pct": 1.78
       },
       "q2": {
-        "quota": null,
+        "quota": 0.0,
         "actuals": 0.0,
         "attainment_pct": null
       },
@@ -18885,14 +18871,14 @@
       "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
-        "quota": null,
+        "quota": 0.4,
         "actuals": 3.8126084,
-        "attainment_pct": null
+        "attainment_pct": 9.53
       },
       "q2": {
-        "quota": null,
+        "quota": 0.65,
         "actuals": 0.016949,
-        "attainment_pct": null
+        "attainment_pct": 2.61
       },
       "h1": {
         "quota": 1.05,
@@ -23102,7 +23088,7 @@
       },
       "q2": {
         "quota": null,
-        "actuals": 1.5032892000000002,
+        "actuals": null,
         "attainment_pct": null
       },
       "h1": {
@@ -23138,7 +23124,7 @@
       },
       "q2": {
         "quota": null,
-        "actuals": 0.0,
+        "actuals": null,
         "attainment_pct": null
       },
       "h1": {
@@ -23170,30 +23156,30 @@
       "division": "S2",
       "employee_count": 6,
       "h1_quota": 107.75,
-      "h1_actuals": 114.18286742800001,
+      "h1_actuals": 119.16197310499999,
       "annual_quota": 246.0,
-      "annual_actuals": 114.18286742800001,
+      "annual_actuals": 119.16197310499999,
       "personas": {
         "IC": {
           "count": 6,
-          "h1_actuals": 114.18286742800001,
+          "h1_actuals": 119.16197310499999,
           "h1_quota": 107.75
         }
       },
-      "h1_attainment_pct": 105.97,
-      "annual_attainment_pct": 46.42
+      "h1_attainment_pct": 110.59,
+      "annual_attainment_pct": 48.44
     },
     {
       "division": "S1",
       "employee_count": 6,
       "h1_quota": 307.35,
-      "h1_actuals": 58.749594884000004,
+      "h1_actuals": 71.299744884,
       "annual_quota": 660.0,
-      "annual_actuals": 58.749594884000004,
+      "annual_actuals": 71.299744884,
       "personas": {
         "IC": {
           "count": 5,
-          "h1_actuals": 39.73294670600001,
+          "h1_actuals": 52.283096705999995,
           "h1_quota": 246.85
         },
         "TL": {
@@ -23202,20 +23188,20 @@
           "h1_quota": 60.5
         }
       },
-      "h1_attainment_pct": 19.11,
-      "annual_attainment_pct": 8.9
+      "h1_attainment_pct": 23.2,
+      "annual_attainment_pct": 10.8
     },
     {
       "division": "CB",
       "employee_count": 4,
       "h1_quota": 48.0,
-      "h1_actuals": 17.28756296,
+      "h1_actuals": 18.737562959999998,
       "annual_quota": 127.5,
-      "annual_actuals": 17.28756296,
+      "annual_actuals": 18.737562959999998,
       "personas": {
         "IC": {
           "count": 3,
-          "h1_actuals": 17.25339576,
+          "h1_actuals": 18.70339576,
           "h1_quota": 33.0
         },
         "TL": {
@@ -23224,8 +23210,8 @@
           "h1_quota": 15.0
         }
       },
-      "h1_attainment_pct": 36.02,
-      "annual_attainment_pct": 13.56
+      "h1_attainment_pct": 39.04,
+      "annual_attainment_pct": 14.7
     },
     {
       "division": "GB",
@@ -23282,10 +23268,10 @@
       "persona": "IC",
       "count": 24,
       "h1_quota": 419.30000000000007,
-      "h1_actuals": 190.208063983,
+      "h1_actuals": 209.18731966,
       "annual_quota": 909.9,
-      "annual_actuals": 190.208063983,
-      "h1_attainment_pct": 45.36
+      "annual_actuals": 209.18731966,
+      "h1_attainment_pct": 49.89
     },
     {
       "persona": "TL",

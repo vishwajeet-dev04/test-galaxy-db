@@ -16,6 +16,8 @@ interface PerformanceCardProps {
   className?: string;
   /** Optional compact mode to reduce vertical spacing */
   compact?: boolean;
+  /** Show "Target ₹X Cr" below the No-data badge (e.g. H2 shows its target; Q3/Q4 do not) */
+  showTargetOnNoData?: boolean;
 }
 
 export function PerformanceCard({
@@ -30,6 +32,7 @@ export function PerformanceCard({
   title,
   className,
   compact = false,
+  showTargetOnNoData = false,
 }: PerformanceCardProps) {
   const showAttainment = !quotaOnly && attainmentPct != null && (actuals ?? 0) > 0;
   const TrendIcon =
@@ -55,10 +58,12 @@ export function PerformanceCard({
             <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               No data yet
             </span>
-            <p className={`${compact ? "mt-2" : "mt-3"} font-mono text-base text-slate-400`}>
-              Target{" "}
-              <span className="font-semibold text-galaxy-navy">{formatCrDisplay(quota)}</span>
-            </p>
+            {showTargetOnNoData && (
+              <p className={`${compact ? "mt-2" : "mt-3"} font-mono text-base text-slate-400`}>
+                Target{" "}
+                <span className="font-semibold text-galaxy-navy">{formatCrDisplay(quota)}</span>
+              </p>
+            )}
           </div>
           {/* Fixed-height spacer so card stays same height as active cards */}
           <div className={`${compact ? "mt-2 h-[1rem]" : "mt-3 h-[1.25rem]"}`} />

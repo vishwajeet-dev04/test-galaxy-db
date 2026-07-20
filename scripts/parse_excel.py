@@ -1594,11 +1594,16 @@ def main():
         e for e in individuals if e.get("division") in RTM_DIVISIONS and e["name"] not in ("Total", "Total Opportunity")
     ]
 
-    h1_quota = sum(b["h1"]["quota"] or 0 for b in bu_level)
-    h1_actuals = sum(b["h1"]["actuals"] or 0 for b in bu_level)
     annual_quota = sum(b["annual"]["quota"] or 0 for b in bu_level)
     ic_h1 = sum_period(rtm_subtotals, "h1")
     ic_q1 = sum_period(rtm_subtotals, "q1")
+    # Use IC Subtotal quota (from RTM division subtotal rows) as the authoritative H1 quota.
+    # For actuals, sum individual IC rows directly — this matches the Excel Grand Total row
+    # and avoids the IC Subtotal rows which can omit TBH/carry-over actuals.
+    h1_quota = ic_h1["quota"] or 0
+    h1_actuals = round(
+        sum((e["h1"]["actuals"] or 0) for e in rtm_individuals), 2
+    )
     period_metrics = build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota)
 
     rtm_order = ["S1", "S2", "CB", "GB", "South"]
