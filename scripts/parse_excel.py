@@ -1597,13 +1597,13 @@ def main():
     annual_quota = sum(b["annual"]["quota"] or 0 for b in bu_level)
     ic_h1 = sum_period(rtm_subtotals, "h1")
     ic_q1 = sum_period(rtm_subtotals, "q1")
-    # Use IC Subtotal quota (from RTM division subtotal rows) as the authoritative H1 quota.
-    # For actuals, sum individual IC rows directly — this matches the Excel Grand Total row
-    # and avoids the IC Subtotal rows which can omit TBH/carry-over actuals.
+    # Use IC Subtotal rows (sum of RTM division subtotals) as the single authoritative
+    # source for both H1 quota AND H1 actuals. This matches the Excel's Grand Total row
+    # exactly: quota=498.00 Cr, actuals=217.22 Cr → 43.62% → rounds to 44%.
+    # Summing individual rows gives a higher actuals figure (pipeline updates reflected
+    # in individual cells but not yet in the tracker's own subtotal formulas).
     h1_quota = ic_h1["quota"] or 0
-    h1_actuals = round(
-        sum((e["h1"]["actuals"] or 0) for e in rtm_individuals), 2
-    )
+    h1_actuals = ic_h1["actuals"] or 0
     period_metrics = build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota)
 
     rtm_order = ["S1", "S2", "CB", "GB", "South"]

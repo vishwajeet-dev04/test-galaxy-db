@@ -1,7 +1,7 @@
 {
   "meta": {
     "source": "Galaxy Quota Tracker - 14072026.xlsx",
-    "generated_at": "2026-07-20T16:32:51.990199",
+    "generated_at": "2026-07-20T17:08:44.010959",
     "fy": "FY 25-26",
     "currency": "\u20b9 Cr",
     "pipeline_period": "Q1 FY 25-26",
@@ -9,8 +9,8 @@
   },
   "kpis": {
     "h1_quota_cr": 498.0,
-    "h1_actuals_cr": 236.27,
-    "h1_attainment_pct": 47.44,
+    "h1_actuals_cr": 217.22,
+    "h1_attainment_pct": 43.62,
     "annual_quota_cr": 1236.0,
     "ic_h1_quota_cr": 498.0,
     "ic_h1_actuals_cr": 217.22,
