@@ -6,9 +6,20 @@ interface DonutChartProps {
   height?: number;
   onSliceClick?: (name: string) => void;
   centerLabel?: string;
+  /** Optional map of data-item name → attainment value (for RTM status indicators) */
+  legendStatusMap?: Record<string, number | null>;
+  /** Optional function that maps an attainment value to a hex colour string */
+  legendStatusColorFn?: (attainmentPct: number | null | undefined) => string;
 }
 
-export function DonutChart({ data, height = 280, onSliceClick, centerLabel }: DonutChartProps) {
+export function DonutChart({
+  data,
+  height = 280,
+  onSliceClick,
+  centerLabel,
+  legendStatusMap,
+  legendStatusColorFn,
+}: DonutChartProps) {
   const filtered = data.filter((d) => d.value > 0);
   const total = filtered.reduce((s, d) => s + d.value, 0);
 
@@ -74,6 +85,8 @@ export function DonutChart({ data, height = 280, onSliceClick, centerLabel }: Do
       <div className="mt-2 flex flex-wrap justify-center gap-2">
         {filtered.map((d, i) => {
           const pct = total ? ((d.value / total) * 100).toFixed(0) : "0";
+          const hasStatus = legendStatusMap && legendStatusColorFn && d.name in legendStatusMap;
+          const statusColor = hasStatus ? legendStatusColorFn!(legendStatusMap![d.name]) : null;
           return (
             <button
               key={d.name}
@@ -83,6 +96,13 @@ export function DonutChart({ data, height = 280, onSliceClick, centerLabel }: Do
               <span className="h-2 w-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
               {d.name}
               <span className="text-slate-400">{pct}%</span>
+              {hasStatus && (
+                <span
+                  className="h-2 w-2 rounded-full ring-1 ring-white/60"
+                  style={{ background: statusColor! }}
+                  title={`H1 attainment status`}
+                />
+              )}
             </button>
           );
         })}

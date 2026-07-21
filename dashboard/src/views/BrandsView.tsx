@@ -349,7 +349,7 @@ export function BrandsView({ data, drill, onDrill }: BrandsViewProps) {
           label="Leading brands"
           description="Highest closed topline — logos via Logo.dev"
         />
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {insights.top5.map((b, i) => (
             <button
               key={b.brand}

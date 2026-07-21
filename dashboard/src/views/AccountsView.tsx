@@ -324,7 +324,7 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
           label="Flagship accounts"
           description="Highest closed topline — logos resolved from the web"
         />
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {insights.top5.map((a, i) => (
             <button
               key={a.account}

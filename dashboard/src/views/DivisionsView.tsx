@@ -55,7 +55,7 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         {rtmDivisions.map((d) => {
           const att = d.h1.attainment_pct ?? 0;
           const hasActuals = (d.h1.actuals ?? 0) > 0;
@@ -75,7 +75,7 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
                 attainmentPct={att}
                 periodElapsedLabel={getPeriodElapsedLabel("H1")}
                 quotaOnly={!hasActuals}
-                closedDeals={0}
+                closedDeals={d.closed_deals}
               />
             </button>
           );

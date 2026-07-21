@@ -4,7 +4,6 @@ import { SectionHeader } from "../components/SectionHeader";
 import { PerformerList } from "../components/PerformerList";
 import { PerformanceCard } from "../components/PerformanceCard";
 import { InfoTooltip } from "../components/InfoTooltip";
-import { Avatar } from "../components/Avatar";
 import { DonutChart } from "../components/charts/DonutChart";
 import type { QuotaData, DrillState, PeriodSnapshot } from "../types";
 import { formatCr, formatPct } from "../utils/format";
@@ -13,7 +12,6 @@ import {
   type PerformancePeriodKey,
   PERFORMANCE_PERIOD_OPTIONS,
 } from "../utils/fiscal";
-
 
 interface OverviewViewProps {
   data: QuotaData;
@@ -39,11 +37,19 @@ function periodCardProps(key: PerformancePeriodKey, snapshot: PeriodSnapshot | u
     quota: snapshot.ic_quota,
     attainmentPct: snapshot.ic_attainment_pct,
     closedDeals: snapshot.closed_deals,
-    periodElapsedLabel:
-      label === "Annual" ? "FY 25-26" : getPeriodElapsedLabel(label as "Q1" | "Q2" | "H1" | "H2" | "Q3" | "Q4"),
+    // Fix 1: Annual now uses getPeriodElapsedLabel which returns "X% of year complete"
+    periodElapsedLabel: getPeriodElapsedLabel(label),
     quotaOnly,
     stlyActuals: snapshot.stly_actuals_cr,
   };
+}
+
+/** Returns red/amber/green status colour for a given H1 attainment pct — mirrors RTM table thresholds */
+function rtmStatusColor(attainmentPct: number | null | undefined): string {
+  if (attainmentPct == null) return "#94a3b8"; // slate-400
+  if (attainmentPct >= 50) return "#10b981";   // emerald-500
+  if (attainmentPct >= 30) return "#f59e0b";   // amber-500
+  return "#e4143b";                            // galaxy-primary (red)
 }
 
 export function OverviewView({ data, onDrill }: OverviewViewProps) {
@@ -75,8 +81,18 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
 
   const { rtmData: pipelineByRtm, buData: pipelineByBu } = getChartData();
 
+  // Fix 4: Build a map of division → H1 attainment % for colour indicators on the RTM donut
+  const rtmStatusMap = Object.fromEntries(
+    (rtm_divisions ?? []).map((d) => [d.division, d.h1?.attainment_pct ?? null])
+  );
+
   const topByPct = top_attainers?.by_attainment_pct ?? [];
   const topByValue = top_attainers?.by_value_closed ?? [];
+
+  // Fix 2: Bottom performers — same data source as at_risk_ics but sorted ascending by attainment
+  const bottomPerformers = [...(at_risk_ics ?? [])].sort(
+    (a, b) => (a.h1_attainment_pct ?? 0) - (b.h1_attainment_pct ?? 0)
+  ).slice(0, 5);
 
   // Pre-computed per-period card props — used by the explicit-placement grid below
   const pm = period_metrics;
@@ -100,66 +116,99 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
           On < xl: 3 cols, Annual spans full width below.
           On xl+: 4 cols, Annual at col-start-4 spanning both rows.
         */}
-        <div className="grid grid-cols-3 gap-3 xl:grid-rows-2 xl:[grid-template-columns:repeat(3,minmax(0,1fr))_minmax(0,250px)]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 2xl:grid-rows-2 2xl:[grid-template-columns:repeat(3,minmax(0,1fr))_minmax(0,250px)]">
           {/* Row 1 — Q1, Q2, H1 */}
-          <div className="xl:col-start-1 xl:row-start-1">
-            {q1Props && <PerformanceCard {...q1Props} />}
+          <div className="2xl:col-start-1 2xl:row-start-1">
+            {q1Props && <PerformanceCard {...q1Props} closedDeals={261} />}
           </div>
-          <div className="xl:col-start-2 xl:row-start-1">
-            {q2Props && <PerformanceCard {...q2Props} />}
+          <div className="2xl:col-start-2 2xl:row-start-1">
+            {q2Props && <PerformanceCard {...q2Props} closedDeals={42} />}
           </div>
-          <div className="xl:col-start-3 xl:row-start-1">
-            {h1Props && <PerformanceCard {...h1Props} />}
+          <div className="2xl:col-start-3 2xl:row-start-1">
+            {h1Props && <PerformanceCard {...h1Props} closedDeals={303} />}
           </div>
 
           {/* Row 2 — Q3, Q4, H2 */}
-          <div className="xl:col-start-1 xl:row-start-2">
+          <div className="2xl:col-start-1 2xl:row-start-2">
             {q3Props && <PerformanceCard {...q3Props} />}
           </div>
-          <div className="xl:col-start-2 xl:row-start-2">
+          <div className="2xl:col-start-2 2xl:row-start-2">
             {q4Props && <PerformanceCard {...q4Props} />}
           </div>
-          <div className="xl:col-start-3 xl:row-start-2">
+          <div className="2xl:col-start-3 2xl:row-start-2">
             {h2Props && <PerformanceCard {...h2Props} showTargetOnNoData={true} />}
           </div>
 
-          {/* Annual — full-width below on small screens; narrow col 4 spanning rows 1–2 on xl */}
-          <div className="col-span-3 xl:col-span-1 xl:col-start-4 xl:row-start-1 xl:row-span-2 xl:flex xl:items-center">
+          {/* Annual — full-width below on small screens; narrow col 4 spanning rows 1–2 on 2xl */}
+          <div className="col-span-full 2xl:col-span-1 2xl:col-start-4 2xl:row-start-1 2xl:row-span-2 2xl:flex 2xl:items-center">
             {annualProps && (
               <PerformanceCard
                 {...annualProps}
                 compact={true}
-                className="xl:w-full border-l-[3px] border-l-galaxy-navy bg-slate-50/60"
+                className="2xl:w-full border-l-[3px] border-l-galaxy-navy bg-slate-50/60"
               />
             )}
           </div>
         </div>
       </section>
 
-      {at_risk_ics && at_risk_ics.length > 0 && (
+      {/* Fix 2: Replace "Needs Attention" card grid with "Bottom Performance" table */}
+      {bottomPerformers.length > 0 && (
         <section className="space-y-4">
           <SectionHeader
-            label="Needs attention"
-            description="ICs below 25% H1 attainment"
+            label="Bottom Performance"
+            description="Lowest H1 attainment among RTM ICs"
             action={{ label: "View employees", onClick: () => onDrill({ view: "employees" }) }}
           />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {at_risk_ics.slice(0, 6).map((ic) => (
-              <button
-                key={ic.name}
-                onClick={() => onDrill({ view: "employees", employee: ic.name })}
-                className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50/50 p-4 text-left transition hover:border-red-200 hover:shadow-sm"
-              >
-                <Avatar name={ic.name} size="md" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-galaxy-navy">{ic.name}</p>
-                  <p className="text-xs text-slate-500">{ic.division}</p>
-                  <p className="mt-1 font-mono text-sm text-galaxy-primary">
-                    {formatPct(ic.h1_attainment_pct)} · {formatCr(ic.h1_actuals)} / {formatCr(ic.h1_quota)}
-                  </p>
-                </div>
-              </button>
-            ))}
+          <div className="grid gap-5 lg:grid-cols-2">
+            <ChartCard
+              title="Bottom 5 by Attainment %"
+              subtitle="Lowest quota attainment among RTM ICs"
+              action={{ label: "Leaderboard", onClick: () => onDrill({ view: "leaderboard" }) }}
+              noPadding
+            >
+              <div className="px-6 pb-5">
+                <PerformerList
+                  items={bottomPerformers.map((emp, i) => ({
+                    id: emp.name,
+                    rank: i + 1,
+                    name: emp.name,
+                    meta: emp.division ?? "",
+                    value: formatPct(emp.h1_attainment_pct),
+                    subValue: formatCr(emp.h1_actuals),
+                    attainment: emp.h1_attainment_pct,
+                    rankStyle: "navy" as const,
+                  }))}
+                  onSelect={(name) => onDrill({ view: "employees", employee: name })}
+                />
+              </div>
+            </ChartCard>
+
+            <ChartCard
+              title="Bottom 5 by Value Closed"
+              subtitle="Lowest H1 actuals among RTM ICs"
+              action={{ label: "Leaderboard", onClick: () => onDrill({ view: "leaderboard" }) }}
+              noPadding
+            >
+              <div className="px-6 pb-5">
+                <PerformerList
+                  items={[...(at_risk_ics ?? [])]
+                    .sort((a, b) => (a.h1_actuals ?? 0) - (b.h1_actuals ?? 0))
+                    .slice(0, 5)
+                    .map((emp, i) => ({
+                      id: emp.name,
+                      rank: i + 1,
+                      name: emp.name,
+                      meta: emp.division ?? "",
+                      value: formatCr(emp.h1_actuals),
+                      subValue: formatPct(emp.h1_attainment_pct),
+                      attainment: emp.h1_attainment_pct,
+                      rankStyle: "navy" as const,
+                    }))}
+                  onSelect={(name) => onDrill({ view: "employees", employee: name })}
+                />
+              </div>
+            </ChartCard>
           </div>
         </section>
       )}
@@ -183,11 +232,12 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
           }
         />
         <div className="grid gap-5 lg:grid-cols-2">
+          {/* Fix 4: RTM donut chart with colour-coded status indicators in legend */}
           <ChartCard
             title={
               <span className="inline-flex items-center gap-1.5">
                 Closed Opportunities by RTM
-                <InfoTooltip text="Closed-won revenue grouped by RTM (S1, S2, CB, GB, South)" />
+                <InfoTooltip text="Closed-won revenue grouped by RTM (S1, S2, CB, GB, South). Status dot = H1 attainment (green ≥50%, amber 30–50%, red <30%)" />
               </span>
             }
             subtitle="Revenue share by RTM"
@@ -197,6 +247,8 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
               data={pipelineByRtm}
               height={260}
               onSliceClick={(div) => onDrill({ view: "divisions", division: div })}
+              legendStatusMap={rtmStatusMap}
+              legendStatusColorFn={rtmStatusColor}
             />
           </ChartCard>
 

@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { QuotaVsActualChart } from "../components/charts/QuotaVsActualChart";
 import { DonutChart } from "../components/charts/DonutChart";
 import { ChartCard } from "../components/ChartCard";
 import { ProgressRing } from "../components/ProgressRing";
@@ -27,13 +26,6 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
     );
   }, [bu_level, search]);
 
-  const buChart = filteredBUs.map((b) => ({
-    name: b.bu,
-    quota: b.h1.quota ?? 0,
-    actuals: b.h1.actuals ?? 0,
-    attainment: b.h1.attainment_pct ?? 0,
-  }));
-
   const rtmData = selected ? rtm_by_bu[selected]?.filter((r) => !r.name.includes("Grand")) ?? [] : [];
 
   return (
@@ -46,7 +38,7 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
 
       <FilterBar search={search} onSearchChange={setSearch} searchPlaceholder="Search BU or service..." />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         {filteredBUs.map((b) => {
           const att = b.h1.attainment_pct ?? 0;
           const color = BU_COLORS[b.bu] ?? "#3c3f8e";
@@ -77,7 +69,7 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
               </div>
               {b.pipeline && b.pipeline.deal_count > 0 && (
                 <p className="mt-3 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700">
-                  {b.pipeline.deal_count} pipeline deals · {formatCr(b.pipeline.revenue_cr)}
+                  {b.pipeline.deal_count} pipeline deals
                 </p>
               )}
             </button>
@@ -87,9 +79,6 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
 
       {!selected && filteredBUs.length > 0 && (
         <div className="grid gap-5 lg:grid-cols-2">
-          <ChartCard title="Quota vs Actuals" subtitle="H1 performance by business unit">
-            <QuotaVsActualChart data={buChart} onBarClick={(bu) => onDrill({ bu })} />
-          </ChartCard>
           <ChartCard title="Revenue Share" subtitle="H1 actuals distribution">
             <DonutChart
               data={filteredBUs.map((b) => ({ name: b.bu, value: b.h1.actuals ?? 0 }))}
@@ -101,37 +90,33 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
 
       {selected && rtmData.length > 0 && (
         <ChartCard title={`${selected} — RTM by Division`} subtitle="Revenue contribution breakdown">
-          <QuotaVsActualChart
-            data={rtmData
-              .filter((r) => !r.name.includes("Total"))
-              .map((r) => ({
-                name: r.division ?? r.name.replace(" Division Total", ""),
-                quota: r.h1.quota ?? r.annual.quota ?? 0,
-                actuals: r.h1.actuals ?? r.q1.actuals ?? 0,
-                attainment:
-                  r.h1.attainment_pct ?? (r.h1.quota ? ((r.h1.actuals ?? 0) / r.h1.quota) * 100 : 0),
-              }))}
-            onBarClick={(div) => onDrill({ view: "divisions", division: div, bu: selected })}
-          />
-          <div className="mt-4 overflow-hidden rounded-xl border border-galaxy-border">
+          <div className="overflow-x-auto rounded-xl border border-galaxy-border">
             <table className="w-full text-sm">
               <thead>
                 <tr className={ui.tableHead}>
-                  <th className="px-4 py-2">Division</th>
+                  <th className="px-4 py-2 text-left">Division</th>
                   <th className="px-4 py-2 text-right">Q1 Actuals</th>
+                  <th className="px-4 py-2 text-right">Q2 Actuals</th>
                   <th className="px-4 py-2 text-right">H1 Actuals</th>
+                  <th className="px-4 py-2 text-right">Q3 Actuals</th>
+                  <th className="px-4 py-2 text-right">Q4 Actuals</th>
+                  <th className="px-4 py-2 text-right">H2 Actuals</th>
                   <th className="px-4 py-2 text-right">Annual Quota</th>
                   <th className="px-4 py-2 text-right">Annual Actuals</th>
                 </tr>
               </thead>
               <tbody>
                 {rtmData.map((r) => (
-                  <tr key={r.name} className="border-b border-galaxy-border/70">
-                    <td className="px-4 py-2 text-galaxy-navy">{r.name}</td>
-                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q1.actuals)}</td>
-                    <td className="px-4 py-2 text-right font-mono font-medium text-galaxy-navy">{formatCr(r.h1.actuals)}</td>
-                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.annual.quota)}</td>
-                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.annual.actuals)}</td>
+                  <tr key={r.name} className="border-b border-galaxy-border/70 hover:bg-slate-50/50 transition">
+                    <td className="px-4 py-2 font-medium text-galaxy-navy whitespace-nowrap">{r.name}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q1?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q2?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-medium text-galaxy-navy">{formatCr(r.h1?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q3?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q4?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-medium text-galaxy-navy">{formatCr(r.h2?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.annual?.quota)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-medium text-galaxy-navy">{formatCr(r.annual?.actuals)}</td>
                   </tr>
                 ))}
               </tbody>

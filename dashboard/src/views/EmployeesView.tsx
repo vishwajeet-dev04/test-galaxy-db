@@ -18,11 +18,7 @@ function ClosedAccountsSection({ pipeline }: { pipeline: Individual["pipeline"] 
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
 
   if (!pipeline.deal_count) {
-    return (
-      <div className="mt-6 rounded-xl border border-dashed border-galaxy-border bg-galaxy-surface/40 p-5 text-center">
-        <p className="text-sm text-galaxy-muted">No closed-won deals in pipeline for this period (1 Apr – 21 Jun)</p>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -84,10 +80,12 @@ function ClosedAccountsSection({ pipeline }: { pipeline: Individual["pipeline"] 
 }
 
 function EmployeeDetail({ emp }: { emp: Individual }) {
-  const periods = [
+  const periods: { label: string; data?: PeriodMetrics }[] = [
     { label: "Q1", data: emp.q1 },
     { label: "Q2", data: emp.q2 },
     { label: "H1", data: emp.h1 },
+    { label: "Q3" },
+    { label: "Q4" },
     { label: "H2", data: emp.h2 },
     { label: "Annual", data: emp.annual },
   ];
@@ -118,21 +116,31 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-5">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {periods.map(({ label, data }) => (
           <div key={label} className={`${ui.cardInner} p-3`}>
             <p className="text-xs uppercase text-galaxy-muted">{label}</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-galaxy-navy">{formatCr(data.actuals)}</p>
-            {data.quota != null ? (
-              <p className="text-xs text-galaxy-muted">/ {formatCr(data.quota)}</p>
+            {data ? (
+              <>
+                <p className="mt-1 font-mono text-lg font-semibold text-galaxy-navy">{formatCr(data.actuals)}</p>
+                {data.quota != null ? (
+                  <p className="text-xs text-galaxy-muted">/ {formatCr(data.quota)}</p>
+                ) : (
+                  <div className="mt-1 mb-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                    Quota not available
+                  </div>
+                )}
+                <p className={`mt-1 font-mono text-sm ${attainmentColor(data.attainment_pct)}`}>
+                  {formatPct(data.attainment_pct)}
+                </p>
+              </>
             ) : (
-              <div className="mt-1 mb-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
-                Quota not available
+              <div className="mt-3">
+                <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  No data yet
+                </span>
               </div>
             )}
-            <p className={`mt-1 font-mono text-sm ${attainmentColor(data.attainment_pct)}`}>
-              {formatPct(data.attainment_pct)}
-            </p>
           </div>
         ))}
       </div>
@@ -180,6 +188,18 @@ interface DivisionGroup {
 const RTM_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South"]);
 const EMPLOYEE_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"]);
 
+const RTM_ORDER = ["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"];
+const sortDivisions = (a: string | null | undefined, b: string | null | undefined) => {
+  const strA = a || "";
+  const strB = b || "";
+  const idxA = RTM_ORDER.indexOf(strA);
+  const idxB = RTM_ORDER.indexOf(strB);
+  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+  if (idxA !== -1) return -1;
+  if (idxB !== -1) return 1;
+  return strA.localeCompare(strB);
+};
+
 function periodData(emp: Individual, period: PeriodKey): PeriodMetrics {
   return emp[period];
 }
@@ -214,7 +234,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
             .map((e) => e.division)
             .filter((d) => d && (EMPLOYEE_DIVISIONS.has(d) || RTM_DIVISIONS.has(d)))
         ),
-      ].sort() as string[],
+      ].sort(sortDivisions) as string[],
     [data]
   );
   const personas = useMemo(() => [...new Set(data.individuals.map((e) => e.persona))].sort(), [data]);
@@ -260,7 +280,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
           pipelineAccounts: employees.reduce((s, e) => s + e.pipeline.account_count, 0),
         };
       })
-      .sort((a, b) => b.periodActuals - a.periodActuals);
+      .sort((a, b) => sortDivisions(a.division, b.division));
   }, [filtered, period]);
 
   const toggleDivision = (div: string) => {

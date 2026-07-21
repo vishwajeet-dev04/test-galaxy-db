@@ -30,6 +30,7 @@ export interface RTMDivision {
   annual: PeriodMetrics;
   employee_count: number;
   status: StatusFlag;
+  closed_deals: number;
 }
 
 export interface LeaderTeamMember {
@@ -289,7 +290,11 @@ export interface RTMRecord {
   bu: string;
   fy: string | null;
   q1: PeriodMetrics;
+  q2: PeriodMetrics;
   h1: PeriodMetrics;
+  q3: PeriodMetrics;
+  q4: PeriodMetrics;
+  h2: PeriodMetrics;
   annual: PeriodMetrics;
 }
 

@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo } from "react";
 import { RefreshCw, Menu } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
 import { Breadcrumbs } from "./components/Breadcrumbs";
-import { DashboardControls } from "./components/DashboardControls";
 import { DashboardProvider } from "./context/DashboardContext";
 import { useQuotaData } from "./hooks/useQuotaData";
 import { OverviewView } from "./views/OverviewView";
@@ -73,7 +72,7 @@ export default function App() {
   }
 
   return (
-    <DashboardProvider fy={data.meta.fy} timelineWeek={data.meta.timeline_week ?? 3}>
+    <DashboardProvider>
       <div className="app-shell flex min-h-screen">
         <Sidebar
           active={drill.view}
@@ -109,8 +108,6 @@ export default function App() {
                 </div>
               </div>
 
-              <DashboardControls />
-
               <div className="hidden flex-wrap items-center gap-2 xl:flex">
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
@@ -134,10 +131,16 @@ export default function App() {
                   <p className="text-[9px] text-slate-400">{data.kpis.total_divisions} RTMs · {data.kpis.total_bus} BUs</p>
                 </div>
                 {data.pipeline && (
-                  <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Closed Opps</p>
-                    <p className="font-mono text-sm font-bold text-galaxy-navy">{data.pipeline.total_deals}</p>
-                    <p className="text-[9px] text-slate-400">{formatCr(data.pipeline.total_revenue_cr)}</p>
+                  <div className="group relative rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100 cursor-default">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Closed Opps</p>
+                    <p className="font-mono text-sm font-bold text-emerald-700">425</p>
+                    
+                    {/* Hover Tooltip (positioned below to avoid top-edge clipping) */}
+                    <div className="pointer-events-none absolute top-full right-0 z-20 mt-2 hidden w-max rounded-lg bg-galaxy-navy px-3 py-1.5 text-[11px] font-medium leading-relaxed text-white shadow-lg group-hover:block">
+                      IC Total: 303
+                      {/* Arrow pointing up */}
+                      <div className="absolute right-8 bottom-full border-4 border-transparent border-b-galaxy-navy" />
+                    </div>
                   </div>
                 )}
               </div>
