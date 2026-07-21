@@ -109,6 +109,14 @@ export default function App() {
               </div>
 
               <div className="hidden flex-wrap items-center gap-2 xl:flex">
+                <div className="flex items-center gap-2 pr-3 mr-1 border-r border-slate-200">
+                  <img src="/SanjayPatodia.png" alt="Sanjay Patodia" className="h-9 w-9 rounded-full object-cover ring-2 ring-slate-100" />
+                  <div className="text-left">
+                    <p className="text-xs font-semibold text-galaxy-navy">Sanjay Patodia</p>
+                    <p className="text-[9px] font-medium uppercase tracking-wider text-slate-400">Logged In</p>
+                  </div>
+                </div>
+                
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
                   <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPctCard(data.kpis.h1_attainment_pct)}</p>
