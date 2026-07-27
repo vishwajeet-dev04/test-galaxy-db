@@ -241,6 +241,7 @@ export interface Individual {
     contributed_count: number | null;
     contributed_rev: number | null;
   };
+  closed_deals?: number;
   rank_division: string | null;
   pipeline: EmployeePipeline;
   bu?: string | null;
@@ -275,7 +276,10 @@ export interface PersonaAggregate {
 export interface BURecord {
   service: string;
   bu: string;
+  q1: PeriodMetrics;
+  q2: PeriodMetrics;
   h1: PeriodMetrics;
+  h2: PeriodMetrics;
   annual: PeriodMetrics;
   pipeline?: {
     deal_count: number;

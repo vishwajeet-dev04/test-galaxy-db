@@ -404,6 +404,7 @@ def parse_individual(xl):
                     "contributed_count": to_num(row.get("Contributed\nDeals (count)")),
                     "contributed_rev": to_num(row.get("Contributed\nRev (₹ Cr)")),
                 },
+                "closed_deals": to_num(row.get("# Deals\n(Total)")),
                 "rank_division": clean_str(row.get("Rank\n(Div.)")),
                 "bu": None,
                 "team_lead": None,
@@ -414,34 +415,48 @@ def parse_individual(xl):
 
 
 def parse_leaders(xl):
-    sheet = "V2 · Leadership " if "V2 · Leadership " in xl.sheet_names else "V2 · Leaders"
-    if sheet not in xl.sheet_names:
+    import openpyxl
+    path = xl if isinstance(xl, str) else xl._io
+    try:
+        wb = openpyxl.load_workbook(path, data_only=True)
+    except Exception:
         return []
-    df = pd.read_excel(xl, sheet_name=sheet, header=1)
-    records = []
-    for _, row in df.iterrows():
-        name = clean_str(row.get("Employee Name"))
+        
+    sheet = "V2 · Leadership"
+    if "V2 · Leadership " in wb.sheetnames:
+        sheet = "V2 · Leadership "
+    elif "V2 · Leaders" in wb.sheetnames:
+        sheet = "V2 · Leaders"
+        
+    if sheet not in wb.sheetnames:
+        return []
+        
+    ws = wb[sheet]
+    leaders = {}
+    
+    # Table 1: Bottomline (Rows 3-10)
+    for r in range(3, 11):
+        name = clean_str(ws.cell(row=r, column=2).value)
         if not name:
             continue
-        records.append(
-            {
-                "name": name,
-                "division": normalize_division(clean_str(row.get("Division"))),
-                "fy": clean_str(row.get("FY")),
-                "role": clean_str(row.get("Type / Notes")),
-                "h1": {
-                    "quota": to_num(row.get("H1 Quota\n(₹ Cr)")),
-                    "actuals": to_num(row.get("H1 Actuals\n(₹ Cr)")),
-                    "attainment_pct": to_pct(row.get("Attainment %\n(H1)")),
-                },
-                "annual": {
-                    "quota": to_num(row.get("Annual Quota\n(₹ Cr)")),
-                    "actuals": to_num(row.get("Annual Actuals\n(₹ Cr)")),
-                    "attainment_pct": to_pct(row.get("Attainment %\n(Annual)")),
-                },
-            }
-        )
-    return records
+        role = clean_str(ws.cell(row=r, column=5).value)
+        bl_val = to_num(ws.cell(row=r, column=19).value) # Col S
+        leaders[name] = {
+            "name": name,
+            "role": role,
+            "bottomline_cr": bl_val if bl_val is not None else 0,
+            "topline_cr": 0
+        }
+        
+    # Table 2: Topline (Rows 15-22)
+    for r in range(15, 23):
+        name = clean_str(ws.cell(row=r, column=2).value)
+        if not name or name not in leaders:
+            continue
+        tl_val = to_num(ws.cell(row=r, column=19).value) # Col S
+        leaders[name]["topline_cr"] = tl_val if tl_val is not None else 0
+        
+    return list(leaders.values())
 
 
 def parse_business_plan_quotas():
@@ -555,10 +570,12 @@ def parse_bu_level(xl):
         if total_rows.empty:
             continue
         row = total_rows.iloc[0]
-        h1q = to_num(row.get("H1 Quota\n(₹ Cr)"))
-        h1a = to_num(row.get("H1 Actuals\n(₹ Cr)"))
         annq = to_num(row.get("Annual Quota\n(₹ Cr)"))
         anna = to_num(row.get("Annual Actuals\n(₹ Cr)"))
+        
+        # User requested using Q9 and R9 directly for H1 quota and actuals, rather than fallback math
+        h1q = annq
+        h1a = anna
         records.append(
             {
                 "service": service,
@@ -1642,6 +1659,10 @@ def build_leaders_dashboard(individuals, pipeline, v2_leaders):
             if any(names_match(d.get("employee", ""), mn) for mn in member_names)
             and not d.get("excluded_from_achievement")
         ]
+        if leader_name == "Ishwari Santosh Kadam":
+            print(f"Ishwari members: {member_names}")
+            print(f"Ishwari team_deals length: {len(team_deals)}")
+            print(f"Sample deal employees: {[d.get('employee') for d in all_deals[:5]]}")
         topline_inr = sum(d.get("amount_inr", 0) for d in team_deals)
         bottomline_inr = sum(d.get("bottomline_inr", 0) for d in team_deals)
         quota_credit_inr = sum(d.get("quota_credit_inr", 0) for d in team_deals)
@@ -1691,8 +1712,8 @@ def build_leaders_dashboard(individuals, pipeline, v2_leaders):
                 "h1": h1,
                 "pipeline": {
                     "deal_count": len(team_deals),
-                    "topline_cr": round(topline_inr / 1e7, 2),
-                    "bottomline_cr": round(bottomline_inr / 1e7, 2),
+                    "topline_cr": v2.get("topline_cr", 0) if v2 else round(topline_inr / 1e7, 2),
+                    "bottomline_cr": v2.get("bottomline_cr", 0) if v2 else round(bottomline_inr / 1e7, 2),
                     "quota_credit_cr": round(quota_credit_inr / 1e7, 2),
                     "gp_pct": gp_pct,
                 },

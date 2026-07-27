@@ -77,11 +77,13 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
       }
       return { name: b.bu, value: val };
     });
-    // Fix 4 & dynamically compute status map for RTM and BU based on selected period attainment
+    // Status underlines always scored against H1 attainment — the primary tracking period.
+    // (The chart period selector only changes which period's revenue is used to SIZE the slices.)
     const { rtmStatusMap, buStatusMap } = getStatusMaps(
       bu_level ?? [],
       rtm_divisions ?? [],
-      selectedChartPeriod
+      selectedChartPeriod,
+      "h1"  // force status colour from H1 attainment regardless of chart period
     );
 
     return { rtmData, buData, rtmStatusMap, buStatusMap };

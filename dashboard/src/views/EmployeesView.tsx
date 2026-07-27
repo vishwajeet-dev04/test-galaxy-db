@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Users, Building2, Briefcase } from "lucide-react";
+import { ChevronDown, ChevronRight, Users, Building2 } from "lucide-react";
 import { FilterBar } from "../components/FilterBar";
 import { DealRow } from "../components/DealRow";
 import { Avatar } from "../components/Avatar";
@@ -432,7 +432,6 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                       const pd = periodData(emp, period);
                       const att = pd.attainment_pct ?? 0;
                       const isSelected = emp.name === selected;
-                      const topAccounts = emp.pipeline.closed_accounts.slice(0, 2);
 
                       return (
                         <tr
@@ -454,25 +453,9 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                           <td className="px-4 py-3">
                             <span className={ui.badge}>{emp.persona}</span>
                           </td>
-                          <td className="px-4 py-3">
-                            {emp.pipeline.account_count > 0 ? (
-                              <div className="space-y-1">
-                                {topAccounts.map((a) => (
-                                  <div key={a.account} className="flex items-center gap-1.5 text-xs">
-                                    <Briefcase className="h-3 w-3 shrink-0 text-galaxy-blue" />
-                                    <span className="truncate text-galaxy-text">{a.account}</span>
-                                    {a.deal_count > 1 && (
-                                      <span className="shrink-0 text-galaxy-muted">×{a.deal_count}</span>
-                                    )}
-                                  </div>
-                                ))}
-                                {emp.pipeline.account_count > 2 && (
-                                  <p className="text-[10px] text-galaxy-muted">
-                                    +{emp.pipeline.account_count - 2} more account
-                                    {emp.pipeline.account_count - 2 !== 1 ? "s" : ""}
-                                  </p>
-                                )}
-                              </div>
+                          <td className="px-4 py-3 text-center">
+                            {emp.closed_deals != null ? (
+                              <span className="font-medium text-galaxy-navy">{emp.closed_deals}</span>
                             ) : (
                               <span className="text-xs text-galaxy-muted">—</span>
                             )}

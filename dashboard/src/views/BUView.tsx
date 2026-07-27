@@ -18,6 +18,7 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
   const { bu_level, rtm_by_bu } = data;
   const selected = drill.bu;
   const [search, setSearch] = useState("");
+  const [buPeriod, setBuPeriod] = useState<"h1" | "h2">("h1");
 
   const filteredBUs = useMemo(() => {
     if (!search) return bu_level;
@@ -37,11 +38,35 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
         </p>
       )}
 
-      <FilterBar search={search} onSearchChange={setSearch} searchPlaceholder="Search BU or service..." />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <FilterBar search={search} onSearchChange={setSearch} searchPlaceholder="Search BU or service..." />
+        
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Period</span>
+          {(["h1", "h2"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setBuPeriod(p)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase transition ${
+                buPeriod === p
+                  ? "bg-galaxy-navy text-white shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         {filteredBUs.map((b) => {
-          const att = b.h1.attainment_pct ?? 0;
+          const periodData = b[buPeriod];
+          const att = periodData?.attainment_pct ?? 0;
+          const actuals = periodData?.actuals ?? 0;
+          const quota = periodData?.quota;
+          const hasActuals = actuals > 0 || quota != null;
+          
           const color = BU_COLORS[b.bu] ?? "#3c3f8e";
           return (
             <button
@@ -58,8 +83,22 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{b.bu}</span>
                   </div>
                   <p className="mt-1.5 truncate text-sm font-medium text-galaxy-navy">{b.service}</p>
-                  <p className="mt-3 font-mono text-2xl font-bold tracking-tight text-galaxy-navy">{formatCr(b.h1.actuals)}</p>
-                  <p className="text-xs text-slate-400">of {formatCr(b.h1.quota)} quota</p>
+                  
+                  {hasActuals ? (
+                    <>
+                      <p className="mt-3 font-mono text-2xl font-bold tracking-tight text-galaxy-navy">{formatCr(actuals)}</p>
+                      <p className="text-xs text-slate-400">of {formatCr(quota)} quota</p>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-sm font-medium italic text-slate-400">No data yet</p>
+                  )}
+                  
+                  {/* # Deals only exists for H1/annual in the tracker currently, fallback to h1 deals safely */}
+                  {b.h1.deals != null && buPeriod === "h1" && (
+                    <p className="mt-2 text-[11px] font-semibold text-slate-500">
+                      <span className="font-bold text-galaxy-navy">{Math.round(b.h1.deals)}</span> closed deals
+                    </p>
+                  )}
                 </div>
                 <div className="relative shrink-0">
                   <ProgressRing value={att} size={48} color={attainmentBarColor(att)} />
@@ -80,11 +119,11 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
 
       {!selected && filteredBUs.length > 0 && (
         <div className="grid gap-5 lg:grid-cols-2">
-          <ChartCard title="Revenue Share" subtitle="H1 actuals distribution">
+          <ChartCard title="Revenue Share" subtitle={`${buPeriod.toUpperCase()} actuals distribution`}>
             <DonutChart
-              data={filteredBUs.map((b) => ({ name: b.bu, value: b.h1.actuals ?? 0 }))}
+              data={filteredBUs.map((b) => ({ name: b.bu, value: b[buPeriod]?.actuals ?? 0 }))}
               onSliceClick={(bu) => onDrill({ bu })}
-              statusMap={getStatusMaps(data.bu_level ?? [], data.rtm_divisions ?? [], "h1").buStatusMap}
+              statusMap={getStatusMaps(data.bu_level ?? [], data.rtm_divisions ?? [], buPeriod).buStatusMap}
               legendStatusColorFn={attainmentBarColor}
             />
           </ChartCard>

@@ -30,6 +30,7 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
   const selected = drill.division;
   const [search, setSearch] = useState("");
   const [minAttainment, setMinAttainment] = useState("");
+  const [rtmFilter, setRtmFilter] = useState("");
   const [rtmPeriod, setRtmPeriod] = useState<"h1" | "h2">("h1");
 
   const filteredRtms = useMemo(() => {
@@ -39,10 +40,11 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
       if (minAttainment === "low" && att >= 30) return false;
       if (minAttainment === "mid" && (att < 30 || att >= 50)) return false;
       if (minAttainment === "high" && att < 50) return false;
+      if (rtmFilter && d.division !== rtmFilter) return false;
       if (selected && d.division !== selected) return false;
       return true;
     });
-  }, [rtmDivisions, search, minAttainment, selected, rtmPeriod]);
+  }, [rtmDivisions, search, minAttainment, rtmFilter, selected, rtmPeriod]);
 
   const rtmEmployees = selected
     ? individuals.filter((e) => e.division === selected && e.name !== "Total")
@@ -105,6 +107,16 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
         onSearchChange={setSearch}
         searchPlaceholder="Search RTMs..."
         filters={[
+          {
+            key: "rtm",
+            label: "RTM",
+            value: rtmFilter,
+            onChange: setRtmFilter,
+            options: [
+              { label: "All RTMs", value: "" },
+              ...RTM_ORDER.map((r) => ({ label: r, value: r })),
+            ],
+          },
           {
             key: "attainment",
             label: "Attainment",
