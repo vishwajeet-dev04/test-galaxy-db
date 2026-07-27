@@ -237,12 +237,12 @@ def parse_grand_total(xl):
     cells in V1 · Individual row 65 (GRAND TOTAL — All IC).
 
     Cell mapping confirmed against Excel file:
-      Q1  Quota=F65, Actuals=G65
-      Q2  Quota=I65, Actuals=J65
-      H1  Quota=L65, Actuals=M65
-      Annual Quota=R65, Actuals=S65
+      Q1  Quota=F65, Actuals=G66
+      Q2  Quota=I65, Actuals=J66
+      H1  Quota=L65, Actuals=M66
+      Annual Quota=R65, Actuals=S66
 
-    H2 is derived from Annual - H1 (no dedicated cell exists).
+    H2 Quota is pulled from O65. H2 Actuals is derived from Annual - H1.
     """
     import openpyxl
     path = xl if isinstance(xl, str) else xl._io
@@ -263,10 +263,10 @@ def parse_grand_total(xl):
         att = round(a / q * 100, 2) if q and a is not None else None
         return {"quota": q, "actuals": a, "attainment_pct": att}
 
-    q1  = _pm(ws["F65"].value, ws["G65"].value)
-    q2  = _pm(ws["I65"].value, ws["J65"].value)
-    h1  = _pm(ws["L65"].value, ws["M65"].value)
-    ann = _pm(ws["R65"].value, ws["S65"].value)
+    q1  = _pm(ws["F65"].value, ws["G66"].value)
+    q2  = _pm(ws["I65"].value, ws["J66"].value)
+    h1  = _pm(ws["L65"].value, ws["M66"].value)
+    ann = _pm(ws["R65"].value, ws["S66"].value)
 
     # Header bar stats: M65 = IC H1 Actuals (used as Pipeline), U65 = Closed Opps count
     header_pipeline_cr  = _num(ws["M65"].value)
@@ -277,8 +277,8 @@ def parse_grand_total(xl):
     except (TypeError, ValueError):
         header_closed_opps = 0
 
-    # H2 = Annual minus H1 (no explicit cells)
-    h2_quota   = round((ann["quota"]   or 0) - (h1["quota"]   or 0), 2) if ann["quota"]   and h1["quota"]   else None
+    # H2 Quota explicit from O65, H2 Actuals derived from Annual - H1
+    h2_quota   = _num(ws["O65"].value)
     h2_actuals = round((ann["actuals"] or 0) - (h1["actuals"] or 0), 2) if ann["actuals"] is not None and h1["actuals"] is not None else None
     h2_att     = round(h2_actuals / h2_quota * 100, 2) if h2_quota and h2_actuals else None
     h2 = {"quota": h2_quota, "actuals": h2_actuals, "attainment_pct": h2_att}
