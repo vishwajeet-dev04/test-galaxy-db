@@ -9,6 +9,7 @@ import {
   Sparkles,
   PieChart,
 } from "lucide-react";
+import { getStatusMaps } from "../utils/status";
 import { FilterBar } from "../components/FilterBar";
 import { KpiCard } from "../components/KpiCard";
 import { SectionHeader } from "../components/SectionHeader";
@@ -17,7 +18,7 @@ import { AccountLogo } from "../components/AccountLogo";
 import { ChartCard } from "../components/ChartCard";
 import { DonutChart } from "../components/charts/DonutChart";
 import type { AccountRecord, DrillState, QuotaData } from "../types";
-import { formatCr, formatPct, formatInr, BU_COLORS } from "../utils/format";
+import { formatCr, formatPct, formatInr, BU_COLORS, attainmentBarColor } from "../utils/format";
 import { ui } from "../theme";
 
 interface AccountsViewProps {
@@ -31,10 +32,12 @@ type SortKey = "revenue" | "bottomline" | "deals" | "gp" | "quota_share";
 function AccountDetail({
   account,
   icQuota,
+  buStatusMap,
   onSelectEmployee,
 }: {
   account: AccountRecord;
   icQuota: number;
+  buStatusMap: Record<string, number | null>;
   onSelectEmployee: (name: string) => void;
 }) {
   const buShare = account.by_bu.map((b) => ({
@@ -124,7 +127,11 @@ function AccountDetail({
         <div className="lg:col-span-2">
           <ChartCard title="Value by BU" subtitle="Closed topline mix">
             {buShare.length > 0 ? (
-              <DonutChart data={buShare} />
+              <DonutChart
+                data={buShare}
+                statusMap={buStatusMap}
+                legendStatusColorFn={attainmentBarColor}
+              />
             ) : (
               <p className="py-8 text-center text-sm text-slate-400">No BU split</p>
             )}
@@ -266,6 +273,8 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
     return { totalTl, totalBl, totalDeals, top10Share, avgGp, multiBu, top5: accounts.slice(0, 5) };
   }, [accounts]);
 
+  const { buStatusMap } = getStatusMaps(data.bu_level ?? [], data.rtm_divisions ?? [], "h1");
+
   if (selected) {
     return (
       <div className="space-y-4">
@@ -278,7 +287,8 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
         </button>
         <AccountDetail
           account={selected}
-          icQuota={icQuota}
+          icQuota={icQuota ?? 0}
+          buStatusMap={buStatusMap}
           onSelectEmployee={(name) => onDrill({ view: "employees", employee: name })}
         />
       </div>

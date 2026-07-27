@@ -28,7 +28,6 @@ export function PerformanceCard({
   closedDeals = 0,
   periodElapsedLabel,
   quotaOnly = false,
-  stlyActuals,
   title,
   className,
   compact = false,
@@ -88,17 +87,12 @@ export function PerformanceCard({
             </div>
           )}
 
-          {/* Footer: closed deals + STLY */}
+          {/* Footer: closed deals */}
           <div className={`${compact ? "mt-2" : "mt-3"} flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500`}>
             {closedDeals > 0 && (
               <span>
                 {closedDeals} closed deal{closedDeals !== 1 ? "s" : ""}
               </span>
-            )}
-            {stlyActuals != null ? (
-              <span>STLY {formatCrDisplay(stlyActuals)}</span>
-            ) : (
-              <span className="text-slate-400">STLY pending</span>
             )}
           </div>
         </>

@@ -6,8 +6,7 @@ interface DonutChartProps {
   height?: number;
   onSliceClick?: (name: string) => void;
   centerLabel?: string;
-  /** Optional map of data-item name → attainment value (for RTM status indicators) */
-  legendStatusMap?: Record<string, number | null>;
+  statusMap?: Record<string, number | null>;
   /** Optional function that maps an attainment value to a hex colour string */
   legendStatusColorFn?: (attainmentPct: number | null | undefined) => string;
 }
@@ -17,7 +16,7 @@ export function DonutChart({
   height = 280,
   onSliceClick,
   centerLabel,
-  legendStatusMap,
+  statusMap,
   legendStatusColorFn,
 }: DonutChartProps) {
   const filtered = data.filter((d) => d.value > 0);
@@ -85,25 +84,23 @@ export function DonutChart({
       <div className="mt-2 flex flex-wrap justify-center gap-2">
         {filtered.map((d, i) => {
           const pct = total ? ((d.value / total) * 100).toFixed(0) : "0";
-          const hasStatus = legendStatusMap && legendStatusColorFn && d.name in legendStatusMap;
-          const statusColor = hasStatus ? legendStatusColorFn!(legendStatusMap![d.name]) : null;
+          const hasStatus = statusMap && legendStatusColorFn && d.name in statusMap;
+          const statusColor = hasStatus ? legendStatusColorFn!(statusMap![d.name]) : null;
           return (
-            <button
-              key={d.name}
-              onClick={() => onSliceClick?.(d.name)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-100 transition hover:bg-white hover:ring-galaxy-navy/20"
-            >
-              <span className="h-2 w-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-              {d.name}
-              <span className="text-slate-400">{pct}%</span>
-              {hasStatus && (
-                <span
-                  className="h-2 w-2 rounded-full ring-1 ring-white/60"
-                  style={{ background: statusColor! }}
-                  title={`H1 attainment status`}
-                />
-              )}
-            </button>
+            <div key={d.name} className="flex flex-col items-center">
+              <button
+                onClick={() => onSliceClick?.(d.name)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-100 transition hover:bg-white hover:ring-galaxy-navy/20"
+              >
+                <span className="h-2 w-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                {d.name}
+                <span className="text-slate-400">{pct}%</span>
+              </button>
+              <div 
+                className="mt-1 h-1 w-3/4 rounded-full" 
+                style={{ background: hasStatus ? (statusColor || "#94a3b8") : CHART_COLORS[i % CHART_COLORS.length] }} 
+              />
+            </div>
           );
         })}
       </div>

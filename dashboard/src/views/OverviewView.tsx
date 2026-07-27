@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChartCard } from "../components/ChartCard";
+import { getStatusMaps } from "../utils/status";
 import { SectionHeader } from "../components/SectionHeader";
 import { PerformerList } from "../components/PerformerList";
 import { PerformanceCard } from "../components/PerformanceCard";
@@ -76,15 +77,17 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
       }
       return { name: b.bu, value: val };
     });
-    return { rtmData, buData };
+    // Fix 4 & dynamically compute status map for RTM and BU based on selected period attainment
+    const { rtmStatusMap, buStatusMap } = getStatusMaps(
+      bu_level ?? [],
+      rtm_divisions ?? [],
+      selectedChartPeriod
+    );
+
+    return { rtmData, buData, rtmStatusMap, buStatusMap };
   };
 
-  const { rtmData: pipelineByRtm, buData: pipelineByBu } = getChartData();
-
-  // Fix 4: Build a map of division → H1 attainment % for colour indicators on the RTM donut
-  const rtmStatusMap = Object.fromEntries(
-    (rtm_divisions ?? []).map((d) => [d.division, d.h1?.attainment_pct ?? null])
-  );
+  const { rtmData: pipelineByRtm, buData: pipelineByBu, rtmStatusMap, buStatusMap } = getChartData();
 
   const topByPct = top_attainers?.by_attainment_pct ?? [];
   const topByValue = top_attainers?.by_value_closed ?? [];
@@ -119,13 +122,13 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 2xl:grid-rows-2 2xl:[grid-template-columns:repeat(3,minmax(0,1fr))_minmax(0,250px)]">
           {/* Row 1 — Q1, Q2, H1 */}
           <div className="2xl:col-start-1 2xl:row-start-1">
-            {q1Props && <PerformanceCard {...q1Props} closedDeals={261} />}
+            {q1Props && <PerformanceCard {...q1Props} />}
           </div>
           <div className="2xl:col-start-2 2xl:row-start-1">
-            {q2Props && <PerformanceCard {...q2Props} closedDeals={42} />}
+            {q2Props && <PerformanceCard {...q2Props} />}
           </div>
           <div className="2xl:col-start-3 2xl:row-start-1">
-            {h1Props && <PerformanceCard {...h1Props} closedDeals={303} />}
+            {h1Props && <PerformanceCard {...h1Props} />}
           </div>
 
           {/* Row 2 — Q3, Q4, H2 */}
@@ -247,7 +250,7 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
               data={pipelineByRtm}
               height={260}
               onSliceClick={(div) => onDrill({ view: "divisions", division: div })}
-              legendStatusMap={rtmStatusMap}
+              statusMap={rtmStatusMap}
               legendStatusColorFn={rtmStatusColor}
             />
           </ChartCard>
@@ -266,6 +269,8 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
               data={pipelineByBu}
               height={260}
               onSliceClick={(bu) => onDrill({ view: "bu", bu })}
+              statusMap={buStatusMap}
+              legendStatusColorFn={rtmStatusColor}
             />
           </ChartCard>
         </div>

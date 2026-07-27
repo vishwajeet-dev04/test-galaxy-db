@@ -361,6 +361,9 @@ export interface QuotaData {
     pipeline_deals?: number;
     pipeline_revenue_cr?: number;
     pipeline_accounts?: number;
+    header_pipeline_cr?: number | null;
+    header_closed_opps?: number;
+    header_ic_actuals?: number | null;
   };
   period_metrics?: Record<"q1" | "q2" | "h1" | "q3" | "q4" | "h2" | "annual", PeriodSnapshot>;
   rtm_divisions?: RTMDivision[];

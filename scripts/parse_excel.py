@@ -233,35 +233,88 @@ def parse_rtm_subtotals(xl, bp_quotas):
 
 
 def parse_grand_total(xl):
-    df = pd.read_excel(xl, sheet_name="V1 · Individual", header=1)
-    q1q, q1a = "Q1 Quota\n(₹ Cr)", "Q1 Actuals\n(₹ Cr)"
-    h1q, h1a = "H1 Quota\n(₹ Cr)", "H1 Actuals\n(₹ Cr)"
-    q2q, q2a = "Q2 Quota\n(₹ Cr)", "Q2 Actuals\n(₹ Cr)"
-    h2q, h2a = "H2 Quota\n(₹ Cr)", "H2 Actuals\n(₹ Cr)"
-    annq, anna = "Annual Quota\n(₹ Cr)", "Annual  Annual Actuals\n(₹ Cr)"
-    if anna not in df.columns:
-        anna = "Annual Actuals\n(₹ Cr)"
-        
-    for _, row in df.iterrows():
-        name = clean_str(row.get("Employee Name"))
-        if name and "GRAND TOTAL" in name.upper() and "IC" in name.upper():
-            def period_metrics(quota_col, actuals_col, att_col=None):
-                quota = to_num(row.get(quota_col))
-                actuals = to_num(row.get(actuals_col))
-                att = to_pct(row.get(att_col)) if att_col else None
-                if att is None and quota and actuals is not None:
-                    att = round(actuals / quota * 100, 2)
-                return {"quota": quota, "actuals": actuals, "attainment_pct": att}
+    """Read Quota/Actuals for Q1, Q2, H1, and Annual directly from specific
+    cells in V1 · Individual row 65 (GRAND TOTAL — All IC).
 
-            return {
-                "q1": period_metrics(q1q, q1a, "Attainment %\n(Q1)"),
-                "q2": period_metrics(q2q, q2a, "Attainment %\n(Q2)"),
-                "h1": period_metrics(h1q, h1a, "Attainment %\n(H1)"),
-                "h2": period_metrics(h2q, h2a, "Attainment %\n(H2)"),
-                "annual": period_metrics(annq, anna, "Attainment %\n(Annual)"),
-            }
-    
-    return None
+    Cell mapping confirmed against Excel file:
+      Q1  Quota=F65, Actuals=G65
+      Q2  Quota=I65, Actuals=J65
+      H1  Quota=L65, Actuals=M65
+      Annual Quota=R65, Actuals=S65
+
+    H2 is derived from Annual - H1 (no dedicated cell exists).
+    """
+    import openpyxl
+    path = xl if isinstance(xl, str) else xl._io
+    wb = openpyxl.load_workbook(path, data_only=True)
+    if "V1 \u00b7 Individual" not in wb.sheetnames:
+        return None
+    ws = wb["V1 \u00b7 Individual"]
+
+    def _num(val):
+        try:
+            return round(float(val), 2) if val is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _pm(quota, actuals):
+        q = _num(quota)
+        a = _num(actuals)
+        att = round(a / q * 100, 2) if q and a is not None else None
+        return {"quota": q, "actuals": a, "attainment_pct": att}
+
+    q1  = _pm(ws["F65"].value, ws["G65"].value)
+    q2  = _pm(ws["I65"].value, ws["J65"].value)
+    h1  = _pm(ws["L65"].value, ws["M65"].value)
+    ann = _pm(ws["R65"].value, ws["S65"].value)
+
+    # Header bar stats: M65 = IC H1 Actuals (used as Pipeline), U65 = Closed Opps count
+    header_pipeline_cr  = _num(ws["M65"].value)
+    header_closed_opps  = ws["U65"].value
+    header_ic_actuals   = _num(ws["M66"].value)
+    try:
+        header_closed_opps = int(header_closed_opps) if header_closed_opps is not None else 0
+    except (TypeError, ValueError):
+        header_closed_opps = 0
+
+    # H2 = Annual minus H1 (no explicit cells)
+    h2_quota   = round((ann["quota"]   or 0) - (h1["quota"]   or 0), 2) if ann["quota"]   and h1["quota"]   else None
+    h2_actuals = round((ann["actuals"] or 0) - (h1["actuals"] or 0), 2) if ann["actuals"] is not None and h1["actuals"] is not None else None
+    h2_att     = round(h2_actuals / h2_quota * 100, 2) if h2_quota and h2_actuals else None
+    h2 = {"quota": h2_quota, "actuals": h2_actuals, "attainment_pct": h2_att}
+
+    return {
+        "q1": q1, "q2": q2, "h1": h1, "h2": h2, "annual": ann,
+        "header_pipeline_cr": header_pipeline_cr,
+        "header_closed_opps": header_closed_opps,
+        "header_ic_actuals": header_ic_actuals,
+    }
+
+
+
+def parse_v3_closed_deals(xl):
+    """Read closed-deal counts from specific cells in V3 · RTM Division level.
+    Row 12, columns F / M / W / AK correspond to Q1 / Q2 / H1 / Annual.
+    Uses openpyxl (data_only=True) so formula results are read directly.
+    """
+    import openpyxl
+    path = xl if isinstance(xl, str) else xl._io
+    wb = openpyxl.load_workbook(path, data_only=True)
+    if "V3 \u00b7 RTM Division level" not in wb.sheetnames:
+        return {"q1": 0, "q2": 0, "h1": 0, "annual": 0}
+    ws = wb["V3 \u00b7 RTM Division level"]
+    def _int(val):
+        try:
+            return int(val) if val is not None else 0
+        except (TypeError, ValueError):
+            return 0
+    return {
+        "q1":     _int(ws["F12"].value),
+        "q2":     _int(ws["M12"].value),
+        "h1":     _int(ws["W12"].value),
+        "annual": _int(ws["AK12"].value),
+    }
+
 
 def apply_employee_mapping(individuals, mapping):
     def find_mapping(name):
@@ -1290,7 +1343,9 @@ def sum_bu_period(bu_level, period_key):
     return {"quota": round(quota, 2), "actuals": round(actuals, 2), "attainment_pct": att}
 
 
-def build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_total):
+def build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_total, closed_deals_by_period=None):
+    if closed_deals_by_period is None:
+        closed_deals_by_period = {}
     pipeline_cr = pipeline["summary"]["total_revenue_cr"] if pipeline else 0
     pipeline_deals = pipeline["summary"]["total_deals"] if pipeline else 0
 
@@ -1300,6 +1355,9 @@ def build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_
         bu_quota = bu["quota"] or t.get("bu_quota") or 0
         bu_actuals = bu["actuals"] or 0
         has_ic_actuals = (ic_metrics.get("actuals") or 0) > 0
+        # Per-period closed deals from V3; fall back to pipeline total for periods
+        # that don't have a specific cell (Q3/Q4/H2).
+        period_deals = closed_deals_by_period.get(period_key, pipeline_deals if include_pipeline else 0)
         return {
             "bu_quota": round(bu_quota, 2),
             "bu_actuals": round(bu_actuals, 2),
@@ -1308,7 +1366,7 @@ def build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_
             "ic_actuals": round(ic_metrics["actuals"] or 0, 2),
             "ic_attainment_pct": ic_metrics["attainment_pct"] if show_attainment and has_ic_actuals else None,
             "pipeline_value_cr": pipeline_cr if include_pipeline else 0,
-            "closed_deals": pipeline_deals if include_pipeline else 0,
+            "closed_deals": period_deals,
             "show_attainment": show_attainment and has_ic_actuals,
             "stly_actuals_cr": None,
             "stly_attainment_pct": None,
@@ -1711,13 +1769,14 @@ def main():
     annual_quota = sum(b["annual"]["quota"] or 0 for b in bu_level)
     
     grand_total = parse_grand_total(xl)
-    
+    v3_closed_deals = parse_v3_closed_deals(xl)
+
     ic_h1 = grand_total["h1"] if grand_total else sum_period(rtm_subtotals, "h1")
     ic_q1 = grand_total["q1"] if grand_total else sum_period(rtm_subtotals, "q1")
     
     h1_quota = ic_h1["quota"] or 0
     h1_actuals = ic_h1["actuals"] or 0
-    period_metrics = build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_total)
+    period_metrics = build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_total, closed_deals_by_period=v3_closed_deals)
 
     rtm_order = ["S1", "S2", "CB", "GB", "South"]
     rtm_divisions = []
@@ -1784,6 +1843,9 @@ def main():
             "total_divisions": len(RTM_DIVISIONS),
             "total_bus": len(bu_level),
             "total_deals_h1": sum(b["h1"]["deals"] or 0 for b in bu_level),
+            "header_pipeline_cr": grand_total["header_pipeline_cr"] if grand_total else None,
+            "header_closed_opps": grand_total["header_closed_opps"] if grand_total else 0,
+            "header_ic_actuals": grand_total["header_ic_actuals"] if grand_total else None,
             **(
                 {
                     "pipeline_deals": pipeline["summary"]["total_deals"],

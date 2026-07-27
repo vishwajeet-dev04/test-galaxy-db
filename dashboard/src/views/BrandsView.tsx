@@ -14,12 +14,13 @@ import {
 import { FilterBar } from "../components/FilterBar";
 import { KpiCard } from "../components/KpiCard";
 import { SectionHeader } from "../components/SectionHeader";
+import { getStatusMaps } from "../utils/status";
 import { DealRow } from "../components/DealRow";
 import { BrandLogo } from "../components/BrandLogo";
 import { ChartCard } from "../components/ChartCard";
 import { DonutChart } from "../components/charts/DonutChart";
 import type { BrandRecord, DrillState, QuotaData } from "../types";
-import { formatCr, formatPct, formatInr, BU_COLORS } from "../utils/format";
+import { formatCr, formatPct, formatInr, BU_COLORS, attainmentBarColor } from "../utils/format";
 import { ui } from "../theme";
 
 interface BrandsViewProps {
@@ -33,11 +34,13 @@ type SortKey = "revenue" | "bottomline" | "deals" | "gp" | "quota_share" | "acco
 function BrandDetail({
   brand,
   icQuota,
+  buStatusMap,
   onSelectEmployee,
   onSelectAccount,
 }: {
   brand: BrandRecord;
   icQuota: number;
+  buStatusMap: Record<string, number | null>;
   onSelectEmployee: (name: string) => void;
   onSelectAccount: (account: string) => void;
 }) {
@@ -126,7 +129,13 @@ function BrandDetail({
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <ChartCard title="Value by BU" subtitle="Closed topline mix for this brand">
-            {buShare.length > 0 ? <DonutChart data={buShare} /> : (
+            {buShare.length > 0 ? (
+              <DonutChart
+                data={buShare}
+                statusMap={buStatusMap}
+                legendStatusColorFn={attainmentBarColor}
+              />
+            ) : (
               <p className="py-8 text-center text-sm text-slate-400">No BU split</p>
             )}
           </ChartCard>
@@ -227,6 +236,8 @@ export function BrandsView({ data, drill, onDrill }: BrandsViewProps) {
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  const { buStatusMap } = getStatusMaps(data.bu_level ?? [], data.rtm_divisions ?? [], "h1");
+
   const selected = useMemo(
     () => (drill.brand ? brands.find((b) => b.brand === drill.brand) : undefined),
     [brands, drill.brand],
@@ -296,7 +307,8 @@ export function BrandsView({ data, drill, onDrill }: BrandsViewProps) {
         </button>
         <BrandDetail
           brand={selected}
-          icQuota={icQuota}
+          icQuota={icQuota ?? 0}
+          buStatusMap={buStatusMap}
           onSelectEmployee={(name) => onDrill({ view: "employees", employee: name })}
           onSelectAccount={(account) => onDrill({ view: "accounts", account })}
         />

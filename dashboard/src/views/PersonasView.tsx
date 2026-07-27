@@ -3,7 +3,7 @@ import { QuotaVsActualChart } from "../components/charts/QuotaVsActualChart";
 import { DonutChart } from "../components/charts/DonutChart";
 import { FilterBar } from "../components/FilterBar";
 import type { QuotaData, DrillState } from "../types";
-import { formatCr, formatPct, attainmentColor, attainmentBg } from "../utils/format";
+import { formatCr, formatPct, attainmentColor, attainmentBg, attainmentBarColor } from "../utils/format";
 import { ui } from "../theme";
 
 interface PersonasViewProps {
@@ -75,6 +75,10 @@ export function PersonasView({ data, drill, onDrill }: PersonasViewProps) {
           <DonutChart
             data={filteredPersonas.map((p) => ({ name: p.persona, value: p.h1_actuals }))}
             onSliceClick={(persona) => onDrill({ persona })}
+            statusMap={Object.fromEntries(
+              filteredPersonas.map((p) => [p.persona, p.h1_attainment_pct ?? null])
+            )}
+            legendStatusColorFn={attainmentBarColor}
           />
         </div>
         <div className={`${ui.card} p-5`}>

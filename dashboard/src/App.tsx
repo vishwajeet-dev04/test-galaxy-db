@@ -123,13 +123,13 @@ export default function App() {
                 </div>
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals</p>
-                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatCr(data.kpis.ic_h1_actuals_cr)}</p>
+                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatCr(data.kpis.header_ic_actuals)}</p>
                 </div>
-                {data.pipeline && (
+                {data.kpis.header_pipeline_cr != null && (
                   <div className="rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Pipeline</p>
                     <p className="font-mono text-sm font-bold text-emerald-700">
-                      {formatCr(data.pipeline.total_revenue_cr)}
+                      {formatCr(data.kpis.header_pipeline_cr)}
                     </p>
                   </div>
                 )}
@@ -138,19 +138,17 @@ export default function App() {
                   <p className="font-mono text-sm font-bold text-galaxy-navy">{data.kpis.total_employees}</p>
                   <p className="text-[9px] text-slate-400">{data.kpis.total_divisions} RTMs · {data.kpis.total_bus} BUs</p>
                 </div>
-                {data.pipeline && (
-                  <div className="group relative rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100 cursor-default">
+                <div className="group relative rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100 cursor-default">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Closed Opps</p>
-                    <p className="font-mono text-sm font-bold text-emerald-700">425</p>
+                    <p className="font-mono text-sm font-bold text-emerald-700">{data.kpis.header_closed_opps ?? 0}</p>
                     
                     {/* Hover Tooltip (positioned below to avoid top-edge clipping) */}
                     <div className="pointer-events-none absolute top-full right-0 z-20 mt-2 hidden w-max rounded-lg bg-galaxy-navy px-3 py-1.5 text-[11px] font-medium leading-relaxed text-white shadow-lg group-hover:block">
-                      IC Total: 303
+                      IC Total: {data.kpis.header_closed_opps ?? 0}
                       {/* Arrow pointing up */}
                       <div className="absolute right-8 bottom-full border-4 border-transparent border-b-galaxy-navy" />
                     </div>
                   </div>
-                )}
               </div>
             </div>
           </header>

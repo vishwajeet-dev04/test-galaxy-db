@@ -30,18 +30,19 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
   const selected = drill.division;
   const [search, setSearch] = useState("");
   const [minAttainment, setMinAttainment] = useState("");
+  const [rtmPeriod, setRtmPeriod] = useState<"h1" | "h2">("h1");
 
   const filteredRtms = useMemo(() => {
     return rtmDivisions.filter((d) => {
       if (search && !d.division.toLowerCase().includes(search.toLowerCase())) return false;
-      const att = d.h1.attainment_pct ?? 0;
+      const att = d[rtmPeriod].attainment_pct ?? 0;
       if (minAttainment === "low" && att >= 30) return false;
       if (minAttainment === "mid" && (att < 30 || att >= 50)) return false;
       if (minAttainment === "high" && att < 50) return false;
       if (selected && d.division !== selected) return false;
       return true;
     });
-  }, [rtmDivisions, search, minAttainment, selected]);
+  }, [rtmDivisions, search, minAttainment, selected, rtmPeriod]);
 
   const rtmEmployees = selected
     ? individuals.filter((e) => e.division === selected && e.name !== "Total")
@@ -55,10 +56,27 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
         </p>
       )}
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Period</span>
+        {(["h1", "h2"] as const).map((p) => (
+          <button
+            key={p}
+            onClick={() => setRtmPeriod(p)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase transition ${
+              rtmPeriod === p
+                ? "bg-galaxy-navy text-white shadow-sm"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         {rtmDivisions.map((d) => {
-          const att = d.h1.attainment_pct ?? 0;
-          const hasActuals = (d.h1.actuals ?? 0) > 0;
+          const att = d[rtmPeriod].attainment_pct ?? 0;
+          const hasActuals = (d[rtmPeriod].actuals ?? 0) > 0;
           return (
             <button
               key={d.division}
@@ -68,12 +86,12 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
               }`}
             >
               <PerformanceCard
-                period="H1"
+                period={rtmPeriod.toUpperCase() as "H1" | "H2"}
                 title={`${d.division} Actual/ Quota`}
-                actuals={hasActuals ? (d.h1.actuals ?? 0) : null}
-                quota={d.h1.quota ?? 0}
+                actuals={hasActuals ? (d[rtmPeriod].actuals ?? 0) : null}
+                quota={d[rtmPeriod].quota ?? 0}
                 attainmentPct={att}
-                periodElapsedLabel={getPeriodElapsedLabel("H1")}
+                periodElapsedLabel={getPeriodElapsedLabel(rtmPeriod.toUpperCase() as "H1" | "H2")}
                 quotaOnly={!hasActuals}
                 closedDeals={d.closed_deals}
               />
@@ -108,8 +126,8 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
             <tr className={ui.tableHead}>
               <th className="px-4 py-3">RTM</th>
               <th className="px-4 py-3 text-right">Employees</th>
-              <th className="px-4 py-3 text-right">H1 Quota</th>
-              <th className="px-4 py-3 text-right">H1 Actuals</th>
+              <th className="px-4 py-3 text-right">{rtmPeriod.toUpperCase()} Quota</th>
+              <th className="px-4 py-3 text-right">{rtmPeriod.toUpperCase()} Actuals</th>
               <th className="px-4 py-3 text-right">Attainment</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Annual Quota</th>
@@ -120,14 +138,14 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
               <tr key={d.division} onClick={() => onDrill({ division: d.division })} className={ui.tableRow}>
                 <td className="px-4 py-3 font-medium text-galaxy-navy">{d.division}</td>
                 <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{d.employee_count}</td>
-                <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(d.h1.quota)}</td>
+                <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(d[rtmPeriod].quota)}</td>
                 <td className="px-4 py-3 text-right font-mono font-medium text-galaxy-navy">
-                  {formatCr(d.h1.actuals)}
+                  {formatCr(d[rtmPeriod].actuals)}
                 </td>
                 <td
-                  className={`px-4 py-3 text-right font-mono font-medium ${attainmentColor(d.h1.attainment_pct)}`}
+                  className={`px-4 py-3 text-right font-mono font-medium ${attainmentColor(d[rtmPeriod].attainment_pct)}`}
                 >
-                  {formatPct(d.h1.attainment_pct)}
+                  {formatPct(d[rtmPeriod].attainment_pct)}
                 </td>
                 <td className="px-4 py-3">
                   <StatusFlag status={d.status} />
@@ -144,7 +162,7 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
           <h3 className="mb-4 font-medium text-galaxy-navy">{selected} — Employee Breakdown</h3>
           <div className="space-y-2">
             {rtmEmployees.map((emp) => {
-              const att = emp.h1.attainment_pct ?? 0;
+              const att = emp[rtmPeriod]?.attainment_pct ?? 0;
               return (
                 <button
                   key={emp.name}
@@ -156,7 +174,7 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
                     <p className="font-medium text-galaxy-navy">{emp.name}</p>
                     <p className="text-xs text-galaxy-muted">{emp.persona}</p>
                   </div>
-                  <p className="font-mono text-sm text-galaxy-muted">{formatCr(emp.h1.actuals)}</p>
+                  <p className="font-mono text-sm text-galaxy-muted">{formatCr(emp[rtmPeriod]?.actuals)}</p>
                   <p className={`font-mono text-sm ${attainmentColor(att)}`}>{formatPct(att)}</p>
                 </button>
               );
