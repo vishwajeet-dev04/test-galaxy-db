@@ -384,7 +384,7 @@ def parse_individual(xl):
                 "id": clean_str(row.get("#")),
                 "name": name,
                 "division": division,
-                "fy": clean_str(row.get("FY")),
+                "fy": "FY 26-27",
                 "persona": persona,
                 "q1": {
                     "quota": to_num(row.get("Q1 Quota\n(₹ Cr)")),
@@ -665,7 +665,7 @@ def parse_rtm_bu_sheet(xl, sheet_name, bu_code):
                 "name": name,
                 "division": normalize_division(clean_str(row.get("Division"))),
                 "bu": bu_code,
-                "fy": clean_str(row.get("FY")),
+                "fy": "FY 26-27",
                 "q1": {"quota": q1_q, "actuals": q1_a, "attainment_pct": q1_att},
                 "q2": {"quota": q2_q, "actuals": q2_a, "attainment_pct": q2_att},
                 "h1": {"quota": h1_q, "actuals": h1_a, "attainment_pct": h1_att},
@@ -1045,7 +1045,7 @@ def parse_pipeline(individuals, teams, employee_mapping=None):
 
     pipeline_summary = {
         "source": "Opportunity Pipeline Q1 + Q2",
-        "period": "H1 FY 25-26",
+        "period": "H1 FY 26-27",
         "total_deals": len(counted_deals),
         "total_deals_raw": len(all_deals),
         "total_revenue_inr": round(total_inr, 2),
@@ -1860,7 +1860,7 @@ def main():
         "meta": {
             "source": EXCEL_PATH.name,
             "generated_at": pd.Timestamp.now().isoformat(),
-            "fy": individuals[0]["fy"] if individuals else "FY 25-26",
+            "fy": individuals[0]["fy"] if individuals else "FY 26-27",
             "currency": "₹ Cr",
             "pipeline_period": pipeline["summary"]["period"] if pipeline else None,
             "timeline_week": 3,

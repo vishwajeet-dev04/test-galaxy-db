@@ -467,6 +467,11 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                             <span className="inline-flex flex-wrap items-center gap-2.5">
                               <Avatar name={emp.name} size="sm" />
                               <span>{emp.name}</span>
+                              {(emp.reference_only && pd.quota && pd.quota > 0) && (
+                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                                  Reference only
+                                </span>
+                              )}
                             </span>
                           </td>
                           <td className="px-4 py-3">

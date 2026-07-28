@@ -1,20 +1,20 @@
 {
   "meta": {
     "source": "Galaxy Quota Tracker - 14072026.xlsx",
-    "generated_at": "2026-07-28T20:12:26.892032",
-    "fy": "FY 25-26",
+    "generated_at": "2026-07-29T00:36:37.226937",
+    "fy": "FY 26-27",
     "currency": "\u20b9 Cr",
-    "pipeline_period": "H1 FY 25-26",
+    "pipeline_period": "H1 FY 26-27",
     "timeline_week": 3
   },
   "kpis": {
     "h1_quota_cr": 498.0,
-    "h1_actuals_cr": 157.21,
-    "h1_attainment_pct": 31.57,
+    "h1_actuals_cr": 157.53,
+    "h1_attainment_pct": 31.63,
     "annual_quota_cr": 1236.0,
     "ic_h1_quota_cr": 498.0,
-    "ic_h1_actuals_cr": 157.21,
-    "ic_h1_attainment_pct": 31.57,
+    "ic_h1_actuals_cr": 157.53,
+    "ic_h1_attainment_pct": 31.63,
     "ic_q1_quota_cr": 199.22,
     "ic_q1_actuals_cr": 97.33,
     "ic_q1_attainment_pct": 48.86,
@@ -24,7 +24,7 @@
     "total_deals_h1": 401.0,
     "header_pipeline_cr": 183.51,
     "header_closed_opps": 473,
-    "header_ic_actuals": 157.21,
+    "header_ic_actuals": 157.53,
     "header_h1_attainment_pct": 37.0,
     "pipeline_deals": 417,
     "pipeline_revenue_cr": 179.68,
@@ -46,11 +46,11 @@
     },
     "q2": {
       "bu_quota": 97.5,
-      "bu_actuals": 53.12,
-      "bu_attainment_pct": 54.48,
+      "bu_actuals": 60.2,
+      "bu_attainment_pct": 61.74,
       "ic_quota": 330.32,
-      "ic_actuals": 59.87,
-      "ic_attainment_pct": 18.12,
+      "ic_actuals": 60.19,
+      "ic_attainment_pct": 18.22,
       "pipeline_value_cr": 0,
       "closed_deals": 87,
       "show_attainment": true,
@@ -62,10 +62,10 @@
       "bu_actuals": 157.54,
       "bu_attainment_pct": 12.75,
       "ic_quota": 498.0,
-      "ic_actuals": 157.21,
-      "ic_attainment_pct": 31.57,
+      "ic_actuals": 157.53,
+      "ic_attainment_pct": 31.63,
       "pipeline_value_cr": 179.68,
-      "closed_deals": 399,
+      "closed_deals": 400,
       "show_attainment": true,
       "stly_actuals_cr": null,
       "stly_attainment_pct": null
@@ -114,10 +114,10 @@
       "bu_actuals": 157.54,
       "bu_attainment_pct": 12.75,
       "ic_quota": 1250.0,
-      "ic_actuals": 157.21,
-      "ic_attainment_pct": 12.58,
+      "ic_actuals": 157.53,
+      "ic_attainment_pct": 12.6,
       "pipeline_value_cr": 0,
-      "closed_deals": 399,
+      "closed_deals": 400,
       "show_attainment": true,
       "stly_actuals_cr": null,
       "stly_attainment_pct": null
@@ -133,13 +133,13 @@
       },
       "q2": {
         "quota": 194.17499999999998,
-        "actuals": 17.788656428,
-        "attainment_pct": 9.16
+        "actuals": 18.107936428,
+        "attainment_pct": 9.33
       },
       "h1": {
         "quota": 307.35,
-        "actuals": 54.706149121,
-        "attainment_pct": 17.8
+        "actuals": 55.025429121,
+        "attainment_pct": 17.9
       },
       "q3": {
         "quota": 140.0,
@@ -158,12 +158,12 @@
       },
       "annual": {
         "quota": 660.0,
-        "actuals": 54.706149121,
-        "attainment_pct": 8.29
+        "actuals": 55.025429121,
+        "attainment_pct": 8.34
       },
       "employee_count": 8,
       "status": "red",
-      "closed_deals": 124
+      "closed_deals": 125
     },
     {
       "division": "S2",
@@ -373,6 +373,13 @@
   ],
   "at_risk_ics": [
     {
+      "name": "Raj Matondkar",
+      "division": "S1",
+      "h1_actuals": 0.31928,
+      "h1_quota": null,
+      "h1_attainment_pct": 0
+    },
+    {
       "name": "TBH (Varsha)",
       "division": "S2",
       "h1_actuals": 1.055468973,
@@ -439,13 +446,6 @@
       "name": "Sanjeev Kohli",
       "division": "GeoX",
       "h1_actuals": 2.19665,
-      "h1_quota": null,
-      "h1_attainment_pct": 0
-    },
-    {
-      "name": "Raj Matondkar",
-      "division": "S1",
-      "h1_actuals": 0.31928,
       "h1_quota": null,
       "h1_attainment_pct": 0
     },
@@ -1998,7 +1998,7 @@
       "id": "1",
       "name": "Tasneem K",
       "division": "S1",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 35.075,
@@ -2945,7 +2945,7 @@
       "id": "2",
       "name": "Riya Bhatt",
       "division": "S1",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 20.0,
@@ -3178,7 +3178,7 @@
       "id": "3",
       "name": "Pratik Kadam",
       "division": "S1",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 3.0,
@@ -6591,7 +6591,7 @@
       "id": "4",
       "name": "Prashant Ddugu",
       "division": "S1",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "TL",
       "q1": {
         "quota": 28.799999999999997,
@@ -6645,7 +6645,7 @@
       "id": "5",
       "name": "Chirag Palande",
       "division": "S1",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 13.0,
@@ -7334,7 +7334,7 @@
       "id": "6",
       "name": "Richa Tiwari",
       "division": "S1",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 8.299999999999999,
@@ -11962,10 +11962,157 @@
       "exclude_from_pipeline_totals": false
     },
     {
+      "id": "7",
+      "name": "Raj Matondkar",
+      "division": "S1",
+      "fy": "FY 26-27",
+      "persona": "IC",
+      "q1": {
+        "quota": 0.0,
+        "actuals": 0.0,
+        "attainment_pct": null
+      },
+      "q2": {
+        "quota": 0.0,
+        "actuals": 0.31928,
+        "attainment_pct": null
+      },
+      "h1": {
+        "quota": null,
+        "actuals": 0.31928,
+        "attainment_pct": null
+      },
+      "h2": {
+        "quota": null,
+        "actuals": null,
+        "attainment_pct": null
+      },
+      "annual": {
+        "quota": 0.0,
+        "actuals": 0.31928,
+        "attainment_pct": null
+      },
+      "deals": {
+        "total": 1.0,
+        "led_by_count": null,
+        "led_by_rev": null,
+        "contributed_count": null,
+        "contributed_rev": null
+      },
+      "closed_deals": 1.0,
+      "rank_division": null,
+      "bu": null,
+      "team_lead": null,
+      "active": true,
+      "pipeline": {
+        "deal_count": 1,
+        "deal_count_total": 1,
+        "account_count": 1,
+        "total_revenue_inr": 3192800.0,
+        "total_revenue_cr": 0.3193,
+        "total_bottomline_inr": 237536.0,
+        "total_bottomline_cr": 0.0238,
+        "total_quota_credit_inr": 3192800.0,
+        "total_quota_credit_cr": 0.3193,
+        "closed_accounts": [
+          {
+            "account": "Godrej & Boyce Manufacturing Company Limited",
+            "deal_count": 1,
+            "revenue_inr": 3192800.0,
+            "revenue_cr": 0.3193,
+            "bottomline_inr": 237536.0,
+            "bottomline_cr": 0.0238,
+            "quota_credit_inr": 3192800.0,
+            "quota_credit_cr": 0.3193,
+            "deals": [
+              {
+                "opportunity_number": "POT87252",
+                "account": "Godrej & Boyce Manufacturing Company Limited",
+                "opportunity_name": "VMware renewal - 208 core",
+                "topline_inr": 3192800.0,
+                "topline_cr": 0.3193,
+                "amount_inr": 3192800.0,
+                "amount_cr": 0.3193,
+                "bottomline_inr": 237536.0,
+                "bottomline_cr": 0.0238,
+                "gp_pct": 7.44,
+                "multiplier": 1.0,
+                "multiplier_reason": "DCG \u2014 standard rate",
+                "quota_credit_inr": 3192800.0,
+                "quota_credit_cr": 0.3193,
+                "excluded_from_achievement": false,
+                "exclusion_reason": null,
+                "crm": {
+                  "booked": true,
+                  "billed": "none",
+                  "received": "none"
+                },
+                "category": "Data Centre",
+                "bu": "DCG",
+                "sub_category": "Virtualisation",
+                "brand": "VMware",
+                "close_date": "15-07-2026",
+                "deal_category": "Green",
+                "assigned_to": "Prashant Dudugu+Raj Matondkar",
+                "supported_by": "Prashant Dudugu",
+                "employee": "Raj Matondkar",
+                "pipeline_led_by": "Raj Matondkar",
+                "rtm_division": "S1",
+                "opf_no": "DP-RN-0001",
+                "deal_status_raw": "-",
+                "exclude_from_pipeline_totals": false
+              }
+            ]
+          }
+        ],
+        "closed_deals": [
+          {
+            "opportunity_number": "POT87252",
+            "account": "Godrej & Boyce Manufacturing Company Limited",
+            "opportunity_name": "VMware renewal - 208 core",
+            "topline_inr": 3192800.0,
+            "topline_cr": 0.3193,
+            "amount_inr": 3192800.0,
+            "amount_cr": 0.3193,
+            "bottomline_inr": 237536.0,
+            "bottomline_cr": 0.0238,
+            "gp_pct": 7.44,
+            "multiplier": 1.0,
+            "multiplier_reason": "DCG \u2014 standard rate",
+            "quota_credit_inr": 3192800.0,
+            "quota_credit_cr": 0.3193,
+            "excluded_from_achievement": false,
+            "exclusion_reason": null,
+            "crm": {
+              "booked": true,
+              "billed": "none",
+              "received": "none"
+            },
+            "category": "Data Centre",
+            "bu": "DCG",
+            "sub_category": "Virtualisation",
+            "brand": "VMware",
+            "close_date": "15-07-2026",
+            "deal_category": "Green",
+            "assigned_to": "Prashant Dudugu+Raj Matondkar",
+            "supported_by": "Prashant Dudugu",
+            "employee": "Raj Matondkar",
+            "pipeline_led_by": "Raj Matondkar",
+            "rtm_division": "S1",
+            "opf_no": "DP-RN-0001",
+            "deal_status_raw": "-",
+            "exclude_from_pipeline_totals": false
+          }
+        ]
+      },
+      "reference_only": false,
+      "exclude_from_pipeline_totals": false
+    },
+    {
       "id": "1",
       "name": "Rohit Deshmukh",
       "division": "S2",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 29.0,
@@ -13382,7 +13529,7 @@
       "id": "2",
       "name": "Chetna Sharma",
       "division": "S2",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 8.0,
@@ -14255,7 +14402,7 @@
       "id": "3",
       "name": "Sankeerth Bhargav",
       "division": "S2",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 2.75,
@@ -14309,7 +14456,7 @@
       "id": "4",
       "name": "TBH (Varsha)",
       "division": "S2",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 7.300000000000001,
@@ -14702,7 +14849,7 @@
       "id": "5",
       "name": "TBH (Arpit)",
       "division": "S2",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 6.75,
@@ -14935,7 +15082,7 @@
       "id": "6",
       "name": "TBH (Dennis)",
       "division": "S2",
-      "fy": "FY 25-26",
+      "fy": "FY 26-27",
       "persona": "IC",
       "q1": {
         "quota": 1.05,
@@ -46334,153 +46481,6 @@
       },
       "reference_only": false,
       "exclude_from_pipeline_totals": false
-    },
-    {
-      "id": "8",
-      "name": "Raj Matondkar",
-      "division": "S1",
-      "fy": "FY 26-27",
-      "persona": "IC",
-      "q1": {
-        "quota": null,
-        "actuals": 0.0,
-        "attainment_pct": null
-      },
-      "q2": {
-        "quota": null,
-        "actuals": 0.31928,
-        "attainment_pct": null
-      },
-      "h1": {
-        "quota": null,
-        "actuals": 0.31928,
-        "attainment_pct": null
-      },
-      "h2": {
-        "quota": null,
-        "actuals": null,
-        "attainment_pct": null
-      },
-      "annual": {
-        "quota": 0.0,
-        "actuals": 0.31928,
-        "attainment_pct": null
-      },
-      "deals": {
-        "total": 1.0,
-        "led_by_count": null,
-        "led_by_rev": null,
-        "contributed_count": null,
-        "contributed_rev": null
-      },
-      "closed_deals": 1.0,
-      "rank_division": null,
-      "bu": null,
-      "team_lead": null,
-      "active": true,
-      "pipeline": {
-        "deal_count": 1,
-        "deal_count_total": 1,
-        "account_count": 1,
-        "total_revenue_inr": 3192800.0,
-        "total_revenue_cr": 0.3193,
-        "total_bottomline_inr": 237536.0,
-        "total_bottomline_cr": 0.0238,
-        "total_quota_credit_inr": 3192800.0,
-        "total_quota_credit_cr": 0.3193,
-        "closed_accounts": [
-          {
-            "account": "Godrej & Boyce Manufacturing Company Limited",
-            "deal_count": 1,
-            "revenue_inr": 3192800.0,
-            "revenue_cr": 0.3193,
-            "bottomline_inr": 237536.0,
-            "bottomline_cr": 0.0238,
-            "quota_credit_inr": 3192800.0,
-            "quota_credit_cr": 0.3193,
-            "deals": [
-              {
-                "opportunity_number": "POT87252",
-                "account": "Godrej & Boyce Manufacturing Company Limited",
-                "opportunity_name": "VMware renewal - 208 core",
-                "topline_inr": 3192800.0,
-                "topline_cr": 0.3193,
-                "amount_inr": 3192800.0,
-                "amount_cr": 0.3193,
-                "bottomline_inr": 237536.0,
-                "bottomline_cr": 0.0238,
-                "gp_pct": 7.44,
-                "multiplier": 1.0,
-                "multiplier_reason": "DCG \u2014 standard rate",
-                "quota_credit_inr": 3192800.0,
-                "quota_credit_cr": 0.3193,
-                "excluded_from_achievement": false,
-                "exclusion_reason": null,
-                "crm": {
-                  "booked": true,
-                  "billed": "none",
-                  "received": "none"
-                },
-                "category": "Data Centre",
-                "bu": "DCG",
-                "sub_category": "Virtualisation",
-                "brand": "VMware",
-                "close_date": "15-07-2026",
-                "deal_category": "Green",
-                "assigned_to": "Prashant Dudugu+Raj Matondkar",
-                "supported_by": "Prashant Dudugu",
-                "employee": "Raj Matondkar",
-                "pipeline_led_by": "Raj Matondkar",
-                "rtm_division": "S1",
-                "opf_no": "DP-RN-0001",
-                "deal_status_raw": "-",
-                "exclude_from_pipeline_totals": false
-              }
-            ]
-          }
-        ],
-        "closed_deals": [
-          {
-            "opportunity_number": "POT87252",
-            "account": "Godrej & Boyce Manufacturing Company Limited",
-            "opportunity_name": "VMware renewal - 208 core",
-            "topline_inr": 3192800.0,
-            "topline_cr": 0.3193,
-            "amount_inr": 3192800.0,
-            "amount_cr": 0.3193,
-            "bottomline_inr": 237536.0,
-            "bottomline_cr": 0.0238,
-            "gp_pct": 7.44,
-            "multiplier": 1.0,
-            "multiplier_reason": "DCG \u2014 standard rate",
-            "quota_credit_inr": 3192800.0,
-            "quota_credit_cr": 0.3193,
-            "excluded_from_achievement": false,
-            "exclusion_reason": null,
-            "crm": {
-              "booked": true,
-              "billed": "none",
-              "received": "none"
-            },
-            "category": "Data Centre",
-            "bu": "DCG",
-            "sub_category": "Virtualisation",
-            "brand": "VMware",
-            "close_date": "15-07-2026",
-            "deal_category": "Green",
-            "assigned_to": "Prashant Dudugu+Raj Matondkar",
-            "supported_by": "Prashant Dudugu",
-            "employee": "Raj Matondkar",
-            "pipeline_led_by": "Raj Matondkar",
-            "rtm_division": "S1",
-            "opf_no": "DP-RN-0001",
-            "deal_status_raw": "-",
-            "exclude_from_pipeline_totals": false
-          }
-        ]
-      },
-      "reference_only": false,
-      "exclude_from_pipeline_totals": false
     }
   ],
   "leaders": [
@@ -46653,7 +46653,7 @@
       },
       "q2": {
         "quota": null,
-        "actuals": null,
+        "actuals": 6.969197715,
         "attainment_pct": null
       },
       "h1": {
@@ -46689,7 +46689,7 @@
       },
       "q2": {
         "quota": null,
-        "actuals": null,
+        "actuals": 0.110521,
         "attainment_pct": null
       },
       "h1": {
@@ -46957,7 +46957,7 @@
         "name": "S1 Division Total",
         "division": "S1",
         "bu": "DCG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 13.039549279000001,
@@ -46998,7 +46998,7 @@
         "name": "S2 Division Total",
         "division": "S2",
         "bu": "DCG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 6.033635673,
@@ -47039,7 +47039,7 @@
         "name": "CB Division Total",
         "division": "CB",
         "bu": "DCG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 8.1258048,
@@ -47080,7 +47080,7 @@
         "name": "GB Division Total",
         "division": "GB",
         "bu": "DCG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.2438,
@@ -47121,7 +47121,7 @@
         "name": "South Division Total",
         "division": "South",
         "bu": "DCG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 5.553386,
@@ -47162,7 +47162,7 @@
         "name": "GeoX Division Total",
         "division": "GeoX",
         "bu": "DCG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.0,
@@ -47203,7 +47203,7 @@
         "name": "RTM Total",
         "division": null,
         "bu": "DCG",
-        "fy": null,
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 32.996175752,
@@ -47246,7 +47246,7 @@
         "name": "S1 Division Total",
         "division": "S1",
         "bu": "CSN",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 11.430924178,
@@ -47287,7 +47287,7 @@
         "name": "S2 Division Total",
         "division": "S2",
         "bu": "CSN",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 1.9310274550000002,
@@ -47328,7 +47328,7 @@
         "name": "CB Division Total",
         "division": "CB",
         "bu": "CSN",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 5.8855196,
@@ -47369,7 +47369,7 @@
         "name": "GB Division Total",
         "division": "GB",
         "bu": "CSN",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 5.632577861,
@@ -47410,7 +47410,7 @@
         "name": "South Division Total",
         "division": "South",
         "bu": "CSN",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.5456455,
@@ -47451,7 +47451,7 @@
         "name": "GeoX Division Total",
         "division": "GeoX",
         "bu": "CSN",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 1.7841852,
@@ -47492,7 +47492,7 @@
         "name": "RTM Total",
         "division": null,
         "bu": "CSN",
-        "fy": null,
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 27.209879794,
@@ -47535,7 +47535,7 @@
         "name": "S1 Division Total",
         "division": "S1",
         "bu": "PS",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 1.5529837,
@@ -47576,7 +47576,7 @@
         "name": "S2 Division Total",
         "division": "S2",
         "bu": "PS",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 7.134184,
@@ -47617,7 +47617,7 @@
         "name": "CB Division Total",
         "division": "CB",
         "bu": "PS",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.0,
@@ -47658,7 +47658,7 @@
         "name": "GB Division Total",
         "division": "GB",
         "bu": "PS",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.28294595699999997,
@@ -47699,7 +47699,7 @@
         "name": "South Division Total",
         "division": "South",
         "bu": "PS",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.0,
@@ -47740,7 +47740,7 @@
         "name": "GeoX Division Total",
         "division": "GeoX",
         "bu": "PS",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.5079158,
@@ -47781,7 +47781,7 @@
         "name": "RTM Total",
         "division": null,
         "bu": "PS",
-        "fy": null,
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 9.478029457,
@@ -47824,7 +47824,7 @@
         "name": "S1 Division Total",
         "division": "S1",
         "bu": "CSG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 10.894035536,
@@ -47865,7 +47865,7 @@
         "name": "S2 Division Total",
         "division": "S2",
         "bu": "CSG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.2977234,
@@ -47906,7 +47906,7 @@
         "name": "CB Division Total",
         "division": "CB",
         "bu": "CSG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.240026,
@@ -47947,7 +47947,7 @@
         "name": "GB Division Total",
         "division": "GB",
         "bu": "CSG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 7.8676617,
@@ -47988,7 +47988,7 @@
         "name": "South Division Total",
         "division": "South",
         "bu": "CSG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 4.190595389,
@@ -48029,7 +48029,7 @@
         "name": "GeoX Division Total",
         "division": "GeoX",
         "bu": "CSG",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 1.4018849,
@@ -48070,7 +48070,7 @@
         "name": "RTM Total",
         "division": null,
         "bu": "CSG",
-        "fy": null,
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 24.891926925,
@@ -48078,7 +48078,7 @@
         },
         "q2": {
           "quota": null,
-          "actuals": null,
+          "actuals": 6.969197715,
           "attainment_pct": null
         },
         "h1": {
@@ -48113,7 +48113,7 @@
         "name": "S1 Division Total",
         "division": "S1",
         "bu": "Cloud",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.0,
@@ -48154,7 +48154,7 @@
         "name": "S2 Division Total",
         "division": "S2",
         "bu": "Cloud",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.0,
@@ -48195,7 +48195,7 @@
         "name": "CB Division Total",
         "division": "CB",
         "bu": "Cloud",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 1.55204536,
@@ -48236,7 +48236,7 @@
         "name": "GB Division Total",
         "division": "GB",
         "bu": "Cloud",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 1.0873971,
@@ -48277,7 +48277,7 @@
         "name": "South Division Total",
         "division": "South",
         "bu": "Cloud",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.0,
@@ -48318,7 +48318,7 @@
         "name": "GeoX Division Total",
         "division": "GeoX",
         "bu": "Cloud",
-        "fy": "FY 25-26",
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 0.1186225,
@@ -48359,7 +48359,7 @@
         "name": "RTM Total",
         "division": null,
         "bu": "Cloud",
-        "fy": null,
+        "fy": "FY 26-27",
         "q1": {
           "quota": null,
           "actuals": 2.7580649599999996,
@@ -48367,7 +48367,7 @@
         },
         "q2": {
           "quota": null,
-          "actuals": null,
+          "actuals": 0.110521,
           "attainment_pct": null
         },
         "h1": {
@@ -48400,7 +48400,7 @@
   },
   "pipeline": {
     "source": "Opportunity Pipeline Q1 + Q2",
-    "period": "H1 FY 25-26",
+    "period": "H1 FY 26-27",
     "total_deals": 417,
     "total_deals_raw": 473,
     "total_revenue_inr": 1796837907.72,
