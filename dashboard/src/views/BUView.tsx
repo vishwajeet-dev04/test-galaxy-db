@@ -95,9 +95,11 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
                   
                   {/* # Deals only exists for H1/annual in the tracker currently, fallback to h1 deals safely */}
                   {b.h1.deals != null && buPeriod === "h1" && (
-                    <p className="mt-2 text-[11px] font-semibold text-slate-500">
-                      <span className="font-bold text-galaxy-navy">{Math.round(b.h1.deals)}</span> closed deals
-                    </p>
+                    <div className="mt-3">
+                      <p className="inline-block rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700">
+                        {Math.round(b.h1.deals)} closed deals
+                      </p>
+                    </div>
                   )}
                 </div>
                 <div className="relative shrink-0">
@@ -107,11 +109,6 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
                   </span>
                 </div>
               </div>
-              {b.pipeline && b.pipeline.deal_count > 0 && (
-                <p className="mt-3 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700">
-                  {b.pipeline.deal_count} pipeline deals
-                </p>
-              )}
             </button>
           );
         })}

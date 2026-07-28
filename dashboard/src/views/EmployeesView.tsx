@@ -18,7 +18,17 @@ function ClosedAccountsSection({ pipeline }: { pipeline: Individual["pipeline"] 
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
 
   if (!pipeline.deal_count) {
-    return null;
+    return (
+      <div className="mt-6">
+        <h4 className="mb-4 flex items-center gap-2 font-medium text-galaxy-navy">
+          <Building2 className="h-4 w-4" />
+          Closed Accounts
+        </h4>
+        <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-8">
+          <p className="text-sm text-slate-400">No closed accounts yet</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -267,8 +277,22 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
 
     return [...map.entries()]
       .map(([division, employees]) => {
-        const periodQuota = employees.reduce((s, e) => s + (e[period].quota ?? 0), 0);
-        const periodActuals = employees.reduce((s, e) => s + (e[period].actuals ?? 0), 0);
+        const sumEmployees = employees.filter(e => {
+          if (e.persona !== 'IC') return false;
+          if (division === 'S1' && /ishwari kadam/i.test(e.name)) return false;
+          return true;
+        });
+
+        let periodQuota = sumEmployees.reduce((s, e) => s + (e[period].quota ?? 0), 0);
+        let periodActuals = sumEmployees.reduce((s, e) => s + (e[period].actuals ?? 0), 0);
+
+        if (division === 'GeoX') {
+          const hbMax = employees
+            .filter((e) => /hrushikesh bagade/i.test(e.name))
+            .sort((a, b) => (b[period].actuals ?? 0) - (a[period].actuals ?? 0))[0];
+          periodActuals = hbMax ? (hbMax[period].actuals ?? 0) : 0;
+          periodQuota = 0;
+        }
         return {
           division,
           // Sort employees by selected period's actuals descending
@@ -326,7 +350,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
           },
           {
             key: "deals",
-            label: "Pipeline",
+            label: "IC Actuals Including Others",
             value: hasDealsOnly ? "yes" : "",
             onChange: (v) => setHasDealsOnly(v === "yes"),
             options: [
@@ -359,7 +383,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
         {groupedByDivision.length !== 1 ? "s" : ""}
         {data.pipeline && (
           <span className="ml-2 text-galaxy-blue">
-            · Pipeline: {data.pipeline.total_deals} deals · {formatCr(data.pipeline.total_revenue_cr)}
+            · IC Actuals Including Others: {data.pipeline.total_deals} deals · {formatCr(data.pipeline.total_revenue_cr)}
           </span>
         )}
       </p>
@@ -443,19 +467,23 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                             <span className="inline-flex flex-wrap items-center gap-2.5">
                               <Avatar name={emp.name} size="sm" />
                               <span>{emp.name}</span>
-                              {(emp.reference_only || /hrushikesh/i.test(emp.name)) && (
-                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
-                                  Reference only
-                                </span>
-                              )}
                             </span>
                           </td>
                           <td className="px-4 py-3">
                             <span className={ui.badge}>{emp.persona}</span>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            {emp.closed_deals != null ? (
-                              <span className="font-medium text-galaxy-navy">{emp.closed_deals}</span>
+                            {emp.pipeline?.closed_accounts?.length > 0 ? (
+                              <div className="flex flex-col items-center justify-center">
+                                <span className="font-medium text-galaxy-navy text-xs">
+                                  {emp.pipeline.closed_accounts[0].account} &times;{emp.pipeline.closed_accounts[0].deal_count}
+                                </span>
+                                {emp.pipeline.closed_accounts.length > 1 && (
+                                  <span className="mt-0.5 text-[10px] text-galaxy-muted">
+                                    +{emp.pipeline.closed_accounts.length - 1} more account{emp.pipeline.closed_accounts.length > 2 ? "s" : ""}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-xs text-galaxy-muted">—</span>
                             )}

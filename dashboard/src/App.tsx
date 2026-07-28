@@ -53,7 +53,7 @@ export default function App() {
         <div className="text-center">
           <img src="/galaxy-logo.webp" alt="Galaxy" className="mx-auto h-14 object-contain opacity-90" />
           <RefreshCw className="mx-auto mt-6 h-6 w-6 animate-spin text-galaxy-navy" />
-          <p className="mt-4 text-sm font-semibold text-galaxy-navy">Loading Performance Tracker</p>
+          <p className="mt-4 text-sm font-semibold text-galaxy-navy">Loading Individual Contributor's Performance Tracker</p>
           <p className="mt-1 text-xs text-slate-500">Syncing quota & pipeline data…</p>
         </div>
       </div>
@@ -119,7 +119,7 @@ export default function App() {
                 
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
-                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPctCard(data.kpis.h1_attainment_pct)}</p>
+                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPctCard(data.kpis.header_h1_attainment_pct ?? data.kpis.h1_attainment_pct)}</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals</p>
@@ -127,7 +127,7 @@ export default function App() {
                 </div>
                 {data.kpis.header_pipeline_cr != null && (
                   <div className="rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Pipeline</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">IC Actuals Including Others</p>
                     <p className="font-mono text-sm font-bold text-emerald-700">
                       {formatCr(data.kpis.header_pipeline_cr)}
                     </p>

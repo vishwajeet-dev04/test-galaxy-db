@@ -76,7 +76,7 @@ export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: Sid
                 Sales Intelligence
               </p>
               <h1 className="mt-1.5 text-[17px] font-semibold leading-tight tracking-tight text-galaxy-navy">
-                Performance Tracker
+                Individual Contributor's Performance Tracker
               </h1>
               <span className="mt-2.5 inline-flex items-center rounded-full border border-galaxy-navy/15 bg-galaxy-navy/5 px-3 py-1 text-[11px] font-semibold text-galaxy-navy">
                 {fy}
@@ -123,7 +123,7 @@ export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: Sid
           <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
             Galaxy Office Automation
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500">Quota · Pipeline · Attainment</p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">Quota · IC Actuals Including Others · Attainment</p>
         </div>
       </aside>
     </>

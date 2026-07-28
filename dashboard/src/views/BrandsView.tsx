@@ -99,7 +99,7 @@ function BrandDetail({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className={`${ui.card} p-4`}>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pipeline share</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals Including Others share</p>
           <p className="mt-1 font-mono text-xl font-semibold text-galaxy-navy">
             {formatPct(brand.pct_of_pipeline_topline)}
           </p>
@@ -280,7 +280,7 @@ export function BrandsView({ data, drill, onDrill }: BrandsViewProps) {
   }, [brands, search, buFilter, sortKey]);
 
   const insights = useMemo(() => {
-    const totalTl = brands.reduce((s, b) => s + b.revenue_cr, 0);
+    const totalTl = data.kpis.header_pipeline_cr ?? brands.reduce((s, b) => s + b.revenue_cr, 0);
     const totalBl = brands.reduce((s, b) => s + b.bottomline_cr, 0);
     const totalDeals = brands.reduce((s, b) => s + b.deal_count, 0);
     const top5 = brands.slice(0, 5);
@@ -406,7 +406,7 @@ export function BrandsView({ data, drill, onDrill }: BrandsViewProps) {
           <div>
             <p className="text-sm font-semibold text-galaxy-navy">Brand contribution to quota</p>
             <p className="mt-0.5 max-w-2xl text-sm leading-relaxed text-slate-500">
-              Brand topline as % of IC H1 quota ({formatCr(icQuota)}). Pipeline closed{" "}
+              Brand topline as % of IC H1 quota ({formatCr(icQuota)}). IC Actuals Including Others closed{" "}
               {formatCr(pipelineTl)} topline / {formatCr(pipelineBl)} bottomline across {brands.length}{" "}
               brands.
             </p>
@@ -468,7 +468,7 @@ export function BrandsView({ data, drill, onDrill }: BrandsViewProps) {
                 <th className="px-4 py-3 text-right font-semibold">Bottomline</th>
                 <th className="px-4 py-3 text-right font-semibold">GP</th>
                 <th className="px-4 py-3 text-right font-semibold">vs H1 Quota</th>
-                <th className="px-4 py-3 text-right font-semibold">Pipeline %</th>
+                <th className="px-4 py-3 text-right font-semibold">IC Actuals Including Others %</th>
                 <th className="px-4 py-3 text-right font-semibold">Deals</th>
                 <th className="px-4 py-3 text-right font-semibold">Accts</th>
                 <th className="w-10 px-2 py-3" />

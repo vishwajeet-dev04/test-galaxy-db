@@ -368,6 +368,7 @@ export interface QuotaData {
     header_pipeline_cr?: number | null;
     header_closed_opps?: number;
     header_ic_actuals?: number | null;
+    header_h1_attainment_pct?: number | null;
   };
   period_metrics?: Record<"q1" | "q2" | "h1" | "q3" | "q4" | "h2" | "annual", PeriodSnapshot>;
   rtm_divisions?: RTMDivision[];

@@ -75,8 +75,8 @@ export function LeadersView({ data }: LeadersViewProps) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <HeroStat label="Leaders" value={String(leaders.length)} />
-            <HeroStat label="H1 Actuals" value={formatCr(totals.h1Actuals)} />
-            <HeroStat label="Team Topline" value={formatCr(totals.topline)} />
+            <HeroStat label="H1 Actuals" value={formatCr(data.kpis.header_pipeline_cr ?? totals.h1Actuals)} />
+            <HeroStat label="Topline" value={formatCr(totals.topline)} />
             <HeroStat label="Team Bottomline" value={formatCr(totals.bottomline)} accent />
           </div>
         </div>

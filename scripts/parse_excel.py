@@ -26,7 +26,7 @@ EMPLOYEE_MAPPING_PATH = ROOT / "data" / "Employee_Mapping.csv"
 TARGET_QUOTA_PATH = ROOT / "data" / "Target_Quota.csv"
 OUTPUT_PATH = ROOT / "dashboard" / "public" / "data" / "quota_data.json"
 
-RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South"}
+RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South", "GeoX"}
 
 PIPELINE_ALIASES = {
     "Vidula Chawan": "Vidula Chavan",
@@ -35,15 +35,16 @@ PIPELINE_ALIASES = {
     "Ayushman Singh": "Ayushaman",
     "Arpit Srivastava": "TBH (Arpit)",
     "Varsha Ray": "TBH (Varsha)",
-    "Riya Bhatt": "Riya Khemraj Roshyara",
-    "Riya Roshyara": "Riya Khemraj Roshyara",
+    "Riya Khemraj Roshyara": "Riya Bhatt",
+    "Riya Roshyara": "Riya Bhatt",
     "Hrushikesh Bagade": "Hrushikesh Bagade",
     "Jitesh Rajput": "Jitesh Rajput",
-    "Prashant Dudugu": "Prashant Ramchandra Dudugu - Team Lead",
-    "Prashant Ddugu": "Prashant Ramchandra Dudugu - Team Lead",
-    "Tasneem K": "Tasneem  Khatri",
-    "Ishwari Kadam": "Ishwari Santosh Kadam",
-    "Pratik Kadam": "Pratik Vilas Kadam",
+    "Prashant Ramchandra Dudugu - Team Lead": "Prashant Ddugu",
+    "Prashant Dudugu": "Prashant Ddugu",
+    "Tasneem  Khatri": "Tasneem K",
+    "Tasneem Khatri": "Tasneem K",
+    "Ishwari Santosh Kadam": "Ishwari Kadam",
+    "Pratik Vilas Kadam": "Pratik Kadam",
 }
 
 DEPT_TO_RTM = {
@@ -198,6 +199,8 @@ def parse_rtm_subtotals(xl, bp_quotas):
         if not name or "IC Subtotal" not in name:
             continue
         division = name.replace("IC Subtotal — ", "").strip()
+        if division == "Geo X":
+            division = "GeoX"
         if division not in RTM_DIVISIONS:
             continue
 
@@ -283,11 +286,14 @@ def parse_grand_total(xl):
     h2_att     = round(h2_actuals / h2_quota * 100, 2) if h2_quota and h2_actuals else None
     h2 = {"quota": h2_quota, "actuals": h2_actuals, "attainment_pct": h2_att}
 
+    header_h1_attainment_pct = _num(ws["N65"].value) * 100 if ws["N65"].value is not None else None
+
     return {
         "q1": q1, "q2": q2, "h1": h1, "h2": h2, "annual": ann,
         "header_pipeline_cr": header_pipeline_cr,
         "header_closed_opps": header_closed_opps,
         "header_ic_actuals": header_ic_actuals,
+        "header_h1_attainment_pct": header_h1_attainment_pct,
     }
 
 
@@ -313,6 +319,14 @@ def parse_v3_closed_deals(xl):
         "q2":     _int(ws["M12"].value),
         "h1":     _int(ws["W12"].value),
         "annual": _int(ws["AK12"].value),
+        "by_division": {
+            "S1": _int(ws["W5"].value),
+            "S2": _int(ws["W6"].value),
+            "CB": _int(ws["W7"].value),
+            "GB": _int(ws["W8"].value),
+            "South": _int(ws["W9"].value),
+            "GeoX": _int(ws["W10"].value),
+        }
     }
 
 
@@ -1805,7 +1819,7 @@ def main():
     h1_actuals = ic_h1["actuals"] or 0
     period_metrics = build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_total, closed_deals_by_period=v3_closed_deals)
 
-    rtm_order = ["S1", "S2", "CB", "GB", "South"]
+    rtm_order = ["S1", "S2", "CB", "GB", "South", "GeoX"]
     rtm_divisions = []
     for div_name in rtm_order:
         d = next((x for x in rtm_subtotals if x["division"] == div_name), None)
@@ -1813,11 +1827,7 @@ def main():
             continue
         emp_count = sum(1 for e in rtm_individuals if e.get("division") == d["division"])
         
-        closed_deals = 0
-        if pipeline and "by_rtm" in pipeline["summary"]:
-            pipe_rtm = next((r for r in pipeline["summary"]["by_rtm"] if r["division"] == div_name), None)
-            if pipe_rtm:
-                closed_deals = pipe_rtm["deal_count"]
+        closed_deals = v3_closed_deals.get("by_division", {}).get(div_name, 0)
                 
         rtm_divisions.append(
             {
@@ -1873,6 +1883,7 @@ def main():
             "header_pipeline_cr": grand_total["header_pipeline_cr"] if grand_total else None,
             "header_closed_opps": grand_total["header_closed_opps"] if grand_total else 0,
             "header_ic_actuals": grand_total["header_ic_actuals"] if grand_total else None,
+            "header_h1_attainment_pct": grand_total["header_h1_attainment_pct"] if grand_total else None,
             **(
                 {
                     "pipeline_deals": pipeline["summary"]["total_deals"],
