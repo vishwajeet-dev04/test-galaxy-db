@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChartCard } from "../components/ChartCard";
-import { getStatusMaps } from "../utils/status";
+
 import { SectionHeader } from "../components/SectionHeader";
 import { PerformerList } from "../components/PerformerList";
 import { PerformanceCard } from "../components/PerformanceCard";
@@ -45,13 +45,7 @@ function periodCardProps(key: PerformancePeriodKey, snapshot: PeriodSnapshot | u
   };
 }
 
-/** Returns red/amber/green status colour for a given H1 attainment pct — mirrors RTM table thresholds */
-function rtmStatusColor(attainmentPct: number | null | undefined): string {
-  if (attainmentPct == null) return "#94a3b8"; // slate-400
-  if (attainmentPct >= 50) return "#10b981";   // emerald-500
-  if (attainmentPct >= 30) return "#f59e0b";   // amber-500
-  return "#e4143b";                            // galaxy-primary (red)
-}
+
 
 export function OverviewView({ data, onDrill }: OverviewViewProps) {
   const { bu_level, period_metrics, rtm_divisions, at_risk_ics, top_attainers } = data;
@@ -77,19 +71,10 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
       }
       return { name: b.bu, value: val };
     });
-    // Status underlines always scored against H1 attainment — the primary tracking period.
-    // (The chart period selector only changes which period's revenue is used to SIZE the slices.)
-    const { rtmStatusMap, buStatusMap } = getStatusMaps(
-      bu_level ?? [],
-      rtm_divisions ?? [],
-      selectedChartPeriod,
-      "h1"  // force status colour from H1 attainment regardless of chart period
-    );
-
-    return { rtmData, buData, rtmStatusMap, buStatusMap };
+    return { rtmData, buData };
   };
 
-  const { rtmData: pipelineByRtm, buData: pipelineByBu, rtmStatusMap, buStatusMap } = getChartData();
+  const { rtmData: pipelineByRtm, buData: pipelineByBu } = getChartData();
 
   const topByPct = top_attainers?.by_attainment_pct ?? [];
   const topByValue = top_attainers?.by_value_closed ?? [];
@@ -252,8 +237,6 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
               data={pipelineByRtm}
               height={260}
               onSliceClick={(div) => onDrill({ view: "divisions", division: div })}
-              statusMap={rtmStatusMap}
-              legendStatusColorFn={rtmStatusColor}
             />
           </ChartCard>
 
@@ -271,8 +254,6 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
               data={pipelineByBu}
               height={260}
               onSliceClick={(bu) => onDrill({ view: "bu", bu })}
-              statusMap={buStatusMap}
-              legendStatusColorFn={rtmStatusColor}
             />
           </ChartCard>
         </div>

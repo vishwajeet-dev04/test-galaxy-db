@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { DonutChart } from "../components/charts/DonutChart";
 import { ChartCard } from "../components/ChartCard";
-import { getStatusMaps } from "../utils/status";
+
 import { ProgressRing } from "../components/ProgressRing";
 import { FilterBar } from "../components/FilterBar";
 import type { QuotaData, DrillState } from "../types";
-import { formatCr, attainmentBarColor, BU_COLORS } from "../utils/format";
+import { formatCr, BU_COLORS, attainmentBarColor } from "../utils/format";
 import { ui } from "../theme";
 
 interface BUViewProps {
@@ -123,8 +123,6 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
             <DonutChart
               data={filteredBUs.map((b) => ({ name: b.bu, value: b[buPeriod]?.actuals ?? 0 }))}
               onSliceClick={(bu) => onDrill({ bu })}
-              statusMap={getStatusMaps(data.bu_level ?? [], data.rtm_divisions ?? [], buPeriod).buStatusMap}
-              legendStatusColorFn={attainmentBarColor}
             />
           </ChartCard>
         </div>
