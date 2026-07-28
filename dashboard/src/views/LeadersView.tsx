@@ -3,10 +3,10 @@ import { useMemo, useState } from "react";
 import { Users, Wallet, Target, Crown, Sparkles, TrendingUp } from "lucide-react";
 import { StatusFlag } from "../components/StatusFlag";
 import { DealStatusIndicators } from "../components/DealStatusIndicators";
-import { ProgressRing } from "../components/ProgressRing";
+
 import { Avatar } from "../components/Avatar";
 import type { QuotaData, LeaderDashboardRecord } from "../types";
-import { formatCr, formatPct, attainmentBarColor, attainmentColor } from "../utils/format";
+import { formatCr, formatPct, attainmentColor } from "../utils/format";
 import { getAvatarUrl } from "../utils/avatars";
 import { ui } from "../theme";
 
@@ -117,7 +117,6 @@ function LeaderCard({
   onSelect: () => void;
 }) {
   const grad = DIVISION_GRADIENT[leader.division] ?? DIVISION_GRADIENT.S1;
-  const att = leader.h1.attainment_pct ?? 0;
   const hasPhoto = Boolean(getAvatarUrl(leader.name));
 
   return (
@@ -144,26 +143,18 @@ function LeaderCard({
         <p className="mt-0.5 text-xs text-white/75">{leader.dept}</p>
       </div>
       <div className="bg-white px-5 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex gap-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Topline</p>
-              <p className="font-mono text-lg font-bold text-slate-700">
-                {formatCr(leader.pipeline.topline_cr)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/80">Bottomline</p>
-              <p className="font-mono text-lg font-bold text-emerald-700">
-                {formatCr(leader.pipeline.bottomline_cr)}
-              </p>
-            </div>
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Topline</p>
+            <p className="font-mono text-lg font-bold text-slate-700">
+              {formatCr(leader.pipeline.topline_cr)}
+            </p>
           </div>
-          <div className="relative">
-            <ProgressRing value={att} size={48} color={attainmentBarColor(att)} />
-            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-slate-600">
-              {Math.round(att)}%
-            </span>
+          <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/80">Bottomline</p>
+            <p className="font-mono text-lg font-bold text-emerald-700">
+              {formatCr(leader.pipeline.bottomline_cr)}
+            </p>
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">

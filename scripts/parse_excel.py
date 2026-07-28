@@ -806,7 +806,13 @@ def _read_single_pipeline_df(path):
     if not path.exists():
         return None
     if path.suffix.lower() in (".xlsx", ".xls"):
-        df = pd.read_excel(path, sheet_name=0)
+        xl = pd.ExcelFile(path)
+        target_sheet = 0
+        for sheet in xl.sheet_names:
+            if "Opportunity Pipeline" in sheet:
+                target_sheet = sheet
+                break
+        df = pd.read_excel(xl, sheet_name=target_sheet)
     else:
         df = pd.read_csv(path, encoding="utf-8-sig")
     df.columns = [re.sub(r'^[\s\ufeff"\t]+', "", str(c)).strip('"').strip() for c in df.columns]
