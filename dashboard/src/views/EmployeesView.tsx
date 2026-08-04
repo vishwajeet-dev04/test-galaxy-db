@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Users, Building2, Briefcase } from "lucide-react";
+import { ChevronDown, ChevronRight, Users, Building2 } from "lucide-react";
 import { FilterBar } from "../components/FilterBar";
 import { DealRow } from "../components/DealRow";
 import { Avatar } from "../components/Avatar";
@@ -19,8 +19,14 @@ function ClosedAccountsSection({ pipeline }: { pipeline: Individual["pipeline"] 
 
   if (!pipeline.deal_count) {
     return (
-      <div className="mt-6 rounded-xl border border-dashed border-galaxy-border bg-galaxy-surface/40 p-5 text-center">
-        <p className="text-sm text-galaxy-muted">No closed-won deals in pipeline for this period (1 Apr – 21 Jun)</p>
+      <div className="mt-6">
+        <h4 className="mb-4 flex items-center gap-2 font-medium text-galaxy-navy">
+          <Building2 className="h-4 w-4" />
+          Closed Accounts
+        </h4>
+        <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-8">
+          <p className="text-sm text-slate-400">No closed accounts yet</p>
+        </div>
       </div>
     );
   }
@@ -84,10 +90,12 @@ function ClosedAccountsSection({ pipeline }: { pipeline: Individual["pipeline"] 
 }
 
 function EmployeeDetail({ emp }: { emp: Individual }) {
-  const periods = [
+  const periods: { label: string; data?: PeriodMetrics }[] = [
     { label: "Q1", data: emp.q1 },
     { label: "Q2", data: emp.q2 },
     { label: "H1", data: emp.h1 },
+    { label: "Q3" },
+    { label: "Q4" },
     { label: "H2", data: emp.h2 },
     { label: "Annual", data: emp.annual },
   ];
@@ -118,15 +126,31 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-5">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {periods.map(({ label, data }) => (
           <div key={label} className={`${ui.cardInner} p-3`}>
             <p className="text-xs uppercase text-galaxy-muted">{label}</p>
-            <p className="mt-1 font-mono text-lg font-semibold text-galaxy-navy">{formatCr(data.actuals)}</p>
-            <p className="text-xs text-galaxy-muted">/ {formatCr(data.quota)}</p>
-            <p className={`mt-1 font-mono text-sm ${attainmentColor(data.attainment_pct)}`}>
-              {formatPct(data.attainment_pct)}
-            </p>
+            {data ? (
+              <>
+                <p className="mt-1 font-mono text-lg font-semibold text-galaxy-navy">{formatCr(data.actuals)}</p>
+                {data.quota != null ? (
+                  <p className="text-xs text-galaxy-muted">/ {formatCr(data.quota)}</p>
+                ) : (
+                  <div className="mt-1 mb-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                    Quota not available
+                  </div>
+                )}
+                <p className={`mt-1 font-mono text-sm ${attainmentColor(data.attainment_pct)}`}>
+                  {formatPct(data.attainment_pct)}
+                </p>
+              </>
+            ) : (
+              <div className="mt-3">
+                <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  No data yet
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -164,15 +188,27 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
 interface DivisionGroup {
   division: string;
   employees: Individual[];
-  h1Quota: number;
-  h1Actuals: number;
-  h1Attainment: number;
+  periodQuota: number;
+  periodActuals: number;
+  periodAttainment: number;
   pipelineDeals: number;
   pipelineAccounts: number;
 }
 
 const RTM_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South"]);
 const EMPLOYEE_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"]);
+
+const RTM_ORDER = ["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"];
+const sortDivisions = (a: string | null | undefined, b: string | null | undefined) => {
+  const strA = a || "";
+  const strB = b || "";
+  const idxA = RTM_ORDER.indexOf(strA);
+  const idxB = RTM_ORDER.indexOf(strB);
+  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+  if (idxA !== -1) return -1;
+  if (idxB !== -1) return 1;
+  return strA.localeCompare(strB);
+};
 
 function periodData(emp: Individual, period: PeriodKey): PeriodMetrics {
   return emp[period];
@@ -208,7 +244,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
             .map((e) => e.division)
             .filter((d) => d && (EMPLOYEE_DIVISIONS.has(d) || RTM_DIVISIONS.has(d)))
         ),
-      ].sort() as string[],
+      ].sort(sortDivisions) as string[],
     [data]
   );
   const personas = useMemo(() => [...new Set(data.individuals.map((e) => e.persona))].sort(), [data]);
@@ -241,20 +277,35 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
 
     return [...map.entries()]
       .map(([division, employees]) => {
-        const h1Quota = employees.reduce((s, e) => s + (e.h1.quota ?? 0), 0);
-        const h1Actuals = employees.reduce((s, e) => s + (e.h1.actuals ?? 0), 0);
+        const sumEmployees = employees.filter(e => {
+          if (e.persona !== 'IC') return false;
+          if (division === 'S1' && /ishwari kadam/i.test(e.name)) return false;
+          return true;
+        });
+
+        let periodQuota = sumEmployees.reduce((s, e) => s + (e[period].quota ?? 0), 0);
+        let periodActuals = sumEmployees.reduce((s, e) => s + (e[period].actuals ?? 0), 0);
+
+        if (division === 'GeoX') {
+          const hbMax = employees
+            .filter((e) => /hrushikesh bagade/i.test(e.name))
+            .sort((a, b) => (b[period].actuals ?? 0) - (a[period].actuals ?? 0))[0];
+          periodActuals = hbMax ? (hbMax[period].actuals ?? 0) : 0;
+          periodQuota = 0;
+        }
         return {
           division,
-          employees: employees.sort((a, b) => (b.h1.actuals ?? 0) - (a.h1.actuals ?? 0)),
-          h1Quota,
-          h1Actuals,
-          h1Attainment: h1Quota ? (h1Actuals / h1Quota) * 100 : 0,
+          // Sort employees by selected period's actuals descending
+          employees: employees.sort((a, b) => (b[period].actuals ?? 0) - (a[period].actuals ?? 0)),
+          periodQuota,
+          periodActuals,
+          periodAttainment: periodQuota ? (periodActuals / periodQuota) * 100 : 0,
           pipelineDeals: employees.reduce((s, e) => s + e.pipeline.deal_count, 0),
           pipelineAccounts: employees.reduce((s, e) => s + e.pipeline.account_count, 0),
         };
       })
-      .sort((a, b) => b.h1Actuals - a.h1Actuals);
-  }, [filtered]);
+      .sort((a, b) => sortDivisions(a.division, b.division));
+  }, [filtered, period]);
 
   const toggleDivision = (div: string) => {
     setCollapsed((prev) => ({ ...prev, [div]: !prev[div] }));
@@ -299,7 +350,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
           },
           {
             key: "deals",
-            label: "Pipeline",
+            label: "IC Actuals Including Others",
             value: hasDealsOnly ? "yes" : "",
             onChange: (v) => setHasDealsOnly(v === "yes"),
             options: [
@@ -332,7 +383,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
         {groupedByDivision.length !== 1 ? "s" : ""}
         {data.pipeline && (
           <span className="ml-2 text-galaxy-blue">
-            · Pipeline: {data.pipeline.total_deals} deals · {formatCr(data.pipeline.total_revenue_cr)}
+            · IC Actuals Including Others: {data.pipeline.total_deals} deals · {formatCr(data.pipeline.total_revenue_cr)}
           </span>
         )}
       </p>
@@ -369,18 +420,21 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                   </div>
                 </div>
                 <div className="hidden text-right sm:block">
-                  <p className="font-mono text-sm font-medium text-galaxy-navy">{formatCr(group.h1Actuals)}</p>
-                  <p className="text-xs text-galaxy-muted">of {formatCr(group.h1Quota)}</p>
+                  <p className="font-mono text-sm font-medium text-galaxy-navy">{formatCr(group.periodActuals)}</p>
+                  {group.periodQuota > 0
+                    ? <p className="text-xs text-galaxy-muted">of {formatCr(group.periodQuota)}</p>
+                    : <p className="text-xs text-galaxy-muted">{periodLabel(period)} quota n/a</p>
+                  }
                 </div>
                 <div className="w-28">
                   <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                     <div
-                      className={`h-full rounded-full ${attainmentBg(group.h1Attainment)}`}
-                      style={{ width: `${Math.min(group.h1Attainment, 100)}%` }}
+                      className={`h-full rounded-full ${attainmentBg(group.periodQuota > 0 ? group.periodAttainment : null)}`}
+                      style={{ width: `${Math.min(group.periodAttainment, 100)}%` }}
                     />
                   </div>
-                  <p className={`mt-1 text-right font-mono text-xs ${attainmentColor(group.h1Attainment)}`}>
-                    {formatPct(group.h1Attainment)}
+                  <p className={`mt-1 text-right font-mono text-xs ${attainmentColor(group.periodQuota > 0 ? group.periodAttainment : null)}`}>
+                    {group.periodQuota > 0 ? formatPct(group.periodAttainment) : "—"}
                   </p>
                 </div>
               </button>
@@ -393,9 +447,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                       <th className="px-4 py-3">Persona</th>
                       <th className="px-4 py-3">Closed Accounts</th>
                       <th className="px-4 py-3 text-right">{periodLabel(period)} Actuals</th>
-                      <th className="px-4 py-3 text-right">Q1 Quota</th>
-                      <th className="px-4 py-3 text-right">Q2 Quota</th>
-                      <th className="px-4 py-3 text-right">H1 Quota</th>
+                      <th className="px-4 py-3 text-right">{periodLabel(period)} Quota</th>
                       <th className="px-4 py-3 text-right">{periodLabel(period)} Att%</th>
                     </tr>
                   </thead>
@@ -404,7 +456,6 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                       const pd = periodData(emp, period);
                       const att = pd.attainment_pct ?? 0;
                       const isSelected = emp.name === selected;
-                      const topAccounts = emp.pipeline.closed_accounts.slice(0, 2);
 
                       return (
                         <tr
@@ -416,7 +467,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                             <span className="inline-flex flex-wrap items-center gap-2.5">
                               <Avatar name={emp.name} size="sm" />
                               <span>{emp.name}</span>
-                              {(emp.reference_only || /hrushikesh/i.test(emp.name)) && (
+                              {(emp.reference_only && pd.quota && pd.quota > 0) && (
                                 <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
                                   Reference only
                                 </span>
@@ -426,23 +477,16 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                           <td className="px-4 py-3">
                             <span className={ui.badge}>{emp.persona}</span>
                           </td>
-                          <td className="px-4 py-3">
-                            {emp.pipeline.account_count > 0 ? (
-                              <div className="space-y-1">
-                                {topAccounts.map((a) => (
-                                  <div key={a.account} className="flex items-center gap-1.5 text-xs">
-                                    <Briefcase className="h-3 w-3 shrink-0 text-galaxy-blue" />
-                                    <span className="truncate text-galaxy-text">{a.account}</span>
-                                    {a.deal_count > 1 && (
-                                      <span className="shrink-0 text-galaxy-muted">×{a.deal_count}</span>
-                                    )}
-                                  </div>
-                                ))}
-                                {emp.pipeline.account_count > 2 && (
-                                  <p className="text-[10px] text-galaxy-muted">
-                                    +{emp.pipeline.account_count - 2} more account
-                                    {emp.pipeline.account_count - 2 !== 1 ? "s" : ""}
-                                  </p>
+                          <td className="px-4 py-3 text-center">
+                            {emp.pipeline?.closed_accounts?.length > 0 ? (
+                              <div className="flex flex-col items-center justify-center">
+                                <span className="font-medium text-galaxy-navy text-xs">
+                                  {emp.pipeline.closed_accounts[0].account} &times;{emp.pipeline.closed_accounts[0].deal_count}
+                                </span>
+                                {emp.pipeline.closed_accounts.length > 1 && (
+                                  <span className="mt-0.5 text-[10px] text-galaxy-muted">
+                                    +{emp.pipeline.closed_accounts.length - 1} more account{emp.pipeline.closed_accounts.length > 2 ? "s" : ""}
+                                  </span>
                                 )}
                               </div>
                             ) : (
@@ -452,19 +496,23 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                           <td className="px-4 py-3 text-right font-mono font-medium text-galaxy-navy">
                             {formatCr(pd.actuals)}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(emp.q1.quota)}</td>
-                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(emp.q2.quota)}</td>
-                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(emp.h1.quota)}</td>
+                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">
+                            {pd.quota != null ? formatCr(pd.quota) : <span className="text-xs text-galaxy-muted">—</span>}
+                          </td>
                           <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
-                                <div
-                                  className={`h-full ${attainmentBg(att)}`}
-                                  style={{ width: `${Math.min(att, 100)}%` }}
-                                />
+                            {pd.quota != null ? (
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
+                                  <div
+                                    className={`h-full ${attainmentBg(att)}`}
+                                    style={{ width: `${Math.min(att, 100)}%` }}
+                                  />
+                                </div>
+                                <span className={`font-mono text-xs ${attainmentColor(att)}`}>{formatPct(att)}</span>
                               </div>
-                              <span className={`font-mono text-xs ${attainmentColor(att)}`}>{formatPct(att)}</span>
-                            </div>
+                            ) : (
+                              <span className="text-xs text-galaxy-muted">—</span>
+                            )}
                           </td>
                         </tr>
                       );

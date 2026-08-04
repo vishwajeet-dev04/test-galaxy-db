@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  Building2,
   CircleDollarSign,
   Layers,
   TrendingUp,
@@ -10,6 +9,7 @@ import {
   Sparkles,
   PieChart,
 } from "lucide-react";
+
 import { FilterBar } from "../components/FilterBar";
 import { KpiCard } from "../components/KpiCard";
 import { SectionHeader } from "../components/SectionHeader";
@@ -94,7 +94,7 @@ function AccountDetail({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className={`${ui.card} p-4`}>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pipeline share</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals Including Others share</p>
           <p className="mt-1 font-mono text-xl font-semibold text-galaxy-navy">
             {formatPct(account.pct_of_pipeline_topline)}
           </p>
@@ -125,7 +125,9 @@ function AccountDetail({
         <div className="lg:col-span-2">
           <ChartCard title="Value by BU" subtitle="Closed topline mix">
             {buShare.length > 0 ? (
-              <DonutChart data={buShare} />
+              <DonutChart
+                data={buShare}
+              />
             ) : (
               <p className="py-8 text-center text-sm text-slate-400">No BU split</p>
             )}
@@ -257,7 +259,7 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
   }, [accounts, search, buFilter, rtmFilter, sortKey]);
 
   const insights = useMemo(() => {
-    const totalTl = accounts.reduce((s, a) => s + a.revenue_cr, 0);
+    const totalTl = data.kpis.header_pipeline_cr ?? accounts.reduce((s, a) => s + a.revenue_cr, 0);
     const totalBl = accounts.reduce((s, a) => s + a.bottomline_cr, 0);
     const totalDeals = accounts.reduce((s, a) => s + a.deal_count, 0);
     const top10 = accounts.slice(0, 10);
@@ -266,6 +268,8 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
     const multiBu = accounts.filter((a) => a.by_bu.length > 1).length;
     return { totalTl, totalBl, totalDeals, top10Share, avgGp, multiBu, top5: accounts.slice(0, 5) };
   }, [accounts]);
+
+
 
   if (selected) {
     return (
@@ -279,7 +283,8 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
         </button>
         <AccountDetail
           account={selected}
-          icQuota={icQuota}
+          icQuota={icQuota ?? 0}
+
           onSelectEmployee={(name) => onDrill({ view: "employees", employee: name })}
         />
       </div>
@@ -296,13 +301,6 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          label="Closed Accounts"
-          value={String(accounts.length)}
-          sub={`${insights.totalDeals} deals closed`}
-          icon={<Building2 className="h-5 w-5" />}
-          accent="border-l-galaxy-navy"
-        />
         <KpiCard
           label="Account Topline"
           value={formatCr(insights.totalTl)}
@@ -332,7 +330,7 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
           label="Flagship accounts"
           description="Highest closed topline — logos resolved from the web"
         />
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {insights.top5.map((a, i) => (
             <button
               key={a.account}
@@ -378,7 +376,7 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
           <div>
             <p className="text-sm font-semibold text-galaxy-navy">Quota contribution lens</p>
             <p className="mt-0.5 max-w-2xl text-sm leading-relaxed text-slate-500">
-              Account topline as % of IC H1 quota ({formatCr(icQuota)}). Pipeline closed{" "}
+              Account topline as % of IC H1 quota ({formatCr(icQuota)}). IC Actuals Including Others closed{" "}
               {formatCr(pipelineTl)} topline / {formatCr(pipelineBl)} bottomline across{" "}
               {accounts.length} customers.
             </p>
@@ -448,7 +446,7 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
                 <th className="px-4 py-3 text-right font-semibold">Bottomline</th>
                 <th className="px-4 py-3 text-right font-semibold">GP</th>
                 <th className="px-4 py-3 text-right font-semibold">vs H1 Quota</th>
-                <th className="px-4 py-3 text-right font-semibold">Pipeline %</th>
+                <th className="px-4 py-3 text-right font-semibold">IC Actuals Including Others %</th>
                 <th className="px-4 py-3 text-right font-semibold">Deals</th>
                 <th className="w-10 px-2 py-3" />
               </tr>

@@ -8,9 +8,28 @@ interface DonutChartProps {
   centerLabel?: string;
 }
 
-export function DonutChart({ data, height = 280, onSliceClick, centerLabel }: DonutChartProps) {
+export function DonutChart({
+  data,
+  height = 280,
+  onSliceClick,
+  centerLabel,
+}: DonutChartProps) {
   const filtered = data.filter((d) => d.value > 0);
   const total = filtered.reduce((s, d) => s + d.value, 0);
+
+  if (filtered.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50"
+        style={{ height }}
+      >
+        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          No data yet
+        </span>
+        <p className="mt-2 text-sm text-slate-400">No closed deals for this period</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -60,6 +79,9 @@ export function DonutChart({ data, height = 280, onSliceClick, centerLabel }: Do
       <div className="mt-2 flex flex-wrap justify-center gap-2">
         {filtered.map((d, i) => {
           const pct = total ? ((d.value / total) * 100).toFixed(0) : "0";
+          // The status-color calculation logic is preserved here for potential future use:
+          // const hasStatus = statusMap && legendStatusColorFn && d.name in statusMap;
+          // const statusColor = hasStatus ? legendStatusColorFn!(statusMap![d.name]) : null;
           return (
             <button
               key={d.name}

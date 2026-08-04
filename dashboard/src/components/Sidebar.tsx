@@ -6,6 +6,7 @@ import {
   Trophy,
   Crown,
   Briefcase,
+  Tag,
   Upload,
   X,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const ALL_NAV: { id: ViewId; label: string; icon: typeof LayoutDashboard; adminO
   { id: "divisions", label: "RTMs", icon: Building2 },
   { id: "bu", label: "Business Units", icon: Layers },
   { id: "accounts", label: "Accounts", icon: Briefcase },
+  { id: "brands", label: "Brands", icon: Tag },
   { id: "leaders", label: "Leaders", icon: Crown },
   { id: "employees", label: "Employees", icon: Users },
   { id: "leaderboard", label: "Leaderboard", icon: Trophy },
@@ -52,7 +54,7 @@ export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: Sid
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[272px] shrink-0 flex-col border-r border-galaxy-border/80 bg-white transition-transform duration-200 lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[272px] shrink-0 flex-col border-r border-galaxy-border/80 bg-white transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
@@ -80,7 +82,7 @@ export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: Sid
                 Sales Intelligence
               </p>
               <h1 className="mt-1.5 text-[17px] font-semibold leading-tight tracking-tight text-galaxy-navy">
-                Performance Tracker
+                Individual Contributor's Performance Tracker
               </h1>
               <span className="mt-2.5 inline-flex items-center rounded-full border border-galaxy-navy/15 bg-galaxy-navy/5 px-3 py-1 text-[11px] font-semibold text-galaxy-navy">
                 {fy}
@@ -127,7 +129,7 @@ export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: Sid
           <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
             Galaxy Office Automation
           </p>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500">Quota · Pipeline · Attainment</p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">Quota · IC Actuals Including Others · Attainment</p>
         </div>
       </aside>
     </>

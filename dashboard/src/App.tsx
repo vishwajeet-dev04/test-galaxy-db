@@ -14,10 +14,11 @@ import { EmployeesView } from "./views/EmployeesView";
 import { LeaderboardView } from "./views/LeaderboardView";
 import { LeadersView } from "./views/LeadersView";
 import { AccountsView } from "./views/AccountsView";
+import { BrandsView } from "./views/BrandsView";
 import { AdminUploadsView } from "./views/AdminUploadsView";
 import type { DrillState, ViewId } from "./types";
 import { VIEW_META } from "./theme";
-import { formatCr, formatPct } from "./utils/format";
+import { formatCr, formatPctCard } from "./utils/format";
 
 const DEFAULT_DRILL: DrillState = { view: "overview" };
 
@@ -42,7 +43,13 @@ function DashboardApp() {
   const viewMeta = useMemo(() => VIEW_META[drill.view] ?? VIEW_META.overview, [drill.view]);
 
   const hasBreadcrumbs =
-    drill.view !== "overview" || drill.division || drill.bu || drill.persona || drill.employee || drill.account;
+    drill.view !== "overview" ||
+    drill.division ||
+    drill.bu ||
+    drill.persona ||
+    drill.employee ||
+    drill.account ||
+    drill.brand;
 
   if (loading) {
     return (
@@ -50,8 +57,8 @@ function DashboardApp() {
         <div className="text-center">
           <img src="/galaxy-logo.webp" alt="Galaxy" className="mx-auto h-14 object-contain opacity-90" />
           <RefreshCw className="mx-auto mt-6 h-6 w-6 animate-spin text-galaxy-navy" />
-          <p className="mt-4 text-sm font-semibold text-galaxy-navy">Loading Performance Tracker</p>
-          <p className="mt-1 text-xs text-slate-500">Syncing quota & pipeline data…</p>
+          <p className="mt-4 text-sm font-semibold text-galaxy-navy">Loading Individual Contributor's Performance Tracker</p>
+          <p className="mt-1 text-xs text-slate-500">Syncing quota &amp; pipeline data…</p>
         </div>
       </div>
     );
@@ -76,7 +83,7 @@ function DashboardApp() {
   }
 
   return (
-    <DashboardProvider fy={data.meta.fy} timelineWeek={data.meta.timeline_week ?? 3}>
+    <DashboardProvider>
       <div className="app-shell flex min-h-screen">
         <Sidebar
           active={drill.view}
@@ -114,23 +121,39 @@ function DashboardApp() {
 
               <UserMenu />
 
-              <div className="hidden items-center gap-2 xl:flex">
+              <div className="hidden flex-wrap items-center gap-2 xl:flex">
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
-                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPct(data.kpis.h1_attainment_pct ?? data.kpis.ic_h1_attainment_pct)}</p>
+                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPctCard(data.kpis.header_h1_attainment_pct ?? data.kpis.h1_attainment_pct)}</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals</p>
-                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatCr(data.kpis.ic_h1_actuals_cr)}</p>
+                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatCr(data.kpis.header_ic_actuals)}</p>
                 </div>
-                {data.pipeline && (
+                {data.kpis.header_pipeline_cr != null && (
                   <div className="rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Pipeline</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">IC Actuals Including Others</p>
                     <p className="font-mono text-sm font-bold text-emerald-700">
-                      {formatCr(data.pipeline.total_revenue_cr)}
+                      {formatCr(data.kpis.header_pipeline_cr)}
                     </p>
                   </div>
                 )}
+                <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Employees</p>
+                  <p className="font-mono text-sm font-bold text-galaxy-navy">{data.kpis.total_employees}</p>
+                  <p className="text-[9px] text-slate-400">{data.kpis.total_divisions} RTMs · {data.kpis.total_bus} BUs</p>
+                </div>
+                <div className="group relative rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100 cursor-default">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Closed Opps</p>
+                  <p className="font-mono text-sm font-bold text-emerald-700">{data.kpis.header_closed_opps ?? 0}</p>
+
+                  {/* Hover Tooltip (positioned below to avoid top-edge clipping) */}
+                  <div className="pointer-events-none absolute top-full right-0 z-20 mt-2 hidden w-max rounded-lg bg-galaxy-navy px-3 py-1.5 text-[11px] font-medium leading-relaxed text-white shadow-lg group-hover:block">
+                    IC Total: {data.kpis.header_closed_opps ?? 0}
+                    {/* Arrow pointing up */}
+                    <div className="absolute right-8 bottom-full border-4 border-transparent border-b-galaxy-navy" />
+                  </div>
+                </div>
               </div>
             </div>
           </header>
@@ -140,6 +163,7 @@ function DashboardApp() {
             {drill.view === "divisions" && <DivisionsView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "bu" && <BUView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "accounts" && <AccountsView data={data} drill={drill} onDrill={onDrill} />}
+            {drill.view === "brands" && <BrandsView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "leaders" && <LeadersView data={data} />}
             {drill.view === "employees" && <EmployeesView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "leaderboard" && <LeaderboardView data={data} onDrill={onDrill} />}

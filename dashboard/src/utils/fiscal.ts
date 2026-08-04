@@ -53,11 +53,25 @@ export function getHalfElapsedPct(half: "H1" | "H2", refDate = new Date()): numb
   return Math.round((elapsed / total) * 100);
 }
 
+export function getYearElapsedPct(refDate = new Date()): number {
+  const fy = fyStartYear(refDate);
+  const fyStart = new Date(fy, 3, 1); // 1 Apr
+  const fyEnd = new Date(fy + 1, 2, 31, 23, 59, 59); // 31 Mar next year
+  if (refDate < fyStart) return 0;
+  if (refDate > fyEnd) return 100;
+  const total = fyEnd.getTime() - fyStart.getTime();
+  const elapsed = refDate.getTime() - fyStart.getTime();
+  return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+}
+
 export function getPeriodElapsedLabel(
   period: "Q1" | "Q2" | "H1" | "H2" | "Q3" | "Q4" | "Annual",
   refDate = new Date()
 ): string {
-  if (period === "Annual") return "FY 25-26";
+  if (period === "Annual") {
+    const pct = getYearElapsedPct(refDate);
+    return `${pct}% of year complete`;
+  }
   let pct: number;
   if (period === "H1") pct = getHalfElapsedPct("H1", refDate);
   else if (period === "H2") pct = getHalfElapsedPct("H2", refDate);

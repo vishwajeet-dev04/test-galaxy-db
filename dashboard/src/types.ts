@@ -30,6 +30,7 @@ export interface RTMDivision {
   annual: PeriodMetrics;
   employee_count: number;
   status: StatusFlag;
+  closed_deals: number;
 }
 
 export interface LeaderTeamMember {
@@ -179,6 +180,35 @@ export interface AccountRecord {
   deals: PipelineDeal[];
 }
 
+export interface BrandTopAccount {
+  account: string;
+  revenue_cr: number;
+}
+
+/** Org-wide brand rollup (Brands tab) */
+export interface BrandRecord {
+  brand: string;
+  deal_count: number;
+  revenue_inr: number;
+  revenue_cr: number;
+  bottomline_inr: number;
+  bottomline_cr: number;
+  quota_credit_inr: number;
+  quota_credit_cr: number;
+  gp_pct: number;
+  pct_of_ic_h1_quota: number | null;
+  pct_of_pipeline_topline: number | null;
+  pct_of_pipeline_bottomline: number | null;
+  employees: string[];
+  employee_count: number;
+  account_count: number;
+  rtm_divisions: string[];
+  primary_bu: string | null;
+  by_bu: AccountBuBreakdown[];
+  top_accounts: BrandTopAccount[];
+  deals: PipelineDeal[];
+}
+
 export interface EmployeePipeline {
   deal_count: number;
   deal_count_total?: number;
@@ -211,6 +241,7 @@ export interface Individual {
     contributed_count: number | null;
     contributed_rev: number | null;
   };
+  closed_deals?: number;
   rank_division: string | null;
   pipeline: EmployeePipeline;
   bu?: string | null;
@@ -245,7 +276,10 @@ export interface PersonaAggregate {
 export interface BURecord {
   service: string;
   bu: string;
+  q1: PeriodMetrics;
+  q2: PeriodMetrics;
   h1: PeriodMetrics;
+  h2: PeriodMetrics;
   annual: PeriodMetrics;
   pipeline?: {
     deal_count: number;
@@ -260,7 +294,11 @@ export interface RTMRecord {
   bu: string;
   fy: string | null;
   q1: PeriodMetrics;
+  q2: PeriodMetrics;
   h1: PeriodMetrics;
+  q3: PeriodMetrics;
+  q4: PeriodMetrics;
+  h2: PeriodMetrics;
   annual: PeriodMetrics;
 }
 
@@ -327,6 +365,10 @@ export interface QuotaData {
     pipeline_deals?: number;
     pipeline_revenue_cr?: number;
     pipeline_accounts?: number;
+    header_pipeline_cr?: number | null;
+    header_closed_opps?: number;
+    header_ic_actuals?: number | null;
+    header_h1_attainment_pct?: number | null;
   };
   period_metrics?: Record<"q1" | "q2" | "h1" | "q3" | "q4" | "h2" | "annual", PeriodSnapshot>;
   rtm_divisions?: RTMDivision[];
@@ -346,10 +388,12 @@ export interface QuotaData {
   rtm_by_bu: Record<string, RTMRecord[]>;
   pipeline: PipelineSummary | null;
   accounts?: AccountRecord[];
+  brands?: BrandRecord[];
   target_quota?: Record<string, unknown>;
   employee_mapping_count?: number;
 }
 
+// "admin" added back from login_feature — required for AdminUploadsView route
 export type ViewId =
   | "overview"
   | "divisions"
@@ -358,6 +402,7 @@ export type ViewId =
   | "leaderboard"
   | "leaders"
   | "accounts"
+  | "brands"
   | "admin";
 
 export type PeriodKey = "q1" | "q2" | "h1" | "h2" | "annual";
@@ -369,4 +414,5 @@ export interface DrillState {
   persona?: string;
   employee?: string;
   account?: string;
+  brand?: string;
 }

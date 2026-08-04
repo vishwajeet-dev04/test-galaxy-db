@@ -25,29 +25,69 @@ Default password for all accounts: `Galaxy@123!`
 
 ## Quick Start
 
+### macOS / Linux
+
 ```bash
 # 1. Python deps
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
-pip install pandas openpyxl   # if not already
 
-# 2. Generate dashboard JSON (first time / offline)
+# 2. Generate dashboard JSON (first time / after new Excel files)
 python3 scripts/parse_excel.py
 
-# 3. API server (seeds users on startup)
+# 3. API server — seeds users automatically on startup
 chmod +x scripts/run_api.sh
 ./scripts/run_api.sh
-# → http://127.0.0.1:8000  (docs at /docs)
+# → http://127.0.0.1:8000  (interactive docs at /docs)
 
-# 4. Frontend (separate terminal)
+# 4. Frontend — in a separate terminal
 cd dashboard
 npm install
 npm run dev
 # → http://localhost:5173
 ```
 
-Sign in with e.g. `sanjayp` / `Galaxy@123!` or `richat` / `Galaxy@123!`.
+### Windows (PowerShell)
+
+```powershell
+# 1. Python deps
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
+
+# 2. Generate dashboard JSON (first time / after new Excel files)
+python scripts\parse_excel.py
+
+# 3. API server — seeds users automatically on startup
+.\scripts\run_backend.ps1
+# → http://127.0.0.1:8000  (interactive docs at /docs)
+
+# 4. Frontend — in a separate terminal
+cd dashboard
+npm install
+npm run dev
+# → http://localhost:5173
+```
+
+> **Note:** `npm run dev` proxies all `/api/*` requests to `http://127.0.0.1:8000`.
+> The frontend **requires the backend to be running** on port 8000 — login and
+> data will fail without it.
+
+### Default login credentials
+
+All seeded accounts share the same initial password: **`Galaxy@123!`**
+
+| Username | Role | Notes |
+|----------|------|-------|
+| `sanjayp` | CEO | Full read access, no file uploads |
+| `asifb` | Admin | Full access + Admin Uploads tab |
+| `dilips` | Admin | Full access + Admin Uploads tab |
+| `dharashinib` | Admin | Full access + Admin Uploads tab |
+| `praveens` | Admin | Full access + Admin Uploads tab |
+| `richat` (example) | User | Scoped to own data |
+
+Employee accounts are generated automatically from the quota workbook on first startup.
 
 ## Admin uploads
 

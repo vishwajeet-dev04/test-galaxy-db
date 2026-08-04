@@ -16,14 +16,17 @@ from quota_rules import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-EXCEL_PATH = ROOT / "files" / "Galaxy Quota Tracker - 08072026.xlsx"
-PIPELINE_PATH = ROOT / "files" / "Opportunity Pipeline Q1.xlsx"
+EXCEL_PATH = ROOT / "files" / "Galaxy Quota Tracker - 14072026.xlsx"
+PIPELINE_PATH = ROOT / "files" / "Opportunity Pipeline Q1.xlsx"  # legacy alias kept for imports
+PIPELINE_Q1_PATH = ROOT / "files" / "Opportunity Pipeline Q1.xlsx"
+PIPELINE_Q2_PATH = ROOT / "files" / "Opportunity Pipeline Q2.xlsx"
+BUSINESS_PLAN_PATH = ROOT / "files" / "Business Plan Final Ver 1.6.xlsx"
 SALES_TEAM_PATH = ROOT / "files" / "Sales Team - S1, S2 , CB, GB, South.xlsx"
 EMPLOYEE_MAPPING_PATH = ROOT / "data" / "Employee_Mapping.csv"
 TARGET_QUOTA_PATH = ROOT / "data" / "Target_Quota.csv"
 OUTPUT_PATH = ROOT / "dashboard" / "public" / "data" / "quota_data.json"
 
-RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South"}
+RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South", "GeoX"}
 
 PIPELINE_ALIASES = {
     "Vidula Chawan": "Vidula Chavan",
@@ -32,15 +35,16 @@ PIPELINE_ALIASES = {
     "Ayushman Singh": "Ayushaman",
     "Arpit Srivastava": "TBH (Arpit)",
     "Varsha Ray": "TBH (Varsha)",
-    "Riya Bhatt": "Riya Khemraj Roshyara",
-    "Riya Roshyara": "Riya Khemraj Roshyara",
+    "Riya Khemraj Roshyara": "Riya Bhatt",
+    "Riya Roshyara": "Riya Bhatt",
     "Hrushikesh Bagade": "Hrushikesh Bagade",
     "Jitesh Rajput": "Jitesh Rajput",
-    "Prashant Dudugu": "Prashant Ramchandra Dudugu - Team Lead",
-    "Prashant Ddugu": "Prashant Ramchandra Dudugu - Team Lead",
-    "Tasneem K": "Tasneem  Khatri",
-    "Ishwari Kadam": "Ishwari Santosh Kadam",
-    "Pratik Kadam": "Pratik Vilas Kadam",
+    "Prashant Ramchandra Dudugu - Team Lead": "Prashant Ddugu",
+    "Prashant Dudugu": "Prashant Ddugu",
+    "Tasneem  Khatri": "Tasneem K",
+    "Tasneem Khatri": "Tasneem K",
+    "Ishwari Santosh Kadam": "Ishwari Kadam",
+    "Pratik Vilas Kadam": "Pratik Kadam",
 }
 
 DEPT_TO_RTM = {
@@ -179,7 +183,7 @@ def load_target_quota():
     return targets
 
 
-def parse_rtm_subtotals(xl):
+def parse_rtm_subtotals(xl, bp_quotas):
     df = pd.read_excel(xl, sheet_name="V1 · Individual", header=1)
     q1q, q1a = "Q1 Quota\n(₹ Cr)", "Q1 Actuals\n(₹ Cr)"
     h1q, h1a = "H1 Quota\n(₹ Cr)", "H1 Actuals\n(₹ Cr)"
@@ -195,8 +199,12 @@ def parse_rtm_subtotals(xl):
         if not name or "IC Subtotal" not in name:
             continue
         division = name.replace("IC Subtotal — ", "").strip()
+        if division == "Geo X":
+            division = "GeoX"
         if division not in RTM_DIVISIONS:
             continue
+
+        bp_q = bp_quotas.get(division, {})
 
         def period_metrics(quota_col, actuals_col, att_col=None):
             quota = to_num(row.get(quota_col))
@@ -206,17 +214,120 @@ def parse_rtm_subtotals(xl):
                 att = round(actuals / quota * 100, 2)
             return {"quota": quota, "actuals": actuals, "attainment_pct": att}
 
+        h2_act = to_num(row.get(h2a)) or 0
+        q3_a = round(h2_act / 2, 2)
+        q4_a = round(h2_act / 2, 2)
+        q3_q = bp_q.get("q3")
+        q4_q = bp_q.get("q4")
+
         records.append(
             {
                 "division": division,
                 "q1": period_metrics(q1q, q1a, "Attainment %\n(Q1)"),
                 "q2": period_metrics(q2q, q2a, "Attainment %\n(Q2)"),
                 "h1": period_metrics(h1q, h1a, "Attainment %\n(H1)"),
+                "q3": {"quota": q3_q, "actuals": q3_a, "attainment_pct": round(q3_a / q3_q * 100, 2) if q3_q else 0},
+                "q4": {"quota": q4_q, "actuals": q4_a, "attainment_pct": round(q4_a / q4_q * 100, 2) if q4_q else 0},
                 "h2": period_metrics(h2q, h2a, "Attainment %\n(H2)"),
                 "annual": period_metrics(annq, anna, "Attainment %\n(Annual)"),
             }
         )
     return sorted(records, key=lambda x: x["h1"]["actuals"] or 0, reverse=True)
+
+
+def parse_grand_total(xl):
+    """Read Quota/Actuals for Q1, Q2, H1, and Annual directly from specific
+    cells in V1 · Individual row 65 (GRAND TOTAL — All IC).
+
+    Cell mapping confirmed against Excel file:
+      Q1  Quota=F65, Actuals=G66
+      Q2  Quota=I65, Actuals=J66
+      H1  Quota=L65, Actuals=M66
+      Annual Quota=R65, Actuals=S66
+
+    H2 Quota is pulled from O65. H2 Actuals is derived from Annual - H1.
+    """
+    import openpyxl
+    path = xl if isinstance(xl, str) else xl._io
+    wb = openpyxl.load_workbook(path, data_only=True)
+    if "V1 \u00b7 Individual" not in wb.sheetnames:
+        return None
+    ws = wb["V1 \u00b7 Individual"]
+
+    def _num(val):
+        try:
+            return round(float(val), 2) if val is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _pm(quota, actuals):
+        q = _num(quota)
+        a = _num(actuals)
+        att = round(a / q * 100, 2) if q and a is not None else None
+        return {"quota": q, "actuals": a, "attainment_pct": att}
+
+    q1  = _pm(ws["F65"].value, ws["G66"].value)
+    q2  = _pm(ws["I65"].value, ws["J66"].value)
+    h1  = _pm(ws["L65"].value, ws["M66"].value)
+    ann = _pm(ws["R65"].value, ws["S66"].value)
+
+    # Header bar stats: M65 = IC H1 Actuals (used as Pipeline), U65 = Closed Opps count
+    header_pipeline_cr  = _num(ws["M65"].value)
+    header_closed_opps  = ws["U65"].value
+    header_ic_actuals   = _num(ws["M66"].value)
+    try:
+        header_closed_opps = int(header_closed_opps) if header_closed_opps is not None else 0
+    except (TypeError, ValueError):
+        header_closed_opps = 0
+
+    # H2 Quota explicit from O65, H2 Actuals derived from Annual - H1
+    h2_quota   = _num(ws["O65"].value)
+    h2_actuals = round((ann["actuals"] or 0) - (h1["actuals"] or 0), 2) if ann["actuals"] is not None and h1["actuals"] is not None else None
+    h2_att     = round(h2_actuals / h2_quota * 100, 2) if h2_quota and h2_actuals else None
+    h2 = {"quota": h2_quota, "actuals": h2_actuals, "attainment_pct": h2_att}
+
+    header_h1_attainment_pct = _num(ws["N65"].value) * 100 if ws["N65"].value is not None else None
+
+    return {
+        "q1": q1, "q2": q2, "h1": h1, "h2": h2, "annual": ann,
+        "header_pipeline_cr": header_pipeline_cr,
+        "header_closed_opps": header_closed_opps,
+        "header_ic_actuals": header_ic_actuals,
+        "header_h1_attainment_pct": header_h1_attainment_pct,
+    }
+
+
+
+def parse_v3_closed_deals(xl):
+    """Read closed-deal counts from specific cells in V3 · RTM Division level.
+    Row 12, columns F / M / W / AK correspond to Q1 / Q2 / H1 / Annual.
+    Uses openpyxl (data_only=True) so formula results are read directly.
+    """
+    import openpyxl
+    path = xl if isinstance(xl, str) else xl._io
+    wb = openpyxl.load_workbook(path, data_only=True)
+    if "V3 \u00b7 RTM Division level" not in wb.sheetnames:
+        return {"q1": 0, "q2": 0, "h1": 0, "annual": 0}
+    ws = wb["V3 \u00b7 RTM Division level"]
+    def _int(val):
+        try:
+            return int(val) if val is not None else 0
+        except (TypeError, ValueError):
+            return 0
+    return {
+        "q1":     _int(ws["F12"].value),
+        "q2":     _int(ws["M12"].value),
+        "h1":     _int(ws["W12"].value),
+        "annual": _int(ws["AK12"].value),
+        "by_division": {
+            "S1": _int(ws["W5"].value),
+            "S2": _int(ws["W6"].value),
+            "CB": _int(ws["W7"].value),
+            "GB": _int(ws["W8"].value),
+            "South": _int(ws["W9"].value),
+            "GeoX": _int(ws["W10"].value),
+        }
+    }
 
 
 def apply_employee_mapping(individuals, mapping):
@@ -273,7 +384,7 @@ def parse_individual(xl):
                 "id": clean_str(row.get("#")),
                 "name": name,
                 "division": division,
-                "fy": clean_str(row.get("FY")),
+                "fy": "FY 26-27",
                 "persona": persona,
                 "q1": {
                     "quota": to_num(row.get("Q1 Quota\n(₹ Cr)")),
@@ -307,6 +418,7 @@ def parse_individual(xl):
                     "contributed_count": to_num(row.get("Contributed\nDeals (count)")),
                     "contributed_rev": to_num(row.get("Contributed\nRev (₹ Cr)")),
                 },
+                "closed_deals": to_num(row.get("# Deals\n(Total)")),
                 "rank_division": clean_str(row.get("Rank\n(Div.)")),
                 "bu": None,
                 "team_lead": None,
@@ -317,34 +429,82 @@ def parse_individual(xl):
 
 
 def parse_leaders(xl):
-    sheet = "V2 · Leadership " if "V2 · Leadership " in xl.sheet_names else "V2 · Leaders"
-    if sheet not in xl.sheet_names:
+    import openpyxl
+    path = xl if isinstance(xl, str) else xl._io
+    try:
+        wb = openpyxl.load_workbook(path, data_only=True)
+    except Exception:
         return []
-    df = pd.read_excel(xl, sheet_name=sheet, header=1)
-    records = []
-    for _, row in df.iterrows():
-        name = clean_str(row.get("Employee Name"))
+        
+    sheet = "V2 · Leadership"
+    if "V2 · Leadership " in wb.sheetnames:
+        sheet = "V2 · Leadership "
+    elif "V2 · Leaders" in wb.sheetnames:
+        sheet = "V2 · Leaders"
+        
+    if sheet not in wb.sheetnames:
+        return []
+        
+    ws = wb[sheet]
+    leaders = {}
+    
+    # Table 1: Bottomline (Rows 3-10)
+    for r in range(3, 11):
+        name = clean_str(ws.cell(row=r, column=2).value)
         if not name:
             continue
-        records.append(
-            {
-                "name": name,
-                "division": normalize_division(clean_str(row.get("Division"))),
-                "fy": clean_str(row.get("FY")),
-                "role": clean_str(row.get("Type / Notes")),
-                "h1": {
-                    "quota": to_num(row.get("H1 Quota\n(₹ Cr)")),
-                    "actuals": to_num(row.get("H1 Actuals\n(₹ Cr)")),
-                    "attainment_pct": to_pct(row.get("Attainment %\n(H1)")),
-                },
-                "annual": {
-                    "quota": to_num(row.get("Annual Quota\n(₹ Cr)")),
-                    "actuals": to_num(row.get("Annual Actuals\n(₹ Cr)")),
-                    "attainment_pct": to_pct(row.get("Attainment %\n(Annual)")),
-                },
-            }
-        )
-    return records
+        role = clean_str(ws.cell(row=r, column=5).value)
+        bl_val = to_num(ws.cell(row=r, column=19).value) # Col S
+        leaders[name] = {
+            "name": name,
+            "role": role,
+            "bottomline_cr": bl_val if bl_val is not None else 0,
+            "topline_cr": 0
+        }
+        
+    # Table 2: Topline (Rows 15-22)
+    for r in range(15, 23):
+        name = clean_str(ws.cell(row=r, column=2).value)
+        if not name or name not in leaders:
+            continue
+        tl_val = to_num(ws.cell(row=r, column=19).value) # Col S
+        leaders[name]["topline_cr"] = tl_val if tl_val is not None else 0
+        
+    return list(leaders.values())
+
+
+def parse_business_plan_quotas():
+    quotas = {}
+    if not BUSINESS_PLAN_PATH.exists():
+        return quotas
+
+    xl = pd.ExcelFile(BUSINESS_PLAN_PATH)
+    divisions = ["S1 ", "S2 ", "CB ", "GB ", "South ", "GeoX "]
+
+    for div in divisions:
+        if div in xl.sheet_names:
+            df = pd.read_excel(xl, sheet_name=div)
+            rev_row = None
+            for i, row in df.iterrows():
+                if any("Revenue Goal" in str(cell) for cell in row):
+                    rev_row = row
+                    break
+
+            if rev_row is not None:
+                vals = [val for val in rev_row.values if pd.notna(val) and isinstance(val, (int, float))]
+                if len(vals) >= 5:
+                    ann, q1, q2, q3, q4 = vals[-5:]
+                    clean_div = div.strip()
+                    quotas[clean_div] = {
+                        "annual": float(ann),
+                        "q1": float(q1),
+                        "q2": float(q2),
+                        "q3": float(q3),
+                        "q4": float(q4),
+                        "h1": float(q1) + float(q2),
+                        "h2": float(q3) + float(q4),
+                    }
+    return quotas
 
 
 def parse_team_quota(xl):
@@ -420,14 +580,16 @@ def parse_bu_level(xl):
         if sheet not in xl.sheet_names:
             continue
         df = pd.read_excel(xl, sheet_name=sheet, header=1)
-        total_rows = df[df["RTM Name"].astype(str).str.contains("Total", na=False)]
+        total_rows = df[df["RTM Name"].astype(str).str.contains("RTM Total", case=False, na=False)]
         if total_rows.empty:
             continue
         row = total_rows.iloc[0]
-        h1q = to_num(row.get("H1 Quota\n(₹ Cr)"))
-        h1a = to_num(row.get("H1 Actuals\n(₹ Cr)"))
         annq = to_num(row.get("Annual Quota\n(₹ Cr)"))
         anna = to_num(row.get("Annual Actuals\n(₹ Cr)"))
+        
+        # User requested using Q9 and R9 directly for H1 quota and actuals, rather than fallback math
+        h1q = annq
+        h1a = anna
         records.append(
             {
                 "service": service,
@@ -471,27 +633,46 @@ def parse_rtm_bu_sheet(xl, sheet_name, bu_code):
         name = clean_str(row.get("RTM Name"))
         if not name:
             continue
+        q1_q = to_num(row.get("Q1 Quota\n(₹ Cr)"))
+        q1_a = to_num(row.get("Q1 Actuals\n(₹ Cr)"))
+        q1_att = to_pct(row.get("Attainment\n %\n(Q1)"))
+        
+        h1_q = to_num(row.get("H1 Quota\n(₹ Cr)"))
+        h1_a = to_num(row.get("H1 Actuals\n(₹ Cr)"))
+        h1_att = to_pct(row.get("Attainment %\n(H1)"))
+        
+        ann_q = to_num(row.get("Annual Quota\n(₹ Cr)"))
+        ann_a = to_num(row.get("Annual Actuals\n(₹ Cr)"))
+        ann_att = to_pct(row.get("Attainment %\n(Annual)"))
+
+        q2_q = to_num(row.get("Q2 Quota\n(₹ Cr)"))
+        q2_a = to_num(row.get("Q2 Actuals\n(₹ Cr)"))
+        q2_att = to_pct(row.get("Attainment \n%\n(Q2)"))
+        if q2_att is None and q2_q and q2_a is not None:
+            q2_att = round(q2_a / q2_q * 100, 2)
+        
+        h2_q = round((ann_q or 0) - (h1_q or 0), 2)
+        h2_a = round((ann_a or 0) - (h1_a or 0), 2)
+        h2_att = round(h2_a / h2_q * 100, 2) if h2_q else 0
+        
+        q3_q = round(h2_q / 2, 2)
+        q3_a = round(h2_a / 2, 2)
+        q3_att = round(q3_a / q3_q * 100, 2) if q3_q else 0
+        q4_q, q4_a, q4_att = q3_q, q3_a, q3_att
+
         records.append(
             {
                 "name": name,
                 "division": normalize_division(clean_str(row.get("Division"))),
                 "bu": bu_code,
-                "fy": clean_str(row.get("FY")),
-                "q1": {
-                    "quota": to_num(row.get("Q1 Quota\n(₹ Cr)")),
-                    "actuals": to_num(row.get("Q1 Actuals\n(₹ Cr)")),
-                    "attainment_pct": to_pct(row.get("Attainment\n %\n(Q1)")),
-                },
-                "h1": {
-                    "quota": to_num(row.get("H1 Quota\n(₹ Cr)")),
-                    "actuals": to_num(row.get("H1 Actuals\n(₹ Cr)")),
-                    "attainment_pct": to_pct(row.get("Attainment %\n(H1)")),
-                },
-                "annual": {
-                    "quota": to_num(row.get("Annual Quota\n(₹ Cr)")),
-                    "actuals": to_num(row.get("Annual Actuals\n(₹ Cr)")),
-                    "attainment_pct": to_pct(row.get("Attainment %\n(Annual)")),
-                },
+                "fy": "FY 26-27",
+                "q1": {"quota": q1_q, "actuals": q1_a, "attainment_pct": q1_att},
+                "q2": {"quota": q2_q, "actuals": q2_a, "attainment_pct": q2_att},
+                "h1": {"quota": h1_q, "actuals": h1_a, "attainment_pct": h1_att},
+                "q3": {"quota": q3_q, "actuals": q3_a, "attainment_pct": q3_att},
+                "q4": {"quota": q4_q, "actuals": q4_a, "attainment_pct": q4_att},
+                "h2": {"quota": h2_q, "actuals": h2_a, "attainment_pct": h2_att},
+                "annual": {"quota": ann_q, "actuals": ann_a, "attainment_pct": ann_att},
             }
         )
     return records
@@ -634,15 +815,39 @@ def resolve_pipeline_name(pipeline_name, known_names):
     return name
 
 
-def read_pipeline_df():
-    if not PIPELINE_PATH.exists():
+def _read_single_pipeline_df(path):
+    """Read one pipeline file (xlsx or csv) and normalise column names."""
+    if not path.exists():
         return None
-    if PIPELINE_PATH.suffix.lower() in (".xlsx", ".xls"):
-        df = pd.read_excel(PIPELINE_PATH, sheet_name=0)
+    if path.suffix.lower() in (".xlsx", ".xls"):
+        xl = pd.ExcelFile(path)
+        target_sheet = 0
+        for sheet in xl.sheet_names:
+            if "Opportunity Pipeline" in sheet:
+                target_sheet = sheet
+                break
+        df = pd.read_excel(xl, sheet_name=target_sheet)
     else:
-        df = pd.read_csv(PIPELINE_PATH, encoding="utf-8-sig")
+        df = pd.read_csv(path, encoding="utf-8-sig")
     df.columns = [re.sub(r'^[\s\ufeff"\t]+', "", str(c)).strip('"').strip() for c in df.columns]
     return df
+
+
+def read_pipeline_df():
+    """Read and combine Opportunity Pipeline Q1 and Q2 files.
+
+    The combined DataFrame is used for ALL pipeline statistics including the
+    header bar 'Pipeline' (total Amount) and 'Closed Deals' (total row count).
+    """
+    dfs = []
+    for path in (PIPELINE_Q1_PATH, PIPELINE_Q2_PATH):
+        df = _read_single_pipeline_df(path)
+        if df is not None:
+            dfs.append(df)
+    if not dfs:
+        return None
+    # Concatenate; mismatched columns are filled with NaN
+    return pd.concat(dfs, ignore_index=True)
 
 
 def build_deal_record(row, employee, employee_mapping, individuals):
@@ -839,8 +1044,8 @@ def parse_pipeline(individuals, teams, employee_mapping=None):
     unique_employees = len({d["employee"] for d in counted_deals})
 
     pipeline_summary = {
-        "source": PIPELINE_PATH.name,
-        "period": "Q1 FY 25-26",
+        "source": "Opportunity Pipeline Q1 + Q2",
+        "period": "H1 FY 26-27",
         "total_deals": len(counted_deals),
         "total_deals_raw": len(all_deals),
         "total_revenue_inr": round(total_inr, 2),
@@ -1001,6 +1206,116 @@ def build_org_accounts(all_deals, ic_h1_quota_cr=None, pipeline_topline_cr=None,
     return accounts
 
 
+def build_org_brands(all_deals, ic_h1_quota_cr=None, pipeline_topline_cr=None, pipeline_bottomline_cr=None):
+    """Org-wide brand rollup from closed-won deals (Brand column in Opportunity Pipeline)."""
+    brands_map = {}
+    for d in all_deals:
+        if d.get("excluded_from_achievement") or d.get("exclude_from_pipeline_totals"):
+            continue
+        brand = (d.get("brand") or "Others").strip() or "Others"
+        if brand not in brands_map:
+            brands_map[brand] = {
+                "brand": brand,
+                "deal_count": 0,
+                "revenue_inr": 0.0,
+                "bottomline_inr": 0.0,
+                "quota_credit_inr": 0.0,
+                "employees": set(),
+                "accounts": set(),
+                "rtm_divisions": set(),
+                "bus": {},
+                "deals": [],
+            }
+        row = brands_map[brand]
+        row["deal_count"] += 1
+        row["revenue_inr"] += d.get("amount_inr") or 0
+        row["bottomline_inr"] += d.get("bottomline_inr") or 0
+        row["quota_credit_inr"] += d.get("quota_credit_inr") or 0
+        if d.get("employee"):
+            row["employees"].add(d["employee"])
+        if d.get("account"):
+            row["accounts"].add(d["account"])
+        rtm = d.get("rtm_division")
+        if rtm:
+            row["rtm_divisions"].add(rtm)
+        bu = d.get("bu") or "Other"
+        if bu not in row["bus"]:
+            row["bus"][bu] = {
+                "bu": bu,
+                "deal_count": 0,
+                "revenue_inr": 0.0,
+                "bottomline_inr": 0.0,
+            }
+        row["bus"][bu]["deal_count"] += 1
+        row["bus"][bu]["revenue_inr"] += d.get("amount_inr") or 0
+        row["bus"][bu]["bottomline_inr"] += d.get("bottomline_inr") or 0
+        row["deals"].append(d)
+
+    ic_quota = float(ic_h1_quota_cr or 0)
+    pipe_tl = float(pipeline_topline_cr or 0)
+    pipe_bl = float(pipeline_bottomline_cr or 0)
+
+    brands = []
+    for row in brands_map.values():
+        rev = row["revenue_inr"]
+        bl = row["bottomline_inr"]
+        credit = row["quota_credit_inr"]
+        rev_cr = round(rev / 1e7, 4)
+        bl_cr = round(bl / 1e7, 4)
+        credit_cr = round(credit / 1e7, 4)
+        gp_pct = round(bl / rev * 100, 2) if rev else 0.0
+        by_bu = []
+        for bu_row in row["bus"].values():
+            by_bu.append(
+                {
+                    "bu": bu_row["bu"],
+                    "deal_count": bu_row["deal_count"],
+                    "revenue_inr": round(bu_row["revenue_inr"], 2),
+                    "revenue_cr": round(bu_row["revenue_inr"] / 1e7, 4),
+                    "bottomline_inr": round(bu_row["bottomline_inr"], 2),
+                    "bottomline_cr": round(bu_row["bottomline_inr"] / 1e7, 4),
+                }
+            )
+        by_bu.sort(key=lambda x: x["revenue_inr"], reverse=True)
+        primary_bu = by_bu[0]["bu"] if by_bu else None
+        # Top accounts for this brand by deal topline
+        acct_rev = {}
+        for d in row["deals"]:
+            a = d.get("account") or "Unknown"
+            acct_rev[a] = acct_rev.get(a, 0) + (d.get("amount_inr") or 0)
+        top_accounts = [
+            {"account": a, "revenue_cr": round(v / 1e7, 4)}
+            for a, v in sorted(acct_rev.items(), key=lambda x: x[1], reverse=True)[:8]
+        ]
+        brands.append(
+            {
+                "brand": row["brand"],
+                "deal_count": row["deal_count"],
+                "revenue_inr": round(rev, 2),
+                "revenue_cr": rev_cr,
+                "bottomline_inr": round(bl, 2),
+                "bottomline_cr": bl_cr,
+                "quota_credit_inr": round(credit, 2),
+                "quota_credit_cr": credit_cr,
+                "gp_pct": gp_pct,
+                "pct_of_ic_h1_quota": round(rev_cr / ic_quota * 100, 3) if ic_quota else None,
+                "pct_of_pipeline_topline": round(rev_cr / pipe_tl * 100, 2) if pipe_tl else None,
+                "pct_of_pipeline_bottomline": round(bl_cr / pipe_bl * 100, 2) if pipe_bl else None,
+                "employees": sorted(row["employees"]),
+                "employee_count": len(row["employees"]),
+                "account_count": len(row["accounts"]),
+                "rtm_divisions": sorted(row["rtm_divisions"]),
+                "primary_bu": primary_bu,
+                "by_bu": by_bu,
+                "top_accounts": top_accounts,
+                "deals": sorted(row["deals"], key=lambda x: x.get("amount_inr") or 0, reverse=True),
+            }
+        )
+
+    brands.sort(key=lambda x: x["revenue_inr"], reverse=True)
+    return brands
+
+
 def attach_pipeline_to_individuals(individuals, pipeline):
     if not pipeline:
         empty = {
@@ -1065,7 +1380,9 @@ def sum_bu_period(bu_level, period_key):
     return {"quota": round(quota, 2), "actuals": round(actuals, 2), "attainment_pct": att}
 
 
-def build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota):
+def build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_total, closed_deals_by_period=None):
+    if closed_deals_by_period is None:
+        closed_deals_by_period = {}
     pipeline_cr = pipeline["summary"]["total_revenue_cr"] if pipeline else 0
     pipeline_deals = pipeline["summary"]["total_deals"] if pipeline else 0
 
@@ -1075,45 +1392,46 @@ def build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota):
         bu_quota = bu["quota"] or t.get("bu_quota") or 0
         bu_actuals = bu["actuals"] or 0
         has_ic_actuals = (ic_metrics.get("actuals") or 0) > 0
+        # Per-period closed deals from V3; fall back to pipeline total for periods
+        # that don't have a specific cell (Q3/Q4/H2).
+        period_deals = closed_deals_by_period.get(period_key, pipeline_deals if include_pipeline else 0)
         return {
             "bu_quota": round(bu_quota, 2),
             "bu_actuals": round(bu_actuals, 2),
             "bu_attainment_pct": round(bu_actuals / bu_quota * 100, 2) if bu_quota and show_attainment else None,
-            "ic_quota": ic_metrics["quota"],
-            "ic_actuals": ic_metrics["actuals"],
+            "ic_quota": round(ic_metrics["quota"] or 0, 2),
+            "ic_actuals": round(ic_metrics["actuals"] or 0, 2),
             "ic_attainment_pct": ic_metrics["attainment_pct"] if show_attainment and has_ic_actuals else None,
             "pipeline_value_cr": pipeline_cr if include_pipeline else 0,
-            "closed_deals": pipeline_deals if include_pipeline else 0,
+            "closed_deals": period_deals,
             "show_attainment": show_attainment and has_ic_actuals,
             "stly_actuals_cr": None,
             "stly_attainment_pct": None,
         }
 
-    ic_q1 = sum_period(rtm_subtotals, "q1")
-    ic_q2 = sum_period(rtm_subtotals, "q2")
-    ic_h1 = sum_period(rtm_subtotals, "h1")
-    ic_h2 = sum_period(rtm_subtotals, "h2")
+    ic_q1 = grand_total["q1"] if grand_total else sum_period(rtm_subtotals, "q1")
+    ic_q2 = grand_total["q2"] if grand_total else sum_period(rtm_subtotals, "q2")
+    ic_h1 = grand_total["h1"] if grand_total else sum_period(rtm_subtotals, "h1")
+    ic_h2 = grand_total["h2"] if grand_total else sum_period(rtm_subtotals, "h2")
+    
+    # Q3 and Q4 aren't in the tracker, so we still fallback to RTM subtotals (which read them from Business Plan)
+    ic_q3 = sum_period(rtm_subtotals, "q3")
+    ic_q4 = sum_period(rtm_subtotals, "q4")
 
-    # Q3/Q4 derived from H2 (tracker has no separate Q3/Q4 columns)
-    def split_h2(h2_metrics):
-        half_q = round((h2_metrics.get("quota") or 0) / 2, 2)
-        half_a = round((h2_metrics.get("actuals") or 0) / 2, 2)
-        att = round(half_a / half_q * 100, 2) if half_q and half_a else 0
-        return {"quota": half_q, "actuals": half_a, "attainment_pct": att}
-
-    ic_q3 = split_h2(ic_h2)
-    ic_q4 = split_h2(ic_h2)
-    ic_annual = {
-        "quota": round((ic_h1.get("quota") or 0) + (ic_h2.get("quota") or 0), 2),
-        "actuals": round((ic_h1.get("actuals") or 0) + (ic_h2.get("actuals") or 0), 2),
-        "attainment_pct": 0,
-    }
-    if ic_annual["quota"]:
-        ic_annual["attainment_pct"] = round(ic_annual["actuals"] / ic_annual["quota"] * 100, 2)
+    if grand_total:
+        ic_annual = grand_total["annual"]
+    else:
+        ic_annual = {
+            "quota": round((ic_h1.get("quota") or 0) + (ic_h2.get("quota") or 0), 2),
+            "actuals": round((ic_h1.get("actuals") or 0) + (ic_h2.get("actuals") or 0), 2),
+            "attainment_pct": 0,
+        }
+        if ic_annual["quota"]:
+            ic_annual["attainment_pct"] = round(ic_annual["actuals"] / ic_annual["quota"] * 100, 2)
 
     return {
         "q1": pack("q1", ic_q1, include_pipeline=True, show_attainment=True),
-        "q2": pack("q2", ic_q2, show_attainment=False),
+        "q2": pack("q2", ic_q2, show_attainment=(ic_q2.get("actuals") or 0) > 0),
         "h1": pack("h1", ic_h1, include_pipeline=True, show_attainment=True),
         "q3": pack("q3", ic_q3, show_attainment=(ic_q3["actuals"] or 0) > 0),
         "q4": pack("q4", ic_q4, show_attainment=(ic_q4["actuals"] or 0) > 0),
@@ -1361,6 +1679,10 @@ def build_leaders_dashboard(individuals, pipeline, v2_leaders):
             if any(names_match(d.get("employee", ""), mn) for mn in member_names)
             and not d.get("excluded_from_achievement")
         ]
+        if leader_name == "Ishwari Santosh Kadam":
+            print(f"Ishwari members: {member_names}")
+            print(f"Ishwari team_deals length: {len(team_deals)}")
+            print(f"Sample deal employees: {[d.get('employee') for d in all_deals[:5]]}")
         topline_inr = sum(d.get("amount_inr", 0) for d in team_deals)
         bottomline_inr = sum(d.get("bottomline_inr", 0) for d in team_deals)
         quota_credit_inr = sum(d.get("quota_credit_inr", 0) for d in team_deals)
@@ -1410,8 +1732,8 @@ def build_leaders_dashboard(individuals, pipeline, v2_leaders):
                 "h1": h1,
                 "pipeline": {
                     "deal_count": len(team_deals),
-                    "topline_cr": round(topline_inr / 1e7, 2),
-                    "bottomline_cr": round(bottomline_inr / 1e7, 2),
+                    "topline_cr": v2.get("topline_cr", 0) if v2 else round(topline_inr / 1e7, 2),
+                    "bottomline_cr": v2.get("bottomline_cr", 0) if v2 else round(bottomline_inr / 1e7, 2),
                     "quota_credit_cr": round(quota_credit_inr / 1e7, 2),
                     "gp_pct": gp_pct,
                 },
@@ -1484,7 +1806,8 @@ def main(
     teams = parse_team_quota(xl)
     bu_level = parse_bu_level(xl)
     division_summary = parse_division_summary(xl)
-    rtm_subtotals = parse_rtm_subtotals(xl)
+    bp_quotas = parse_business_plan_quotas()
+    rtm_subtotals = parse_rtm_subtotals(xl, bp_quotas)
 
     rtm_by_bu = {
         "DCG": parse_rtm_bu_sheet(xl, "V5 · DCG", "DCG"),
@@ -1502,33 +1825,49 @@ def main(
         e for e in individuals if e.get("division") in RTM_DIVISIONS and e["name"] not in ("Total", "Total Opportunity")
     ]
 
-    h1_quota = sum(b["h1"]["quota"] or 0 for b in bu_level)
-    h1_actuals = sum(b["h1"]["actuals"] or 0 for b in bu_level)
     annual_quota = sum(b["annual"]["quota"] or 0 for b in bu_level)
-    ic_h1 = sum_period(rtm_subtotals, "h1")
-    ic_q1 = sum_period(rtm_subtotals, "q1")
-    period_metrics = build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota)
+    
+    grand_total = parse_grand_total(xl)
+    v3_closed_deals = parse_v3_closed_deals(xl)
 
-    rtm_order = ["S1", "S2", "CB", "GB", "South"]
+    ic_h1 = grand_total["h1"] if grand_total else sum_period(rtm_subtotals, "h1")
+    ic_q1 = grand_total["q1"] if grand_total else sum_period(rtm_subtotals, "q1")
+    
+    h1_quota = ic_h1["quota"] or 0
+    h1_actuals = ic_h1["actuals"] or 0
+    period_metrics = build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_total, closed_deals_by_period=v3_closed_deals)
+
+    rtm_order = ["S1", "S2", "CB", "GB", "South", "GeoX"]
     rtm_divisions = []
     for div_name in rtm_order:
         d = next((x for x in rtm_subtotals if x["division"] == div_name), None)
         if not d:
             continue
         emp_count = sum(1 for e in rtm_individuals if e.get("division") == d["division"])
+        
+        closed_deals = v3_closed_deals.get("by_division", {}).get(div_name, 0)
+                
         rtm_divisions.append(
             {
                 **d,
                 "employee_count": emp_count,
                 "status": status_flag(d["h1"]["attainment_pct"]),
+                "closed_deals": closed_deals,
             }
         )
 
     leaders_dashboard = build_leaders_dashboard(individuals, pipeline, leaders)
 
     accounts = []
+    brands = []
     if pipeline:
         accounts = build_org_accounts(
+            pipeline["all_deals"],
+            ic_h1_quota_cr=ic_h1["quota"],
+            pipeline_topline_cr=pipeline["summary"]["total_revenue_cr"],
+            pipeline_bottomline_cr=pipeline["summary"]["total_bottomline_cr"],
+        )
+        brands = build_org_brands(
             pipeline["all_deals"],
             ic_h1_quota_cr=ic_h1["quota"],
             pipeline_topline_cr=pipeline["summary"]["total_revenue_cr"],
@@ -1539,7 +1878,7 @@ def main(
         "meta": {
             "source": EXCEL_PATH.name,
             "generated_at": pd.Timestamp.now().isoformat(),
-            "fy": individuals[0]["fy"] if individuals else "FY 25-26",
+            "fy": individuals[0]["fy"] if individuals else "FY 26-27",
             "currency": "₹ Cr",
             "pipeline_period": pipeline["summary"]["period"] if pipeline else None,
             "timeline_week": 3,
@@ -1559,6 +1898,10 @@ def main(
             "total_divisions": len(RTM_DIVISIONS),
             "total_bus": len(bu_level),
             "total_deals_h1": sum(b["h1"]["deals"] or 0 for b in bu_level),
+            "header_pipeline_cr": grand_total["header_pipeline_cr"] if grand_total else None,
+            "header_closed_opps": grand_total["header_closed_opps"] if grand_total else 0,
+            "header_ic_actuals": grand_total["header_ic_actuals"] if grand_total else None,
+            "header_h1_attainment_pct": grand_total["header_h1_attainment_pct"] if grand_total else None,
             **(
                 {
                     "pipeline_deals": pipeline["summary"]["total_deals"],
@@ -1584,6 +1927,7 @@ def main(
         "rtm_by_bu": rtm_by_bu,
         "pipeline": pipeline["summary"] if pipeline else None,
         "accounts": accounts,
+        "brands": brands,
         "target_quota": target_quota,
         "employee_mapping_count": len(employee_mapping),
     }
@@ -1597,8 +1941,9 @@ def main(
     print(f"  BUs: {len(bu_level)}")
     print(f"  Divisions: {len(output['division_aggregates'])}")
     if pipeline:
-        print(f"  Pipeline deals: {pipeline['summary']['total_deals']} (₹{pipeline['summary']['total_revenue_cr']} Cr)")
+        print(f"  Pipeline deals: {pipeline['summary']['total_deals']} (Rs. {pipeline['summary']['total_revenue_cr']} Cr)")
         print(f"  Accounts: {len(accounts)}")
+        print(f"  Brands: {len(brands)}")
 
     return output
 

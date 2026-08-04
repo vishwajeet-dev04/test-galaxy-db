@@ -3,10 +3,10 @@ import { useMemo, useState } from "react";
 import { Users, Wallet, Target, Crown, Sparkles, TrendingUp } from "lucide-react";
 import { StatusFlag } from "../components/StatusFlag";
 import { DealStatusIndicators } from "../components/DealStatusIndicators";
-import { ProgressRing } from "../components/ProgressRing";
+
 import { Avatar } from "../components/Avatar";
 import type { QuotaData, LeaderDashboardRecord } from "../types";
-import { formatCr, formatPct, attainmentBarColor, attainmentColor } from "../utils/format";
+import { formatCr, formatPct, attainmentColor } from "../utils/format";
 import { getAvatarUrl } from "../utils/avatars";
 import { ui } from "../theme";
 
@@ -39,10 +39,11 @@ export function LeadersView({ data }: LeadersViewProps) {
     return leaders.reduce(
       (acc, l) => ({
         h1Actuals: acc.h1Actuals + (l.h1.actuals || 0),
-        bottomline: acc.bottomline + l.pipeline.bottomline_cr,
+        bottomline: acc.bottomline + (l.pipeline.bottomline_cr || 0),
+        topline: acc.topline + (l.pipeline.topline_cr || 0),
         deals: acc.deals + l.pipeline.deal_count,
       }),
-      { h1Actuals: 0, bottomline: 0, deals: 0 }
+      { h1Actuals: 0, bottomline: 0, topline: 0, deals: 0 }
     );
   }, [leaders]);
 
@@ -72,9 +73,10 @@ export function LeadersView({ data }: LeadersViewProps) {
               Cumulative team bottomline, quota & attainment across {leaders.length} business leaders.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <HeroStat label="Leaders" value={String(leaders.length)} />
-            <HeroStat label="H1 Actuals" value={formatCr(totals.h1Actuals)} />
+            <HeroStat label="H1 Actuals" value={formatCr(data.kpis.header_pipeline_cr ?? totals.h1Actuals)} />
+            <HeroStat label="Topline" value={formatCr(totals.topline)} />
             <HeroStat label="Team Bottomline" value={formatCr(totals.bottomline)} accent />
           </div>
         </div>
@@ -115,7 +117,6 @@ function LeaderCard({
   onSelect: () => void;
 }) {
   const grad = DIVISION_GRADIENT[leader.division] ?? DIVISION_GRADIENT.S1;
-  const att = leader.h1.attainment_pct ?? 0;
   const hasPhoto = Boolean(getAvatarUrl(leader.name));
 
   return (
@@ -142,18 +143,18 @@ function LeaderCard({
         <p className="mt-0.5 text-xs text-white/75">{leader.dept}</p>
       </div>
       <div className="bg-white px-5 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Topline</p>
+            <p className="font-mono text-lg font-bold text-slate-700">
+              {formatCr(leader.pipeline.topline_cr)}
+            </p>
+          </div>
+          <div className="flex-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/80">Bottomline</p>
             <p className="font-mono text-lg font-bold text-emerald-700">
               {formatCr(leader.pipeline.bottomline_cr)}
             </p>
-          </div>
-          <div className="relative">
-            <ProgressRing value={att} size={48} color={attainmentBarColor(att)} />
-            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-slate-600">
-              {Math.round(att)}%
-            </span>
           </div>
         </div>
         <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
@@ -191,7 +192,7 @@ function LeaderDetail({ leader }: { leader: LeaderDashboardRecord }) {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricTile
           icon={<Target className="h-5 w-5" />}
           label="H1 Quota"
@@ -208,10 +209,17 @@ function LeaderDetail({ leader }: { leader: LeaderDashboardRecord }) {
           trend={leader.h1.attainment_pct}
         />
         <MetricTile
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="Topline"
+          value={formatCr(leader.pipeline.topline_cr)}
+          sub={`${leader.pipeline.deal_count} deals`}
+          color="slate"
+        />
+        <MetricTile
           icon={<Wallet className="h-5 w-5" />}
           label="Bottomline"
           value={formatCr(leader.pipeline.bottomline_cr)}
-          sub={`GP ${formatPct(leader.pipeline.gp_pct)} · ${leader.pipeline.deal_count} deals`}
+          sub={`GP ${formatPct(leader.pipeline.gp_pct)}`}
           color="emerald"
           highlight
         />
@@ -273,6 +281,7 @@ function LeaderDetail({ leader }: { leader: LeaderDashboardRecord }) {
                 <th className="px-4 py-3 text-right">H1 Actuals</th>
                 <th className="px-4 py-3 text-right">H1 Quota</th>
                 <th className="px-4 py-3 text-right">Attainment</th>
+                <th className="px-4 py-3 text-right text-slate-700">Topline</th>
                 <th className="px-4 py-3 text-right text-emerald-700">Bottomline</th>
                 <th className="px-4 py-3 text-right">Deals</th>
               </tr>
@@ -295,6 +304,9 @@ function LeaderDetail({ leader }: { leader: LeaderDashboardRecord }) {
                     <td className="px-4 py-3 text-right font-mono text-slate-500">{formatCr(m.h1_quota)}</td>
                     <td className={`px-4 py-3 text-right font-mono font-medium ${attainmentColor(att)}`}>
                       {formatPct(att)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-medium text-slate-700">
+                      {formatCr(m.pipeline_topline_cr)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-medium text-emerald-700">
                       {formatCr(m.pipeline_bottomline_cr)}

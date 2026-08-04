@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
-import { QuotaVsActualChart } from "../components/charts/QuotaVsActualChart";
 import { DonutChart } from "../components/charts/DonutChart";
 import { ChartCard } from "../components/ChartCard";
+
 import { ProgressRing } from "../components/ProgressRing";
 import { FilterBar } from "../components/FilterBar";
 import type { QuotaData, DrillState } from "../types";
-import { formatCr, attainmentBarColor, BU_COLORS } from "../utils/format";
+import { formatCr, BU_COLORS, attainmentBarColor } from "../utils/format";
 import { ui } from "../theme";
 
 interface BUViewProps {
@@ -18,6 +18,7 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
   const { bu_level, rtm_by_bu } = data;
   const selected = drill.bu;
   const [search, setSearch] = useState("");
+  const [buPeriod, setBuPeriod] = useState<"h1" | "h2">("h1");
 
   const filteredBUs = useMemo(() => {
     if (!search) return bu_level;
@@ -26,13 +27,6 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
       (b) => b.bu.toLowerCase().includes(q) || b.service.toLowerCase().includes(q)
     );
   }, [bu_level, search]);
-
-  const buChart = filteredBUs.map((b) => ({
-    name: b.bu,
-    quota: b.h1.quota ?? 0,
-    actuals: b.h1.actuals ?? 0,
-    attainment: b.h1.attainment_pct ?? 0,
-  }));
 
   const rtmData = selected ? rtm_by_bu[selected]?.filter((r) => !r.name.includes("Grand")) ?? [] : [];
 
@@ -44,11 +38,35 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
         </p>
       )}
 
-      <FilterBar search={search} onSearchChange={setSearch} searchPlaceholder="Search BU or service..." />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <FilterBar search={search} onSearchChange={setSearch} searchPlaceholder="Search BU or service..." />
+        
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Period</span>
+          {(["h1", "h2"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setBuPeriod(p)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase transition ${
+                buPeriod === p
+                  ? "bg-galaxy-navy text-white shadow-sm"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         {filteredBUs.map((b) => {
-          const att = b.h1.attainment_pct ?? 0;
+          const periodData = b[buPeriod];
+          const att = periodData?.attainment_pct ?? 0;
+          const actuals = periodData?.actuals ?? 0;
+          const quota = periodData?.quota;
+          const hasActuals = actuals > 0 || quota != null;
+          
           const color = BU_COLORS[b.bu] ?? "#3c3f8e";
           return (
             <button
@@ -65,8 +83,24 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{b.bu}</span>
                   </div>
                   <p className="mt-1.5 truncate text-sm font-medium text-galaxy-navy">{b.service}</p>
-                  <p className="mt-3 font-mono text-2xl font-bold tracking-tight text-galaxy-navy">{formatCr(b.h1.actuals)}</p>
-                  <p className="text-xs text-slate-400">of {formatCr(b.h1.quota)} quota</p>
+                  
+                  {hasActuals ? (
+                    <>
+                      <p className="mt-3 font-mono text-2xl font-bold tracking-tight text-galaxy-navy">{formatCr(actuals)}</p>
+                      <p className="text-xs text-slate-400">of {formatCr(quota)} quota</p>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-sm font-medium italic text-slate-400">No data yet</p>
+                  )}
+                  
+                  {/* # Deals only exists for H1/annual in the tracker currently, fallback to h1 deals safely */}
+                  {b.h1.deals != null && buPeriod === "h1" && (
+                    <div className="mt-3">
+                      <p className="inline-block rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700">
+                        {Math.round(b.h1.deals)} closed deals
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="relative shrink-0">
                   <ProgressRing value={att} size={48} color={attainmentBarColor(att)} />
@@ -75,11 +109,6 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
                   </span>
                 </div>
               </div>
-              {b.pipeline && b.pipeline.deal_count > 0 && (
-                <p className="mt-3 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700">
-                  {b.pipeline.deal_count} pipeline deals · {formatCr(b.pipeline.revenue_cr)}
-                </p>
-              )}
             </button>
           );
         })}
@@ -87,12 +116,9 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
 
       {!selected && filteredBUs.length > 0 && (
         <div className="grid gap-5 lg:grid-cols-2">
-          <ChartCard title="Quota vs Actuals" subtitle="H1 performance by business unit">
-            <QuotaVsActualChart data={buChart} onBarClick={(bu) => onDrill({ bu })} />
-          </ChartCard>
-          <ChartCard title="Revenue Share" subtitle="H1 actuals distribution">
+          <ChartCard title="Revenue Share" subtitle={`${buPeriod.toUpperCase()} actuals distribution`}>
             <DonutChart
-              data={filteredBUs.map((b) => ({ name: b.bu, value: b.h1.actuals ?? 0 }))}
+              data={filteredBUs.map((b) => ({ name: b.bu, value: b[buPeriod]?.actuals ?? 0 }))}
               onSliceClick={(bu) => onDrill({ bu })}
             />
           </ChartCard>
@@ -101,37 +127,33 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
 
       {selected && rtmData.length > 0 && (
         <ChartCard title={`${selected} — RTM by Division`} subtitle="Revenue contribution breakdown">
-          <QuotaVsActualChart
-            data={rtmData
-              .filter((r) => !r.name.includes("Total"))
-              .map((r) => ({
-                name: r.division ?? r.name.replace(" Division Total", ""),
-                quota: r.h1.quota ?? r.annual.quota ?? 0,
-                actuals: r.h1.actuals ?? r.q1.actuals ?? 0,
-                attainment:
-                  r.h1.attainment_pct ?? (r.h1.quota ? ((r.h1.actuals ?? 0) / r.h1.quota) * 100 : 0),
-              }))}
-            onBarClick={(div) => onDrill({ view: "divisions", division: div, bu: selected })}
-          />
-          <div className="mt-4 overflow-hidden rounded-xl border border-galaxy-border">
+          <div className="overflow-x-auto rounded-xl border border-galaxy-border">
             <table className="w-full text-sm">
               <thead>
                 <tr className={ui.tableHead}>
-                  <th className="px-4 py-2">Division</th>
+                  <th className="px-4 py-2 text-left">Division</th>
                   <th className="px-4 py-2 text-right">Q1 Actuals</th>
+                  <th className="px-4 py-2 text-right">Q2 Actuals</th>
                   <th className="px-4 py-2 text-right">H1 Actuals</th>
+                  <th className="px-4 py-2 text-right">Q3 Actuals</th>
+                  <th className="px-4 py-2 text-right">Q4 Actuals</th>
+                  <th className="px-4 py-2 text-right">H2 Actuals</th>
                   <th className="px-4 py-2 text-right">Annual Quota</th>
                   <th className="px-4 py-2 text-right">Annual Actuals</th>
                 </tr>
               </thead>
               <tbody>
                 {rtmData.map((r) => (
-                  <tr key={r.name} className="border-b border-galaxy-border/70">
-                    <td className="px-4 py-2 text-galaxy-navy">{r.name}</td>
-                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q1.actuals)}</td>
-                    <td className="px-4 py-2 text-right font-mono font-medium text-galaxy-navy">{formatCr(r.h1.actuals)}</td>
-                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.annual.quota)}</td>
-                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.annual.actuals)}</td>
+                  <tr key={r.name} className="border-b border-galaxy-border/70 hover:bg-slate-50/50 transition">
+                    <td className="px-4 py-2 font-medium text-galaxy-navy whitespace-nowrap">{r.name}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q1?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q2?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-medium text-galaxy-navy">{formatCr(r.h1?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q3?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.q4?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-medium text-galaxy-navy">{formatCr(r.h2?.actuals)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-galaxy-muted">{formatCr(r.annual?.quota)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-medium text-galaxy-navy">{formatCr(r.annual?.actuals)}</td>
                   </tr>
                 ))}
               </tbody>
