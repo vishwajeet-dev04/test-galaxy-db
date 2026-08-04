@@ -11,6 +11,16 @@
   # Logo.dev publishable key (safe in client bundles). Override in Netlify UI if rotated.
   VITE_LOGO_DEV_TOKEN = "pk_Zrbz3T6jS6OTYbCWuVmrnQ"
 
+# -------------------------------------------------------------
+# PRODUCTION API PROXY
+# Once you deploy your backend to Render, uncomment the lines 
+# below and replace the URL with your actual Render Web Service URL.
+# -------------------------------------------------------------
+[[redirects]]
+  from = "/api/*"
+  to = "https://galaxy-db-6mxe.onrender.com/api/:splat"
+  status = 200
+
 # SPA fallback — serve index.html for all routes
 [[redirects]]
   from = "/*"
