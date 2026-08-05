@@ -62,7 +62,7 @@ PRIVILEGED = [
         "username": "anoopp",
         "email": "anoopp@goapl.com",
         "full_name": "Anoop P",
-        "role": "user",
+        "role": "admin",
         "employee_name": "Anoop P",
     },
 ]
