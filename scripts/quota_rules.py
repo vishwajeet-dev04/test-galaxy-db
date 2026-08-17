@@ -1,40 +1,74 @@
-"""Quota multiplier, CRM status, and GP exclusion rules (Sanjay feedback)."""
+"""Quota multiplier, CRM status, and GP exclusion rules.
 
-HRUSHIKESH_BAGADE = "Hrushikesh Bagade"
-GP_MIN_OVERALL_PCT = 5.0
-GP_DEAL_EXCLUDE_PCT = 3.0
+All configurable values are loaded from config/quota_rules.json so Finance
+can adjust multipliers and thresholds without touching Python code.
+"""
+from __future__ import annotations
 
-PS_MULTIPLIER = 2.0
-CSN_MULTIPLIER = 1.3
-DCG_BACKUP_STORAGE_MULTIPLIER = 1.2
+import json
+from pathlib import Path
 
-PS_INCLUDED_SUBCATS = {
-    "managed services",
-    "managed services - remote",
-    "managed services - hybrid",
-    "soc services",
-    "cloud services",
-    "automation & tools",
-    "deployment services",
+# ── Load config ────────────────────────────────────────────────────────────────
+_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "quota_rules.json"
+
+
+def _load_rules() -> dict:
+    if _CONFIG_PATH.exists():
+        with _CONFIG_PATH.open(encoding="utf-8") as f:
+            raw = json.load(f)
+        raw.pop("_comment", None)
+        return raw
+    return {}
+
+
+_RULES = _load_rules()
+
+# ── Multiplier values ──────────────────────────────────────────────────────────
+_MUL = _RULES.get("multipliers", {})
+PS_MULTIPLIER               = float(_MUL.get("PS",                 2.0))
+CSN_MULTIPLIER              = float(_MUL.get("CSN",                1.3))
+DCG_BACKUP_STORAGE_MULTIPLIER = float(_MUL.get("DCG_backup_storage", 1.2))
+
+# ── PS sub-category lists ──────────────────────────────────────────────────────
+PS_INCLUDED_SUBCATS: set[str] = {
+    s.lower() for s in _RULES.get("ps_included_subcategories", [
+        "managed services", "managed services - remote", "managed services - hybrid",
+        "soc services", "cloud services", "automation & tools", "deployment services",
+    ])
+}
+PS_EXCLUDED_SUBCATS: set[str] = {
+    s.lower() for s in _RULES.get("ps_excluded_subcategories", [
+        "residency services",
+        "multi-vendor support (3rd party amc)",
+        "day-2 services (onsite support) with product/ solution sale",
+        "day-2 services (onsite support) without  product/ solution sale",
+        "time & material services",
+    ])
+}
+DCG_QUALIFIED_SUBCATS: set[str] = {
+    s.lower() for s in _RULES.get("dcg_backup_storage_subcategories", ["backup & recovery", "storage"])
 }
 
-PS_EXCLUDED_SUBCATS = {
-    "residency services",
-    "multi-vendor support (3rd party amc)",
-    "day-2 services (onsite support) with product/ solution sale",
-    "day-2 services (onsite support) without  product/ solution sale",
-    "time & material services",
-}
+# ── GP exclusion ───────────────────────────────────────────────────────────────
+_GP = _RULES.get("gp_exclusion", {})
+HRUSHIKESH_BAGADE = _GP.get("employee", "Hrushikesh Bagade")
+GP_MIN_OVERALL_PCT = float(_GP.get("min_overall_pct", 5.0))
+GP_DEAL_EXCLUDE_PCT = float(_GP.get("exclude_deal_pct", 3.0))
 
-DCG_QUALIFIED_SUBCATS = {"backup & recovery", "storage"}
+# ── Status thresholds ──────────────────────────────────────────────────────────
+_ST = _RULES.get("status_thresholds", {})
+STATUS_ON_TRACK = float(_ST.get("on_track", 50))
+STATUS_AT_RISK  = float(_ST.get("at_risk", 30))
 
 
-def normalize_subcat(sub_category):
+# ── Rule functions ─────────────────────────────────────────────────────────────
+
+def normalize_subcat(sub_category: str | None) -> str:
     return (sub_category or "").strip().lower()
 
 
-def get_deal_multiplier(bu, sub_category, category=None):
-    """Return (multiplier, reason)."""
+def get_deal_multiplier(bu: str, sub_category: str | None, category: str | None = None):
+    """Return (multiplier, reason_string)."""
     sub = normalize_subcat(sub_category)
     cat = (category or "").lower()
 
@@ -58,7 +92,7 @@ def get_deal_multiplier(bu, sub_category, category=None):
     return 1.0, "Standard 1X"
 
 
-def parse_crm_status(deal_status, sales_stage):
+def parse_crm_status(deal_status: str | None, sales_stage: str | None) -> dict:
     """
     CRM lifecycle indicators:
     A. Booked  B. Billed / Partially Billed  C. Received / Partially Received
@@ -91,26 +125,23 @@ def parse_crm_status(deal_status, sales_stage):
         billed = "none"
         received = "none"
 
-    return {
-        "booked": booked,
-        "billed": billed,
-        "received": received,
-    }
+    return {"booked": booked, "billed": billed, "received": received}
 
 
-def compute_gp_pct(amount_inr, bottomline_inr):
+def compute_gp_pct(amount_inr: float, bottomline_inr: float) -> float:
     if not amount_inr or amount_inr <= 0:
         return 0.0
     return round(bottomline_inr / amount_inr * 100, 2)
 
 
-def apply_hrushikesh_exclusions(deals):
-    """If overall GP < 5%, exclude deals with GP < 3% from achievement."""
+def apply_hrushikesh_exclusions(deals: list) -> list:
+    """If Hrushikesh's overall GP < GP_MIN_OVERALL_PCT, exclude deals
+    with individual GP < GP_DEAL_EXCLUDE_PCT from achievement."""
+    hr_name = HRUSHIKESH_BAGADE.lower()
     hr_indices = [
-        i
-        for i, d in enumerate(deals)
-        if d.get("employee") == HRUSHIKESH_BAGADE
-        or HRUSHIKESH_BAGADE.lower() in (d.get("pipeline_led_by") or "").lower()
+        i for i, d in enumerate(deals)
+        if hr_name in (d.get("employee") or "").lower()
+        or hr_name in (d.get("pipeline_led_by") or "").lower()
     ]
     if not hr_indices:
         return deals

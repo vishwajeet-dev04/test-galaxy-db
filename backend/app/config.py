@@ -8,6 +8,23 @@ from pydantic_settings import BaseSettings
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 
+def _find_quota_tracker(files_dir: Path) -> Path:
+    """Return the most recently modified Galaxy Quota Tracker Excel file.
+
+    Looks for any file matching 'Galaxy Quota Tracker*.xlsx' so uploading a
+    new version with a different date in the filename works automatically.
+    Falls back to the legacy fixed name if no match is found.
+    """
+    candidates = sorted(
+        files_dir.glob("Galaxy Quota Tracker*.xlsx"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if candidates:
+        return candidates[0]
+    return files_dir / "Galaxy Quota Tracker.xlsx"
+
+
 class Settings(BaseSettings):
     app_name: str = "Galaxy Performance Tracker"
     secret_key: str = "galaxy-dev-secret-change-in-production-2026"
@@ -23,10 +40,21 @@ class Settings(BaseSettings):
     files_dir: Path = ROOT / "files"
     data_dir: Path = ROOT / "dashboard" / "public" / "data"
     quota_json: Path = ROOT / "dashboard" / "public" / "data" / "quota_data.json"
-    excel_path: Path = ROOT / "files" / "Galaxy Quota Tracker - 14072026.xlsx"
     pipeline_path: Path = ROOT / "files" / "Opportunity Pipeline Q1.xlsx"
     sales_team_path: Path = ROOT / "files" / "Sales Team - S1, S2 , CB, GB, South.xlsx"
     default_password: str = "Galaxy@123!"
+
+    # Vtiger CRM integration
+    vtiger_url: str = ""
+    vtiger_username: str = ""
+    vtiger_access_key: str = ""
+
+    model_config = {"env_file": str(ROOT / "backend" / ".env"), "env_file_encoding": "utf-8", "extra": "ignore"}
+
+    @property
+    def excel_path(self) -> Path:
+        """Dynamically resolved: picks the latest-modified Quota Tracker file."""
+        return _find_quota_tracker(self.files_dir)
 
 
 settings = Settings()

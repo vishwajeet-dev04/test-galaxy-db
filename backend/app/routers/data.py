@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,7 +19,13 @@ router = APIRouter()
 def _load_quota() -> dict[str, Any]:
     if not settings.quota_json.exists():
         raise HTTPException(status_code=503, detail="Quota data not generated yet. Ask an admin to upload files.")
-    return json.loads(settings.quota_json.read_text())
+    for attempt in range(3):
+        try:
+            return json.loads(settings.quota_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            if attempt == 2:
+                raise HTTPException(status_code=503, detail="Quota data is being updated, please retry in a moment.")
+            time.sleep(0.3)
 
 
 @router.get("/quota")

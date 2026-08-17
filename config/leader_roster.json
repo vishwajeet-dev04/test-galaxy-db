@@ -1,0 +1,83 @@
+[
+  {
+    "_comment": "Update when BU heads change. initial = short code, scope_depts = Dept values they manage, rollup_divisions = RTM divisions included in their scope.",
+    "initial": "AP",
+    "name": "Ajay Patodia",
+    "dept": "DCG BU HEAD",
+    "division": "DCG",
+    "bu": "DCG",
+    "scope_depts": ["DCG BU HEAD", "South sales", "South sales- Team Lead"],
+    "fallback_divisions": ["South"],
+    "rollup_divisions": ["South"]
+  },
+  {
+    "initial": "DK",
+    "name": "Dipti  Karpe",
+    "dept": "AVP - Stratgic 2",
+    "division": "S2",
+    "bu": "S2",
+    "scope_depts": ["AVP - Stratgic 2", "Stratgic 2"],
+    "fallback_divisions": ["S2"],
+    "rollup_divisions": ["S2"]
+  },
+  {
+    "initial": "IK",
+    "name": "Ishwari Santosh Kadam",
+    "dept": "AVP - Stratgic 1",
+    "division": "S1",
+    "bu": "S1",
+    "scope_depts": ["AVP - Stratgic 1", "Stratgic 1"],
+    "fallback_divisions": ["S1"],
+    "rollup_divisions": ["S1"]
+  },
+  {
+    "initial": "VG",
+    "name": "Vineet Gadia",
+    "dept": "BU - Commercial Business",
+    "division": "CB",
+    "bu": "CB",
+    "scope_depts": ["BU - Commercial Business", "Commercial Business", "Commercial Business- Team Lead"],
+    "fallback_divisions": ["CB"],
+    "rollup_divisions": ["CB"]
+  },
+  {
+    "initial": "SK",
+    "name": "Sanjeev Kohli",
+    "dept": "BU - Geo Expansion",
+    "division": "GeoX",
+    "bu": "GeoX",
+    "scope_depts": ["BU - Geo Expansion", "Geo Expansion"],
+    "fallback_divisions": ["GeoX", "Geo X"],
+    "rollup_divisions": ["GeoX", "Geo X"]
+  },
+  {
+    "initial": "YB",
+    "name": "Yogesh Bhatia",
+    "dept": "BU - Growth Busniss",
+    "division": "GB",
+    "bu": "GB",
+    "scope_depts": ["BU - Growth Busniss", "BU - Growth Business", "Growth Busniss", "Growth Busniss - Team Lead"],
+    "fallback_divisions": ["GB"],
+    "rollup_divisions": ["GB"]
+  },
+  {
+    "initial": "JI",
+    "name": "Jitesh Rajput",
+    "dept": "BU - Cloud ",
+    "division": "Cloud",
+    "bu": "Cloud",
+    "scope_depts": ["BU - Cloud ", "BU - Cloud"],
+    "fallback_divisions": ["Cloud"],
+    "rollup_divisions": ["Cloud"]
+  },
+  {
+    "initial": "RY",
+    "name": "Rocky Braganza",
+    "dept": "CSN ",
+    "division": "CSN",
+    "bu": "CSN",
+    "scope_depts": ["CSN ", "CSN"],
+    "fallback_divisions": ["CSN"],
+    "rollup_divisions": ["CSN"]
+  }
+]

@@ -2,13 +2,17 @@
 """Parse Galaxy Quota Tracker Excel into structured JSON for the dashboard."""
 
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 import pandas as pd
 
 from quota_rules import (
+    STATUS_AT_RISK,
+    STATUS_ON_TRACK,
     apply_hrushikesh_exclusions,
     compute_gp_pct,
     get_deal_multiplier,
@@ -16,7 +20,23 @@ from quota_rules import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-EXCEL_PATH = ROOT / "files" / "Galaxy Quota Tracker - 14072026.xlsx"
+CONFIG_DIR = ROOT / "config"
+
+
+def _find_quota_tracker() -> Path:
+    """Pick the latest-modified 'Galaxy Quota Tracker*.xlsx' from files/."""
+    files_dir = ROOT / "files"
+    candidates = sorted(
+        files_dir.glob("Galaxy Quota Tracker*.xlsx"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if candidates:
+        return candidates[0]
+    return files_dir / "Galaxy Quota Tracker.xlsx"
+
+
+EXCEL_PATH = _find_quota_tracker()
 PIPELINE_PATH = ROOT / "files" / "Opportunity Pipeline Q1.xlsx"  # legacy alias kept for imports
 PIPELINE_Q1_PATH = ROOT / "files" / "Opportunity Pipeline Q1.xlsx"
 PIPELINE_Q2_PATH = ROOT / "files" / "Opportunity Pipeline Q2.xlsx"
@@ -28,41 +48,44 @@ OUTPUT_PATH = ROOT / "dashboard" / "public" / "data" / "quota_data.json"
 
 RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South", "GeoX"}
 
-PIPELINE_ALIASES = {
-    "Vidula Chawan": "Vidula Chavan",
-    "Sankeerth Bhargav": "Sankeerth",
-    "Shubhangi Srinivasan": "Shubhangi",
-    "Ayushman Singh": "Ayushaman",
-    "Arpit Srivastava": "TBH (Arpit)",
-    "Varsha Ray": "TBH (Varsha)",
-    "Riya Khemraj Roshyara": "Riya Bhatt",
-    "Riya Roshyara": "Riya Bhatt",
-    "Hrushikesh Bagade": "Hrushikesh Bagade",
-    "Jitesh Rajput": "Jitesh Rajput",
-    "Prashant Ramchandra Dudugu - Team Lead": "Prashant Ddugu",
-    "Prashant Dudugu": "Prashant Ddugu",
-    "Tasneem  Khatri": "Tasneem K",
-    "Tasneem Khatri": "Tasneem K",
-    "Ishwari Santosh Kadam": "Ishwari Kadam",
-    "Pratik Vilas Kadam": "Pratik Kadam",
-}
 
-DEPT_TO_RTM = {
-    "Stratgic 1": "S1",
-    "AVP - Stratgic 1": "S1",
-    "Stratgic 2": "S2",
-    "AVP - Stratgic 2": "S2",
-    "Commercial Business": "CB",
-    "BU - Commercial Business": "CB",
-    "Commercial Business- Team Lead": "CB",
-    "Growth Busniss": "GB",
-    "BU - Growth Business": "GB",
-    "Growth Busniss - Team Lead": "GB",
-    "South sales": "South",
-    "South sales- Team Lead": "South",
-    "Geo Expansion": "GeoX",
-    "BU - Geo Expansion": "GeoX",
-}
+def _load_config_json(filename: str, default):
+    """Load a JSON config file; return *default* if missing so the script still runs."""
+    path = CONFIG_DIR / filename
+    if path.exists():
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+            # Strip the optional _comment key present in some config files
+            if isinstance(data, dict):
+                data.pop("_comment", None)
+            elif isinstance(data, list):
+                data = [
+                    {k: v for k, v in item.items() if k != "_comment"} for item in data
+                ]
+        return data
+    return default
+
+
+PIPELINE_ALIASES: dict = _load_config_json(
+    "pipeline_aliases.json",
+    {
+        "Tasneem  Khatri": "Tasneem K",
+        "Tasneem Khatri": "Tasneem K",
+        "Ishwari Santosh Kadam": "Ishwari Kadam",
+    },
+)
+
+DEPT_TO_RTM: dict = _load_config_json(
+    "dept_to_rtm.json",
+    {
+        "Stratgic 1": "S1",
+        "Stratgic 2": "S2",
+        "Commercial Business": "CB",
+        "Growth Busniss": "GB",
+        "South sales": "South",
+        "Geo Expansion": "GeoX",
+    },
+)
 
 CAT_TO_BU = {
     "Data Centre": "DCG",
@@ -215,10 +238,17 @@ def parse_rtm_subtotals(xl, bp_quotas):
             return {"quota": quota, "actuals": actuals, "attainment_pct": att}
 
         h2_act = to_num(row.get(h2a)) or 0
-        q3_a = round(h2_act / 2, 2)
-        q4_a = round(h2_act / 2, 2)
         q3_q = bp_q.get("q3")
         q4_q = bp_q.get("q4")
+
+        # Try real Q3/Q4 columns first; fall back to H2÷2 approximation when
+        # the Quota Tracker has not yet been updated with H2 individual data.
+        q3_real = to_num(row.get("Q3 Actuals\n(₹ Cr)"))
+        q4_real = to_num(row.get("Q4 Actuals\n(₹ Cr)"))
+        q3_a = q3_real if q3_real is not None else round(h2_act / 2, 2)
+        q4_a = q4_real if q4_real is not None else round(h2_act / 2, 2)
+        q3_estimated = q3_real is None
+        q4_estimated = q4_real is None
 
         records.append(
             {
@@ -226,8 +256,18 @@ def parse_rtm_subtotals(xl, bp_quotas):
                 "q1": period_metrics(q1q, q1a, "Attainment %\n(Q1)"),
                 "q2": period_metrics(q2q, q2a, "Attainment %\n(Q2)"),
                 "h1": period_metrics(h1q, h1a, "Attainment %\n(H1)"),
-                "q3": {"quota": q3_q, "actuals": q3_a, "attainment_pct": round(q3_a / q3_q * 100, 2) if q3_q else 0},
-                "q4": {"quota": q4_q, "actuals": q4_a, "attainment_pct": round(q4_a / q4_q * 100, 2) if q4_q else 0},
+                "q3": {
+                    "quota": q3_q,
+                    "actuals": q3_a,
+                    "attainment_pct": round(q3_a / q3_q * 100, 2) if q3_q else 0,
+                    "estimated": q3_estimated,
+                },
+                "q4": {
+                    "quota": q4_q,
+                    "actuals": q4_a,
+                    "attainment_pct": round(q4_a / q4_q * 100, 2) if q4_q else 0,
+                    "estimated": q4_estimated,
+                },
                 "h2": period_metrics(h2q, h2a, "Attainment %\n(H2)"),
                 "annual": period_metrics(annq, anna, "Attainment %\n(Annual)"),
             }
@@ -235,24 +275,53 @@ def parse_rtm_subtotals(xl, bp_quotas):
     return sorted(records, key=lambda x: x["h1"]["actuals"] or 0, reverse=True)
 
 
+def _find_row_by_keyword(ws, keywords, search_cols=(1, 2, 3), start_row=3, fallback=None):
+    """Scan a worksheet to find the first row whose text in any of search_cols
+    contains any of the given keywords (case-insensitive). Returns the row number
+    or *fallback* when not found.
+    """
+    kw_upper = [k.upper() for k in keywords]
+    for r in range(start_row, min(ws.max_row + 1, 500)):
+        for c in search_cols:
+            val = str(ws.cell(row=r, column=c).value or "").strip().upper()
+            if any(kw in val for kw in kw_upper):
+                return r
+    return fallback
+
+
+def _find_col_by_keyword(ws, keywords, search_rows=(1, 2, 3), fallback=None):
+    """Scan a worksheet header rows to find the first column whose text contains
+    any of the given keywords (case-insensitive). Returns the column index or
+    *fallback* when not found.
+    """
+    kw_upper = [k.upper() for k in keywords]
+    for r in search_rows:
+        for cell in ws[r]:
+            val = str(cell.value or "").strip().upper()
+            if any(kw in val for kw in kw_upper):
+                return cell.column
+    return fallback
+
+
 def parse_grand_total(xl):
-    """Read Quota/Actuals for Q1, Q2, H1, and Annual directly from specific
-    cells in V1 · Individual row 65 (GRAND TOTAL — All IC).
+    """Read Quota/Actuals for Q1, Q2, H1, H2 and Annual from V1 · Individual.
 
-    Cell mapping confirmed against Excel file:
-      Q1  Quota=F65, Actuals=G66
-      Q2  Quota=I65, Actuals=J66
-      H1  Quota=L65, Actuals=M66
-      Annual Quota=R65, Actuals=S66
-
-    H2 Quota is pulled from O65. H2 Actuals is derived from Annual - H1.
+    Instead of hardcoded cell addresses (fragile when rows are inserted/removed),
+    this function:
+      1. Scans column A/B for the "GRAND TOTAL" or "ALL IC" keyword to find the
+         quota row dynamically.
+      2. Assumes actuals are in the immediately following row (confirmed template
+         layout: quota row N, actuals row N+1).
+      3. Column positions are kept as named constants — they reflect the fixed
+         template column structure and are much less likely to shift than row numbers.
     """
     import openpyxl
     path = xl if isinstance(xl, str) else xl._io
     wb = openpyxl.load_workbook(path, data_only=True)
-    if "V1 \u00b7 Individual" not in wb.sheetnames:
+    sheet_name = "V1 \u00b7 Individual"
+    if sheet_name not in wb.sheetnames:
         return None
-    ws = wb["V1 \u00b7 Individual"]
+    ws = wb[sheet_name]
 
     def _num(val):
         try:
@@ -266,27 +335,53 @@ def parse_grand_total(xl):
         att = round(a / q * 100, 2) if q and a is not None else None
         return {"quota": q, "actuals": a, "attainment_pct": att}
 
-    q1  = _pm(ws["F65"].value, ws["G66"].value)
-    q2  = _pm(ws["I65"].value, ws["J66"].value)
-    h1  = _pm(ws["L65"].value, ws["M66"].value)
-    ann = _pm(ws["R65"].value, ws["S66"].value)
+    def _c(row, col):
+        return ws.cell(row=row, column=col).value
 
-    # Header bar stats: M65 = IC H1 Actuals (used as Pipeline), U65 = Closed Opps count
-    header_pipeline_cr  = _num(ws["M65"].value)
-    header_closed_opps  = ws["U65"].value
-    header_ic_actuals   = _num(ws["M66"].value)
+    # ── Column assignments (template-defined, stable across row insertions) ──
+    # F=6  G=7  I=9  J=10  L=12  M=13  N=14  O=15  R=18  S=19  U=21
+    COL_Q1_QUOTA   = 6   # F
+    COL_Q1_ACT     = 7   # G
+    COL_Q2_QUOTA   = 9   # I
+    COL_Q2_ACT     = 10  # J
+    COL_H1_QUOTA   = 12  # L
+    COL_H1_ACT     = 13  # M
+    COL_H1_ATT     = 14  # N
+    COL_H2_QUOTA   = 15  # O
+    COL_ANN_QUOTA  = 18  # R
+    COL_ANN_ACT    = 19  # S
+    COL_CLOSED_OPS = 21  # U
+
+    # ── Dynamic row discovery ──────────────────────────────────────────────
+    quota_row = _find_row_by_keyword(
+        ws, ["GRAND TOTAL", "ALL IC"], search_cols=(1, 2, 3), start_row=3, fallback=65
+    )
+    actuals_row = quota_row + 1  # actuals always immediately follow quota row
+
+    q1  = _pm(_c(quota_row, COL_Q1_QUOTA),  _c(actuals_row, COL_Q1_ACT))
+    q2  = _pm(_c(quota_row, COL_Q2_QUOTA),  _c(actuals_row, COL_Q2_ACT))
+    h1  = _pm(_c(quota_row, COL_H1_QUOTA),  _c(actuals_row, COL_H1_ACT))
+    ann = _pm(_c(quota_row, COL_ANN_QUOTA), _c(actuals_row, COL_ANN_ACT))
+
+    header_pipeline_cr = _num(_c(quota_row,   COL_H1_QUOTA))
+    header_ic_actuals  = _num(_c(actuals_row, COL_H1_ACT))
+    header_closed_opps = _c(quota_row, COL_CLOSED_OPS)
     try:
         header_closed_opps = int(header_closed_opps) if header_closed_opps is not None else 0
     except (TypeError, ValueError):
         header_closed_opps = 0
 
-    # H2 Quota explicit from O65, H2 Actuals derived from Annual - H1
-    h2_quota   = _num(ws["O65"].value)
-    h2_actuals = round((ann["actuals"] or 0) - (h1["actuals"] or 0), 2) if ann["actuals"] is not None and h1["actuals"] is not None else None
-    h2_att     = round(h2_actuals / h2_quota * 100, 2) if h2_quota and h2_actuals else None
+    h2_quota   = _num(_c(quota_row, COL_H2_QUOTA))
+    h2_actuals = (
+        round((ann["actuals"] or 0) - (h1["actuals"] or 0), 2)
+        if ann["actuals"] is not None and h1["actuals"] is not None
+        else None
+    )
+    h2_att = round(h2_actuals / h2_quota * 100, 2) if h2_quota and h2_actuals else None
     h2 = {"quota": h2_quota, "actuals": h2_actuals, "attainment_pct": h2_att}
 
-    header_h1_attainment_pct = _num(ws["N65"].value) * 100 if ws["N65"].value is not None else None
+    att_raw = _num(_c(quota_row, COL_H1_ATT))
+    header_h1_attainment_pct = att_raw * 100 if att_raw is not None and att_raw <= 1.5 else att_raw
 
     return {
         "q1": q1, "q2": q2, "h1": h1, "h2": h2, "annual": ann,
@@ -294,39 +389,65 @@ def parse_grand_total(xl):
         "header_closed_opps": header_closed_opps,
         "header_ic_actuals": header_ic_actuals,
         "header_h1_attainment_pct": header_h1_attainment_pct,
+        "_quota_row_found": quota_row,  # diagnostic: visible in meta if needed
     }
 
 
-
 def parse_v3_closed_deals(xl):
-    """Read closed-deal counts from specific cells in V3 · RTM Division level.
-    Row 12, columns F / M / W / AK correspond to Q1 / Q2 / H1 / Annual.
-    Uses openpyxl (data_only=True) so formula results are read directly.
+    """Read closed-deal counts from V3 · RTM Division level.
+
+    Finds the total row and each RTM division row by scanning for their labels
+    rather than assuming fixed row numbers. Column positions are kept as constants
+    (Q1→F=6, Q2→M=13, H1→W=23, Annual→AK=37) — these reflect the template
+    structure and are far less likely to shift than row numbers.
     """
     import openpyxl
     path = xl if isinstance(xl, str) else xl._io
     wb = openpyxl.load_workbook(path, data_only=True)
-    if "V3 \u00b7 RTM Division level" not in wb.sheetnames:
-        return {"q1": 0, "q2": 0, "h1": 0, "annual": 0}
-    ws = wb["V3 \u00b7 RTM Division level"]
+    sheet_name = "V3 \u00b7 RTM Division level"
+    if sheet_name not in wb.sheetnames:
+        return {"q1": 0, "q2": 0, "h1": 0, "annual": 0, "by_division": {}}
+    ws = wb[sheet_name]
+
     def _int(val):
         try:
             return int(val) if val is not None else 0
         except (TypeError, ValueError):
             return 0
+
+    # ── Column assignments (template-defined) ─────────────────────────────
+    COL_Q1     = 6   # F
+    COL_Q2     = 13  # M
+    COL_H1     = 23  # W
+    COL_ANNUAL = 37  # AK
+
+    # ── Dynamic row discovery ──────────────────────────────────────────────
+    total_row = _find_row_by_keyword(
+        ws, ["TOTAL", "GRAND"], search_cols=(1, 2, 3), start_row=3, fallback=12
+    )
+
+    RTM_DIVISION_NAMES = ["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"]
+    div_rows: dict = {}
+    for r in range(2, min(ws.max_row + 1, 200)):
+        for c in (1, 2):
+            val = str(ws.cell(row=r, column=c).value or "").strip()
+            norm = "GeoX" if val in ("GeoX", "Geo X") else val
+            if norm in RTM_DIVISION_NAMES and norm not in div_rows:
+                div_rows[norm] = r
+                break
+
+    def _div(name):
+        r = div_rows.get(name) or div_rows.get("Geo X" if name == "GeoX" else name)
+        if r is None:
+            return 0
+        return _int(ws.cell(row=r, column=COL_H1).value)
+
     return {
-        "q1":     _int(ws["F12"].value),
-        "q2":     _int(ws["M12"].value),
-        "h1":     _int(ws["W12"].value),
-        "annual": _int(ws["AK12"].value),
-        "by_division": {
-            "S1": _int(ws["W5"].value),
-            "S2": _int(ws["W6"].value),
-            "CB": _int(ws["W7"].value),
-            "GB": _int(ws["W8"].value),
-            "South": _int(ws["W9"].value),
-            "GeoX": _int(ws["W10"].value),
-        }
+        "q1":     _int(ws.cell(row=total_row, column=COL_Q1).value),
+        "q2":     _int(ws.cell(row=total_row, column=COL_Q2).value),
+        "h1":     _int(ws.cell(row=total_row, column=COL_H1).value),
+        "annual": _int(ws.cell(row=total_row, column=COL_ANNUAL).value),
+        "by_division": {div: _div(div) for div in ["S1", "S2", "CB", "GB", "South", "GeoX"]},
     }
 
 
@@ -400,6 +521,18 @@ def parse_individual(xl):
                     "quota": to_num(row.get("H1 Quota\n(₹ Cr)")),
                     "actuals": to_num(row.get("H1 Actuals\n(₹ Cr)")),
                     "attainment_pct": to_pct(row.get("Attainment %\n(H1)")),
+                },
+                "q3": {
+                    "quota": to_num(row.get("Q3 Quota\n(₹ Cr)")),
+                    "actuals": to_num(row.get("Q3 Actuals\n(₹ Cr)")),
+                    "attainment_pct": to_pct(row.get("Attainment %\n(Q3)")),
+                    "estimated": row.get("Q3 Actuals\n(₹ Cr)") is None,
+                },
+                "q4": {
+                    "quota": to_num(row.get("Q4 Quota\n(₹ Cr)")),
+                    "actuals": to_num(row.get("Q4 Actuals\n(₹ Cr)")),
+                    "attainment_pct": to_pct(row.get("Attainment %\n(Q4)")),
+                    "estimated": row.get("Q4 Actuals\n(₹ Cr)") is None,
                 },
                 "h2": {
                     "quota": to_num(row.get("H2 Quota\n(₹ Cr)")),
@@ -1518,88 +1651,17 @@ def find_individual_by_name(individuals, name):
     return None
 
 
-LEADER_ROSTER = [
-    {
-        "initial": "AP",
-        "name": "Ajay Patodia",
-        "dept": "DCG BU HEAD",
-        "division": "DCG",
-        "bu": "DCG",
-        "scope_depts": ["DCG BU HEAD", "South sales", "South sales- Team Lead"],
-        "fallback_divisions": ["South"],
-        "rollup_divisions": ["South"],
-    },
-    {
-        "initial": "DK",
-        "name": "Dipti  Karpe",
-        "dept": "AVP - Stratgic 2",
-        "division": "S2",
-        "bu": "S2",
-        "scope_depts": ["AVP - Stratgic 2", "Stratgic 2"],
-        "fallback_divisions": ["S2"],
-        "rollup_divisions": ["S2"],
-    },
-    {
-        "initial": "IK",
-        "name": "Ishwari Santosh Kadam",
-        "dept": "AVP - Stratgic 1",
-        "division": "S1",
-        "bu": "S1",
-        "scope_depts": ["AVP - Stratgic 1", "Stratgic 1"],
-        "fallback_divisions": ["S1"],
-        "rollup_divisions": ["S1"],
-    },
-    {
-        "initial": "VG",
-        "name": "Vineet Gadia",
-        "dept": "BU - Commercial Business",
-        "division": "CB",
-        "bu": "CB",
-        "scope_depts": ["BU - Commercial Business", "Commercial Business", "Commercial Business- Team Lead"],
-        "fallback_divisions": ["CB"],
-        "rollup_divisions": ["CB"],
-    },
-    {
-        "initial": "SK",
-        "name": "Sanjeev Kohli",
-        "dept": "BU - Geo Expansion",
-        "division": "GeoX",
-        "bu": "GeoX",
-        "scope_depts": ["BU - Geo Expansion", "Geo Expansion"],
-        "fallback_divisions": ["GeoX", "Geo X"],
-        "rollup_divisions": ["GeoX", "Geo X"],
-    },
-    {
-        "initial": "YB",
-        "name": "Yogesh Bhatia",
-        "dept": "BU - Growth Busniss",
-        "division": "GB",
-        "bu": "GB",
-        "scope_depts": ["BU - Growth Busniss", "BU - Growth Business", "Growth Busniss", "Growth Busniss - Team Lead"],
-        "fallback_divisions": ["GB"],
-        "rollup_divisions": ["GB"],
-    },
-    {
-        "initial": "JI",
-        "name": "Jitesh Rajput",
-        "dept": "BU - Cloud ",
-        "division": "Cloud",
-        "bu": "Cloud",
-        "scope_depts": ["BU - Cloud ", "BU - Cloud"],
-        "fallback_divisions": ["Cloud"],
-        "rollup_divisions": ["Cloud"],
-    },
-    {
-        "initial": "RY",
-        "name": "Rocky Braganza",
-        "dept": "CSN ",
-        "division": "CSN",
-        "bu": "CSN",
-        "scope_depts": ["CSN ", "CSN"],
-        "fallback_divisions": ["CSN"],
-        "rollup_divisions": ["CSN"],
-    },
-]
+LEADER_ROSTER: list = _load_config_json(
+    "leader_roster.json",
+    [
+        {
+            "initial": "AP", "name": "Ajay Patodia", "dept": "DCG BU HEAD",
+            "division": "DCG", "bu": "DCG",
+            "scope_depts": ["DCG BU HEAD", "South sales", "South sales- Team Lead"],
+            "fallback_divisions": ["South"], "rollup_divisions": ["South"],
+        },
+    ],
+)
 
 
 def collect_hierarchy_team(leader_name, sales_df):
@@ -1763,13 +1825,33 @@ def build_leaders_dashboard(individuals, pipeline, v2_leaders):
     return sorted(results, key=lambda x: x["h1"]["actuals"] or 0, reverse=True)
 
 
+def _current_fy() -> str:
+    """Return the current Indian Financial Year label, e.g. 'FY 26-27'.
+    Indian FY runs April 1 – March 31.
+    """
+    import datetime
+    today = datetime.date.today()
+    year = today.year if today.month >= 4 else today.year - 1
+    return f"FY {str(year)[2:]}-{str(year + 1)[2:]}"
+
+
+def _fy_week_number() -> int:
+    """Return the week number within the current Indian FY (week 1 = Apr 1 week)."""
+    import datetime
+    today = datetime.date.today()
+    fy_start_year = today.year if today.month >= 4 else today.year - 1
+    fy_start = datetime.date(fy_start_year, 4, 1)
+    delta = (today - fy_start).days
+    return max(1, delta // 7 + 1)
+
+
 def status_flag(attainment_pct):
-    """≥50% On Track, 30–50% At Risk, 0–30% Critical."""
+    """On Track / At Risk / Critical thresholds from config/quota_rules.json."""
     if attainment_pct is None:
         return "grey"
-    if attainment_pct >= 50:
+    if attainment_pct >= STATUS_ON_TRACK:
         return "green"
-    if attainment_pct >= 30:
+    if attainment_pct >= STATUS_AT_RISK:
         return "amber"
     return "red"
 
@@ -1878,10 +1960,10 @@ def main(
         "meta": {
             "source": EXCEL_PATH.name,
             "generated_at": pd.Timestamp.now().isoformat(),
-            "fy": individuals[0]["fy"] if individuals else "FY 26-27",
+            "fy": _current_fy(),
             "currency": "₹ Cr",
             "pipeline_period": pipeline["summary"]["period"] if pipeline else None,
-            "timeline_week": 3,
+            "timeline_week": _fy_week_number(),
         },
         "kpis": {
             "h1_quota_cr": round(h1_quota, 2),
@@ -1933,8 +2015,17 @@ def main(
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w") as f:
-        json.dump(output, f, indent=2)
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=OUTPUT_PATH.parent, suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            json.dump(output, f, indent=2)
+        os.replace(tmp_path, OUTPUT_PATH)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
     print(f"Wrote {OUTPUT_PATH}")
     print(f"  Individuals: {len(individuals)}")
