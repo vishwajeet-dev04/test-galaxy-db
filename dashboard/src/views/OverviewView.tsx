@@ -62,15 +62,22 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
       }
       return { name: d.division, value: val };
     });
-    const buData = (bu_level ?? []).map((b) => {
-      let val = 0;
-      if (selectedChartPeriod === "q3" || selectedChartPeriod === "q4") {
-        val = ((b as any).h2?.actuals ?? 0) / 2;
-      } else {
-        val = (b as any)[selectedChartPeriod]?.actuals ?? 0;
-      }
-      return { name: b.bu, value: val };
-    });
+    const buData = (bu_level ?? [])
+      .map((b) => {
+        let val = 0;
+        if (selectedChartPeriod === "q3" || selectedChartPeriod === "q4") {
+          val = ((b as any).h2?.actuals ?? 0) / 2;
+        } else {
+          val = (b as any)[selectedChartPeriod]?.actuals ?? 0;
+        }
+        return { name: b.bu, value: val };
+      })
+      .sort((a, b) => {
+        const order = ["DCG", "CSN", "PS", "CSG", "Cloud"];
+        const ia = order.indexOf(a.name);
+        const ib = order.indexOf(b.name);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      });
     return { rtmData, buData };
   };
 

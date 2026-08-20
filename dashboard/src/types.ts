@@ -391,6 +391,13 @@ export interface QuotaData {
   brands?: BrandRecord[];
   target_quota?: Record<string, unknown>;
   employee_mapping_count?: number;
+  _scope?: {
+    mode: "all" | "filtered";
+    role?: string;
+    employee_name?: string | null;
+    allowed_count?: number;
+    visible_people?: string[];
+  };
 }
 
 // "admin" added back from login_feature — required for AdminUploadsView route

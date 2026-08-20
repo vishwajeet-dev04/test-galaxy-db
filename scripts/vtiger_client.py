@@ -29,8 +29,8 @@ Field mapping (confirmed via vtiger_discover.py on 2026-08-14):
     probability   → Probability
     createdtime   → Created Time
 
-NOTE: "Division" (col Z) does NOT exist in Vtiger.
-      It is derived from the employee mapping (Sales Team Excel / Employee_Mapping.csv).
+NOTE: "Division" does NOT exist in Vtiger.
+      It is derived from config/ic_quotas.json (name → RTM) at build time.
 """
 
 from __future__ import annotations

@@ -90,3 +90,112 @@ export const PERFORMANCE_PERIOD_OPTIONS: { value: PerformancePeriodKey; label: s
   { value: "h2", label: "H2" },
   { value: "annual", label: "Annual" },
 ];
+
+export type DateRangeValue = {
+  start: string;
+  end: string;
+  label: string;
+  preset: string;
+};
+
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+export function toISODate(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+export function parseISODate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+export function formatDisplayDate(iso: string): string {
+  const d = parseISODate(iso);
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+export function fyBounds(refDate = new Date()): { start: Date; end: Date } {
+  const fy = fyStartYear(refDate);
+  return {
+    start: new Date(fy, 3, 1),
+    end: new Date(fy + 1, 2, 31),
+  };
+}
+
+function startOfWeek(d: Date): Date {
+  const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = copy.getDay(); // 0 Sun
+  const diff = day === 0 ? 6 : day - 1; // Monday start
+  copy.setDate(copy.getDate() - diff);
+  return copy;
+}
+
+function endOfWeek(d: Date): Date {
+  const start = startOfWeek(d);
+  return new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+}
+
+function addDays(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+}
+
+export function defaultDateRange(refDate = new Date()): DateRangeValue {
+  const { start, end } = fyBounds(refDate);
+  return {
+    start: toISODate(start),
+    end: toISODate(end),
+    label: "This Year",
+    preset: "this_year",
+  };
+}
+
+export function dateRangePresets(refDate = new Date()): DateRangeValue[] {
+  const today = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+  const [thisQStart, thisQEnd] = (() => {
+    const m = today.getMonth();
+    const q: FiscalQuarter = m >= 3 && m <= 5 ? "Q1" : m >= 6 && m <= 8 ? "Q2" : m >= 9 && m <= 11 ? "Q3" : "Q4";
+    return quarterRange(q, today);
+  })();
+  const lastQRef = addDays(thisQStart, -1);
+  const lastQ: FiscalQuarter =
+    lastQRef.getMonth() >= 3 && lastQRef.getMonth() <= 5
+      ? "Q1"
+      : lastQRef.getMonth() >= 6 && lastQRef.getMonth() <= 8
+        ? "Q2"
+        : lastQRef.getMonth() >= 9 && lastQRef.getMonth() <= 11
+          ? "Q3"
+          : "Q4";
+  const [lastQStart, lastQEnd] = quarterRange(lastQ, lastQRef);
+  const fy = fyBounds(today);
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const thisMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const thisWeekStart = startOfWeek(today);
+  const thisWeekEnd = endOfWeek(today);
+  const lastWeekEnd = addDays(thisWeekStart, -1);
+  const lastWeekStart = startOfWeek(lastWeekEnd);
+
+  const pack = (preset: string, label: string, start: Date, end: Date): DateRangeValue => ({
+    preset,
+    label,
+    start: toISODate(start),
+    end: toISODate(end),
+  });
+
+  return [
+    pack("last_60", "Last 60 Days", addDays(today, -59), today),
+    pack("last_90", "Last 90 Days", addDays(today, -89), today),
+    pack("this_week", "This Week", thisWeekStart, thisWeekEnd),
+    pack("last_week", "Last Week", lastWeekStart, lastWeekEnd),
+    pack("this_month", "This Month", thisMonthStart, thisMonthEnd),
+    pack("last_month", "Last Month", lastMonthStart, lastMonthEnd),
+    pack("this_quarter", "This Quarter", thisQStart, thisQEnd),
+    pack("last_quarter", "Last Quarter", lastQStart, lastQEnd),
+    pack("this_year", "This Year", fy.start, fy.end),
+    pack("specific", "Specific date...", today, today),
+    pack("custom", "Custom...", fy.start, fy.end),
+  ];
+}

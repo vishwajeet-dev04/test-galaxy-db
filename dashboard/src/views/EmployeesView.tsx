@@ -197,6 +197,7 @@ interface DivisionGroup {
 
 const RTM_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South"]);
 const EMPLOYEE_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"]);
+const HIDDEN_EMPLOYEE_PERSONAS = new Set(["TL", "AVP", "BU Head", "BU Head / TL", "Topline", "Bottomline", "Other"]);
 
 const RTM_ORDER = ["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"];
 const sortDivisions = (a: string | null | undefined, b: string | null | undefined) => {
@@ -252,6 +253,8 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
   const filtered = useMemo(() => {
     return data.individuals.filter((e) => {
       if (["Total", "Total Opportunity"].includes(e.name)) return false;
+      if (/sanjeev\s+kohli/i.test(e.name)) return false;
+      if (HIDDEN_EMPLOYEE_PERSONAS.has(e.persona)) return false;
       const isHrushikesh = /hrushikesh/i.test(e.name);
       if (!e.division || (!EMPLOYEE_DIVISIONS.has(e.division) && !isHrushikesh)) return false;
       const q = search.toLowerCase();

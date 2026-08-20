@@ -32,7 +32,7 @@ export function LoginView() {
               Sales Intelligence
             </p>
             <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-galaxy-navy">
-              Performance Tracker
+              Galaxy Sales Performance Tracker
             </h1>
             <p className="mt-2 text-sm text-slate-500">Sign in to view your sales dashboard</p>
           </div>

@@ -1,4 +1,4 @@
-"""Galaxy Performance Tracker — FastAPI backend."""
+"""Galaxy Sales Performance Tracker — FastAPI backend."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.seed import seed_users  # noqa: E402
 from app.routers import admin, auth, data  # noqa: E402
 
-app = FastAPI(title="Galaxy Performance Tracker API", version="1.0.0")
+app = FastAPI(title="Galaxy Sales Performance Tracker API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,

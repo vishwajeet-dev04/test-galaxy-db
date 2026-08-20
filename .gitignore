@@ -4,10 +4,13 @@ __pycache__/
 .DS_Store
 .cache/
 
+backend/migrate_users.py
+backend/users_export.json
 dashboard/node_modules/
 dashboard/dist/
 dashboard/.env
 dashboard/.env.local
+dashboard/tsconfig.tsbuildinfo
 *.env
 !*.env.example
 !.env.production

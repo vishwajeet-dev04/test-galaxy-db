@@ -7,7 +7,7 @@ import {
   Crown,
   Briefcase,
   Tag,
-  Upload,
+  Settings,
   X,
 } from "lucide-react";
 import type { ViewId } from "../types";
@@ -30,7 +30,7 @@ const ALL_NAV: { id: ViewId; label: string; icon: typeof LayoutDashboard; adminO
   { id: "leaders", label: "Leaders", icon: Crown },
   { id: "employees", label: "Employees", icon: Users },
   { id: "leaderboard", label: "Leaderboard", icon: Trophy },
-  { id: "admin", label: "Admin Uploads", icon: Upload, adminOnly: true },
+  { id: "admin", label: "Admin", icon: Settings, adminOnly: true },
 ];
 
 export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: SidebarProps) {
@@ -82,7 +82,7 @@ export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: Sid
                 Sales Intelligence
               </p>
               <h1 className="mt-1.5 text-[17px] font-semibold leading-tight tracking-tight text-galaxy-navy">
-                Individual Contributor's Performance Tracker
+                Galaxy Sales Performance Tracker
               </h1>
               <span className="mt-2.5 inline-flex items-center rounded-full border border-galaxy-navy/15 bg-galaxy-navy/5 px-3 py-1 text-[11px] font-semibold text-galaxy-navy">
                 {fy}

@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import date
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.models import User
-from app.scoping import scope_quota_data
+from app.scoping import apply_date_filter, scope_quota_data
 from app.security import get_current_user
 
 router = APIRouter()
@@ -29,9 +30,14 @@ def _load_quota() -> dict[str, Any]:
 
 
 @router.get("/quota")
-def get_quota(user: Annotated[User, Depends(get_current_user)]):
+def get_quota(
+    user: Annotated[User, Depends(get_current_user)],
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+):
     data = _load_quota()
-    return scope_quota_data(data, user)
+    scoped = scope_quota_data(data, user)
+    return apply_date_filter(scoped, date_from, date_to)
 
 
 @router.get("/users/me/scope")

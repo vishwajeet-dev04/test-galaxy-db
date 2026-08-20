@@ -33,13 +33,14 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
 
-# 2. Generate dashboard JSON (first time / after new Excel files)
-python3 scripts/parse_excel.py
+# 2. Generate dashboard JSON (first time: seed quotas from Tracker, then build from SQLite)
+python3 scripts/extract_quotas.py
+python3 scripts/build_quota_data.py
 
 # 3. API server — seeds users automatically on startup
 chmod +x scripts/run_api.sh
 ./scripts/run_api.sh
-# → http://127.0.0.1:8000  (interactive docs at /docs)
+# → http://127.0.0.1:8080  (interactive docs at /docs)
 
 # 4. Frontend — in a separate terminal
 cd dashboard
@@ -56,12 +57,13 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r backend\requirements.txt
 
-# 2. Generate dashboard JSON (first time / after new Excel files)
-python scripts\parse_excel.py
+# 2. Generate dashboard JSON (first time: seed quotas from Tracker, then build from SQLite)
+python scripts\extract_quotas.py
+python scripts\build_quota_data.py
 
 # 3. API server — seeds users automatically on startup
 .\scripts\run_backend.ps1
-# → http://127.0.0.1:8000  (interactive docs at /docs)
+# → http://127.0.0.1:8080  (interactive docs at /docs)
 
 # 4. Frontend — in a separate terminal
 cd dashboard
@@ -70,8 +72,8 @@ npm run dev
 # → http://localhost:5173
 ```
 
-> **Note:** `npm run dev` proxies all `/api/*` requests to `http://127.0.0.1:8000`.
-> The frontend **requires the backend to be running** on port 8000 — login and
+> **Note:** `npm run dev` proxies all `/api/*` requests to `http://127.0.0.1:8080`.
+> The frontend **requires the backend to be running** on port **8080** — login and
 > data will fail without it.
 
 ### Default login credentials

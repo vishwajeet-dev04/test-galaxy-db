@@ -26,7 +26,7 @@ def _find_quota_tracker(files_dir: Path) -> Path:
 
 
 class Settings(BaseSettings):
-    app_name: str = "Galaxy Performance Tracker"
+    app_name: str = "Galaxy Sales Performance Tracker"
     secret_key: str = "galaxy-dev-secret-change-in-production-2026"
     access_token_expire_minutes: int = 60 * 12
     algorithm: str = "HS256"
@@ -35,6 +35,7 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:4173",
+        "http://127.0.0.1:4173",
     ]
     root: Path = ROOT
     files_dir: Path = ROOT / "files"

@@ -21,11 +21,18 @@ export function BUView({ data, drill, onDrill }: BUViewProps) {
   const [buPeriod, setBuPeriod] = useState<"h1" | "h2">("h1");
 
   const filteredBUs = useMemo(() => {
-    if (!search) return bu_level;
+    const order = ["DCG", "CSN", "PS", "CSG", "Cloud"];
     const q = search.toLowerCase();
-    return bu_level.filter(
-      (b) => b.bu.toLowerCase().includes(q) || b.service.toLowerCase().includes(q)
-    );
+    const rows = !search
+      ? [...bu_level]
+      : bu_level.filter(
+          (b) => b.bu.toLowerCase().includes(q) || b.service.toLowerCase().includes(q)
+        );
+    return rows.sort((a, b) => {
+      const ia = order.indexOf(a.bu);
+      const ib = order.indexOf(b.bu);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
   }, [bu_level, search]);
 
   const rtmData = selected ? rtm_by_bu[selected]?.filter((r) => !r.name.includes("Grand")) ?? [] : [];

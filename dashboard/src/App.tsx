@@ -3,6 +3,7 @@ import { RefreshCw, Menu } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
 import { Breadcrumbs } from "./components/Breadcrumbs";
 import { UserMenu } from "./components/UserMenu";
+import { DateRangeFilter } from "./components/DateRangeFilter";
 import { DashboardProvider } from "./context/DashboardContext";
 import { useAuth } from "./context/AuthContext";
 import { useQuotaData } from "./hooks/useQuotaData";
@@ -19,11 +20,13 @@ import { AdminUploadsView } from "./views/AdminUploadsView";
 import type { DrillState, ViewId } from "./types";
 import { VIEW_META } from "./theme";
 import { formatCr, formatPctCard } from "./utils/format";
+import { defaultDateRange, type DateRangeValue } from "./utils/fiscal";
 
 const DEFAULT_DRILL: DrillState = { view: "overview" };
 
 function DashboardApp() {
-  const { data, loading, error, refresh } = useQuotaData();
+  const [dateRange, setDateRange] = useState<DateRangeValue>(defaultDateRange);
+  const { data, loading, error, refresh } = useQuotaData(dateRange);
   const [drill, setDrill] = useState<DrillState>(DEFAULT_DRILL);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -57,7 +60,7 @@ function DashboardApp() {
         <div className="text-center">
           <img src="/galaxy-logo.webp" alt="Galaxy" className="mx-auto h-14 object-contain opacity-90" />
           <RefreshCw className="mx-auto mt-6 h-6 w-6 animate-spin text-galaxy-navy" />
-          <p className="mt-4 text-sm font-semibold text-galaxy-navy">Loading Individual Contributor's Performance Tracker</p>
+          <p className="mt-4 text-sm font-semibold text-galaxy-navy">Loading Galaxy Sales Performance Tracker</p>
           <p className="mt-1 text-xs text-slate-500">Syncing quota &amp; pipeline data…</p>
         </div>
       </div>
@@ -94,7 +97,7 @@ function DashboardApp() {
         />
 
         <main className="flex min-w-0 flex-1 flex-col lg:ml-0">
-          <header className="sticky top-0 z-10 border-b border-galaxy-border/50 bg-white/70 px-4 py-3 backdrop-blur-2xl sm:px-6 lg:px-8 lg:py-4">
+          <header className="sticky top-0 z-30 overflow-visible border-b border-galaxy-border/50 bg-white/70 px-4 py-3 backdrop-blur-2xl sm:px-6 lg:px-8 lg:py-4">
             <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-6">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <button
@@ -119,6 +122,7 @@ function DashboardApp() {
                 </div>
               </div>
 
+              <DateRangeFilter value={dateRange} onApply={setDateRange} />
               <UserMenu />
 
               <div className="hidden flex-wrap items-center gap-2 xl:flex">
@@ -149,7 +153,8 @@ function DashboardApp() {
 
                   {/* Hover Tooltip (positioned below to avoid top-edge clipping) */}
                   <div className="pointer-events-none absolute top-full right-0 z-20 mt-2 hidden w-max rounded-lg bg-galaxy-navy px-3 py-1.5 text-[11px] font-medium leading-relaxed text-white shadow-lg group-hover:block">
-                    IC Total: {data.kpis.header_closed_opps ?? 0}
+                    All Closed Won: {data.kpis.header_closed_opps ?? 0}
+                    {data.kpis.total_deals_h1 != null ? ` · RTM IC: ${data.kpis.total_deals_h1}` : ""}
                     {/* Arrow pointing up */}
                     <div className="absolute right-8 bottom-full border-4 border-transparent border-b-galaxy-navy" />
                   </div>
@@ -157,6 +162,13 @@ function DashboardApp() {
               </div>
             </div>
           </header>
+
+          {data._scope?.mode === "filtered" && (
+            <div className="border-b border-sky-100 bg-sky-50 px-4 py-2 text-center text-xs font-medium text-sky-800 sm:px-6 lg:px-8">
+              Showing your login data only
+              {data._scope.visible_people?.length ? ` · ${data._scope.visible_people.join(", ")}` : ""}
+            </div>
+          )}
 
           <div className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
             {drill.view === "overview" && <OverviewView data={data} onDrill={onDrill} />}

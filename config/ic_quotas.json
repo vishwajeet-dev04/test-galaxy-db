@@ -1,0 +1,402 @@
+{
+  "Tasneem K": {
+    "_tracker_name": "Tasneem K",
+    "division": "S1",
+    "type": "IC",
+    "q1_quota": 35.075,
+    "q2_quota": 95.275,
+    "h1_quota": 130.35,
+    "h2_quota": 129.65,
+    "annual_quota": 260.0
+  },
+  "Riya Bhatt": {
+    "_tracker_name": "Riya Bhatt",
+    "division": "S1",
+    "type": "IC",
+    "q1_quota": 20.0,
+    "q2_quota": 38.0,
+    "h1_quota": 59.0,
+    "h2_quota": 61.0,
+    "annual_quota": 120.0
+  },
+  "Pratik Kadam": {
+    "_tracker_name": "Pratik Kadam",
+    "division": "S1",
+    "type": "IC",
+    "q1_quota": 3.0,
+    "q2_quota": 2.0,
+    "h1_quota": 5.0,
+    "h2_quota": 5.0,
+    "annual_quota": 10.0
+  },
+  "Prashant Ddugu": {
+    "_tracker_name": "Prashant Ddugu",
+    "division": "S1",
+    "type": "TL",
+    "q1_quota": 28.8,
+    "q2_quota": 31.95,
+    "h1_quota": 60.5,
+    "h2_quota": 89.5,
+    "annual_quota": 150.0
+  },
+  "Chirag Palande": {
+    "_tracker_name": "Chirag Palande",
+    "division": "S1",
+    "type": "IC",
+    "q1_quota": 13.0,
+    "q2_quota": 10.0,
+    "h1_quota": 27.5,
+    "h2_quota": 32.5,
+    "annual_quota": 60.0
+  },
+  "Richa Tiwari": {
+    "_tracker_name": "Richa Tiwari",
+    "division": "S1",
+    "type": "IC",
+    "q1_quota": 8.3,
+    "q2_quota": 16.95,
+    "h1_quota": 25.0,
+    "h2_quota": 35.0,
+    "annual_quota": 60.0
+  },
+  "Raj Matondkar": {
+    "_tracker_name": "Raj Matondkar",
+    "division": "S1",
+    "type": "IC",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Rohit Deshmukh": {
+    "_tracker_name": "Rohit Deshmukh",
+    "division": "S2",
+    "type": "IC",
+    "q1_quota": 29.0,
+    "q2_quota": 53.0,
+    "h1_quota": 76.0,
+    "h2_quota": 59.0,
+    "annual_quota": 135.0
+  },
+  "Chetna Sharma": {
+    "_tracker_name": "Chetna Sharma",
+    "division": "S2",
+    "type": "IC",
+    "q1_quota": 8.0,
+    "q2_quota": 10.0,
+    "h1_quota": 20.0,
+    "h2_quota": 49.0,
+    "annual_quota": 69.0
+  },
+  "Sankeerth": {
+    "_tracker_name": "Sankeerth Bhargav",
+    "division": "S2",
+    "type": "IC",
+    "q1_quota": 2.75,
+    "q2_quota": 2.75,
+    "h1_quota": 11.75,
+    "h2_quota": 30.25,
+    "annual_quota": 42.0
+  },
+  "TBH (Varsha)": {
+    "_tracker_name": "TBH (Varsha)",
+    "division": "S2",
+    "type": "IC",
+    "q1_quota": 7.3,
+    "q2_quota": 9.8,
+    "h1_quota": 17.1,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "TBH (Arpit)": {
+    "_tracker_name": "TBH (Arpit)",
+    "division": "S2",
+    "type": "IC",
+    "q1_quota": 6.75,
+    "q2_quota": 6.75,
+    "h1_quota": 13.5,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "TBH (Dennis)": {
+    "_tracker_name": "TBH (Dennis)",
+    "division": "S2",
+    "type": "IC",
+    "q1_quota": 1.05,
+    "q2_quota": 1.85,
+    "h1_quota": 2.9,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Prachi Mayekar": {
+    "_tracker_name": "Prachi Mayekar",
+    "division": "CB",
+    "type": "IC",
+    "q1_quota": 7.5,
+    "q2_quota": 7.5,
+    "h1_quota": 15.0,
+    "h2_quota": 18.0,
+    "annual_quota": 33.0
+  },
+  "Shilpa Kavde": {
+    "_tracker_name": "Shilpa Kavde",
+    "division": "CB",
+    "type": "IC",
+    "q1_quota": 5.0,
+    "q2_quota": 10.0,
+    "h1_quota": 15.0,
+    "h2_quota": 25.0,
+    "annual_quota": 40.0
+  },
+  "Vidula Chavan": {
+    "_tracker_name": "Vidula Chawan",
+    "division": "CB",
+    "type": "IC",
+    "q1_quota": 1.0,
+    "q2_quota": 2.0,
+    "h1_quota": 3.0,
+    "h2_quota": 6.5,
+    "annual_quota": 9.5
+  },
+  "Jimesh Shah": {
+    "_tracker_name": "Jimesh Shah",
+    "division": "CB",
+    "type": "IC",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Ashish Singh": {
+    "_tracker_name": "Ashish Singh",
+    "division": "GB",
+    "type": "IC, Cloud",
+    "q1_quota": 2.0,
+    "q2_quota": 3.0,
+    "h1_quota": 5.0,
+    "h2_quota": 10.0,
+    "annual_quota": 15.0
+  },
+  "Rima Kamalakar Ingle": {
+    "_tracker_name": "Rima Kamalakar Ingle",
+    "division": "GB",
+    "type": "IC, Cloud",
+    "q1_quota": 3.0,
+    "q2_quota": 5.0,
+    "h1_quota": 3.0,
+    "h2_quota": 5.0,
+    "annual_quota": 8.0
+  },
+  "Ayushaman": {
+    "_tracker_name": "Ayushman Singh",
+    "division": "GB",
+    "type": "IC, Cyber security",
+    "q1_quota": 1.0,
+    "q2_quota": 2.0,
+    "h1_quota": 3.0,
+    "h2_quota": 9.0,
+    "annual_quota": 12.0
+  },
+  "Shubhangi": {
+    "_tracker_name": "Shubhangi Srinivasan",
+    "division": "GB",
+    "type": "IC, Cyber security",
+    "q1_quota": 2.0,
+    "q2_quota": 3.0,
+    "h1_quota": 5.0,
+    "h2_quota": 10.0,
+    "annual_quota": 15.0
+  },
+  "Atharva Karpe": {
+    "_tracker_name": "Atharva Karpe",
+    "division": "GB",
+    "type": "IC",
+    "q1_quota": 3.0,
+    "q2_quota": 1.0,
+    "h1_quota": 4.0,
+    "h2_quota": 4.0,
+    "annual_quota": 8.0
+  },
+  "Jay Rushi": {
+    "_tracker_name": "Jay Rushi",
+    "division": "GB",
+    "type": "IC",
+    "q1_quota": 1.0,
+    "q2_quota": 2.0,
+    "h1_quota": 3.0,
+    "h2_quota": 5.0,
+    "annual_quota": 8.0
+  },
+  "Sana Rashid Bhatkar": {
+    "_tracker_name": "Sana Rashid Bhatkar",
+    "division": "GB",
+    "type": "TL",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 3.2,
+    "h2_quota": 6.8,
+    "annual_quota": 10.0
+  },
+  "Bhumi Karelia": {
+    "_tracker_name": "Bhumi Karelia",
+    "division": "GB",
+    "type": "IC",
+    "q1_quota": 0.1,
+    "q2_quota": 0.5,
+    "h1_quota": 0.6,
+    "h2_quota": 1.4,
+    "annual_quota": 2.0
+  },
+  "Rizwana Khan": {
+    "_tracker_name": "Rizwana Khan",
+    "division": "GB",
+    "type": "IC",
+    "q1_quota": 0.5,
+    "q2_quota": 1.0,
+    "h1_quota": 1.5,
+    "h2_quota": 3.5,
+    "annual_quota": 5.0
+  },
+  "Suvesh Malakar": {
+    "_tracker_name": "Suvesh Malakar",
+    "division": "GB",
+    "type": "IC",
+    "q1_quota": 0.1,
+    "q2_quota": 0.5,
+    "h1_quota": 0.6,
+    "h2_quota": 1.4,
+    "annual_quota": 2.0
+  },
+  "Varunkumar Mishra": {
+    "_tracker_name": "Varunkumar Mishra",
+    "division": "GB",
+    "type": "IC",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 1.4,
+    "annual_quota": 1.4
+  },
+  "Abrar Memon": {
+    "_tracker_name": "Abrar Memon",
+    "division": "South",
+    "type": "IC",
+    "q1_quota": 2.0,
+    "q2_quota": 2.0,
+    "h1_quota": 4.0,
+    "h2_quota": 4.0,
+    "annual_quota": 8.0
+  },
+  "Sagar TR": {
+    "_tracker_name": "Sagar TR",
+    "division": "South",
+    "type": "IC",
+    "q1_quota": 2.5,
+    "q2_quota": 2.5,
+    "h1_quota": 5.0,
+    "h2_quota": 5.0,
+    "annual_quota": 10.0
+  },
+  "Shahbaz Khan": {
+    "_tracker_name": "Shahbaz Khan",
+    "division": "South",
+    "type": "IC",
+    "q1_quota": 3.0,
+    "q2_quota": 3.0,
+    "h1_quota": 6.0,
+    "h2_quota": 6.0,
+    "annual_quota": 12.0
+  },
+  "Shaik Khadhar": {
+    "_tracker_name": "Shaik Khadhar",
+    "division": "South",
+    "type": "IC",
+    "q1_quota": 3.0,
+    "q2_quota": 0.0,
+    "h1_quota": 7.0,
+    "h2_quota": 8.0,
+    "annual_quota": 15.0
+  },
+  "Hrushikesh Bagade": {
+    "_tracker_name": "Hrushikesh Bagade",
+    "division": "GeoX",
+    "type": "Topline",
+    "q1_quota": 2.5,
+    "q2_quota": 5.0,
+    "h1_quota": 7.5,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Ajay Patodia": {
+    "_tracker_name": "Ajay Patodia",
+    "division": "DCG",
+    "type": "Topline",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Yusufali Petiwala": {
+    "_tracker_name": "Yusufali Petiwala",
+    "division": "Self",
+    "type": "Topline",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Ishwari Kadam": {
+    "_tracker_name": "Ishwari Kadam",
+    "division": "S1",
+    "type": "Topline",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Sanjeev Kohli": {
+    "_tracker_name": "Sanjeev Kohli",
+    "division": "GeoX",
+    "type": "Topline",
+    "q1_quota": 2.5,
+    "q2_quota": 5.0,
+    "h1_quota": 7.5,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Jitesh Rajput": {
+    "_tracker_name": "Jitesh Rajput",
+    "division": "Cloud",
+    "type": "Bottomline",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Yogesh Bhatia": {
+    "_tracker_name": "Yogesh Bhatia",
+    "division": "GB",
+    "type": "IC",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  },
+  "Darshana Patil": {
+    "_tracker_name": "Darshana Patil",
+    "division": "S1",
+    "type": "IC",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0
+  }
+}

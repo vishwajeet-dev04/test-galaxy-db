@@ -5,7 +5,7 @@ export interface AuthUser {
   username: string;
   email: string;
   full_name: string;
-  role: "ceo" | "admin" | "user" | string;
+  role: "ceo" | "admin" | "leader" | "tl" | "user" | string;
   employee_name: string | null;
 }
 
@@ -16,6 +16,7 @@ interface AuthState {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
+  isLeader: boolean;
   seesAll: boolean;
 }
 
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       isAdmin: user?.role === "admin",
+      isLeader: user?.role === "leader" || user?.role === "tl",
       seesAll: user?.role === "admin" || user?.role === "ceo",
     }),
     [user, token, loading, login, logout],

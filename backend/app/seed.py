@@ -8,6 +8,34 @@ from app.config import settings
 from app.models import User
 from app.security import hash_password
 
+LEADER_TYPES = {"TL", "AVP", "BU HEAD", "BU HEAD / TL", "TOPLINE", "BOTTOMLINE"}
+LEADER_ROSTER_PATH = settings.root / "config" / "leader_roster.json"
+
+
+def _leader_roster_names() -> set[str]:
+    if not LEADER_ROSTER_PATH.exists():
+        return set()
+    import json
+
+    try:
+        rows = json.loads(LEADER_ROSTER_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    names: set[str] = set()
+    for row in rows:
+        if isinstance(row, dict) and row.get("name"):
+            names.add(row["name"].strip().lower())
+    return names
+
+
+def _role_for(name: str, ic_type: str, leader_names: set[str]) -> str:
+    t = (ic_type or "IC").strip().upper()
+    if t == "TL":
+        return "tl"
+    if t in LEADER_TYPES or name.strip().lower() in leader_names:
+        return "leader"
+    return "user"
+
 
 def make_username(full_name: str) -> str:
     """first name + first letter of last name, lowercase letters only."""
@@ -107,7 +135,7 @@ def seed_users(db: Session) -> None:
         _upsert(db, password=password, **row)
 
     # Roster from quota JSON when available
-    names: set[str] = set()
+    names: dict[str, str] = {}
     if settings.quota_json.exists():
         import json
 
@@ -115,12 +143,13 @@ def seed_users(db: Session) -> None:
         for emp in data.get("individuals") or []:
             n = (emp.get("name") or "").strip()
             if n and not n.startswith("TBH") and n not in ("Total", "Total Opportunity"):
-                names.add(n)
+                names[n] = emp.get("persona") or "IC"
         for leader in data.get("leaders_dashboard") or []:
             n = (leader.get("name") or "").strip()
             if n:
-                names.add(n)
+                names.setdefault(n, "BU Head")
 
+    leader_names = _leader_roster_names()
     used_usernames = {r["username"] for r in PRIVILEGED}
     for name in sorted(names):
         username = make_username(name)
@@ -138,7 +167,7 @@ def seed_users(db: Session) -> None:
             username=username,
             email=email,
             full_name=name,
-            role="user",
+            role=_role_for(name, names[name], leader_names),
             employee_name=name,
             password=password,
         )

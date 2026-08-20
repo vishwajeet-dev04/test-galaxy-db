@@ -41,5 +41,14 @@
     "_comment": "attainment_pct >= on_track → green, >= at_risk → amber, else red",
     "on_track": 50,
     "at_risk": 30
+  },
+
+  "bu_annual_quotas": {
+    "_comment": "Annual quota (Rs Cr) per BU per RTM division. Source: DevSpec v2 V5–V9. Confirm Cloud with finance — currently matches CSG.",
+    "DCG":   {"S1": 455, "S2": 225, "CB": 40,  "GB": 11, "South": 14, "GeoX": 10},
+    "CSN":   {"S1": 90,  "S2": 30,  "CB": 24,  "GB": 20, "South": 1,  "GeoX": 20},
+    "PS":    {"S1": 2,   "S2": 3,   "CB": 10,  "GB": 5,  "South": 1,  "GeoX": 5},
+    "CSG":   {"S1": 37,  "S2": 42,  "CB": 30,  "GB": 0,  "South": 18, "GeoX": 8},
+    "Cloud": {"S1": 37,  "S2": 42,  "CB": 30,  "GB": 0,  "South": 18, "GeoX": 8}
   }
 }

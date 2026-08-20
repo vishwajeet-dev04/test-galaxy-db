@@ -35,5 +35,5 @@ export const VIEW_META: Record<
   leaderboard: { title: "Leaderboard", subtitle: "Ranked sales performance" },
   accounts: { title: "Accounts", subtitle: "Customer closed value · BU mix · quota contribution" },
   brands: { title: "Brands", subtitle: "OEM / brand closed value · BU mix · quota contribution" },
-  admin: { title: "Admin", subtitle: "Upload quota, pipeline & sales team workbooks" },
+  admin: { title: "Admin", subtitle: "Vtiger sync and quota targets" },
 };

@@ -3,8 +3,7 @@
 Vtiger → Galaxy Dashboard Sync
 ================================
 Fetches Closed Won opportunities from Vtiger CRM for the current FY,
-writes them as Pipeline Excel files (Q1 / Q2), then re-runs the parser
-to regenerate quota_data.json.
+writes them to SQLite (crm_deals), then regenerates quota_data.json.
 
 Usage (standalone):
     python scripts/vtiger_sync.py
@@ -47,14 +46,6 @@ QUARTERS = {
     "h2": (date(2026, 10, 1), date(2027, 3, 31)),
 }
 
-PIPELINE_FILES = {
-    "q1": ROOT / "files" / "Opportunity Pipeline Q1.xlsx",
-    "q2": ROOT / "files" / "Opportunity Pipeline Q2.xlsx",
-    "q3": ROOT / "files" / "Opportunity Pipeline Q3.xlsx",
-    "q4": ROOT / "files" / "Opportunity Pipeline Q4.xlsx",
-}
-
-
 def load_env_credentials() -> dict[str, str]:
     """Read VTIGER_* from backend/.env or environment."""
     creds: dict[str, str] = {}
@@ -80,56 +71,6 @@ def load_env_credentials() -> dict[str, str]:
     return creds
 
 
-def rows_to_excel(rows: list[dict], path: Path, quarter: str) -> None:
-    """Write pipeline rows to an Excel file matching the existing format."""
-    try:
-        import openpyxl
-    except ImportError:
-        print("  [!] openpyxl not installed — install with: pip install openpyxl")
-        raise
-
-    # Column order must match the existing pipeline Excel/CSV format
-    COLUMNS = [
-        "Created Time",
-        "Opportunity Number",
-        "Organization Name",
-        "Contact Name",
-        "Opportunity Name",
-        "Opportunity Led By",
-        "Assigned To",
-        "Lead Source",
-        "Identifier",
-        "Supported By",
-        "Category",
-        "Sub Category",
-        "Brand",
-        "Sales Stage",
-        "Amount",
-        "Estimated Bottomline",
-        "Actual Bottomline -",
-        "Expected Close Date",
-        "Deal Category",
-        "Probability",
-        "OPF No.",
-        "Deal ID",
-        "Deal Status",
-        "Deal Expiry Date",
-        "Description",
-    ]
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = f"Opportunity Pipeline {quarter.upper()}"
-    ws.append(COLUMNS)
-
-    for row in rows:
-        ws.append([row.get(col, "") for col in COLUMNS])
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    wb.save(path)
-    print(f"  Wrote {len(rows)} rows to {path}")
-
-
 def sync(
     vtiger_url: str,
     username: str,
@@ -139,11 +80,12 @@ def sync(
     sales_stage: str = "Closed Won",
 ) -> dict[str, int]:
     """
-    Full sync: Vtiger → Excel files → quota_data.json
+    Full sync: Vtiger → SQLite crm_deals → quota_data.json
 
     Returns a dict of {quarter: deal_count}.
     """
     from vtiger_client import VtigerSession  # type: ignore
+    import deal_store  # type: ignore
 
     if quarters is None:
         quarters = ["q1", "q2"]
@@ -166,24 +108,19 @@ def sync(
 
             records = vtiger.fetch_potentials(start, end, sales_stage=sales_stage)
             rows = vtiger.to_pipeline_rows(records)
-            counts[q] = len(rows)
+            stored = deal_store.replace_quarter(q, rows)
+            counts[q] = stored
+            print(f"  Stored {stored} deals in SQLite for {q.upper()}")
 
-            if q in PIPELINE_FILES:
-                rows_to_excel(rows, PIPELINE_FILES[q], q)
-            else:
-                print(f"  [!] No output path configured for {q} — skipping write")
-
-    # Re-run the Excel → JSON parser
     if run_parse:
-        print("\n[sync] Running parse_excel to regenerate quota_data.json ...")
+        print("\n[sync] Building quota_data.json from SQLite deals + config ...")
         sys.path.insert(0, str(ROOT / "scripts"))
-        import parse_excel  # type: ignore
-
         try:
-            parse_excel.main()
+            import build_quota_data  # type: ignore
+            build_quota_data.build()
             print("[sync] quota_data.json regenerated successfully")
         except Exception as exc:
-            print(f"[sync] Parser error: {exc}")
+            print(f"[sync] Build error: {exc}")
             raise
 
     return counts
