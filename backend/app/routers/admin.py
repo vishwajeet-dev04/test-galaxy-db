@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -8,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -17,11 +18,39 @@ from app.config import settings
 from app.database import get_db
 from app.models import User
 from app.quota_template import parse_t1_workbook
-from app.schemas import UploadResult
+from app.schemas import AdminUserCreate, AdminUserList, AdminUserUpdate, UploadResult, UserOut
 from app.security import require_admin
 from app.seed import seed_users
+from app.services.user_service import UserServiceError
+from app.services import user_service
 
 router = APIRouter()
+_log = logging.getLogger("galaxy.admin")
+
+
+def _user_error(request: Request, actor: User, exc: UserServiceError) -> HTTPException:
+    _log.warning(
+        "user_admin_failed ts=%s user_id=%s method=%s path=%s detail=%s",
+        datetime.utcnow().isoformat(),
+        actor.id,
+        request.method,
+        request.url.path,
+        exc.message,
+    )
+    return HTTPException(status_code=exc.status_code, detail=exc.message)
+
+def _scripts_path() -> str:
+    scripts = str(settings.root / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    return scripts
+
+
+def _assignment_history():
+    _scripts_path()
+    import assignment_history  # type: ignore
+
+    return assignment_history
 
 _sync_state: dict = {
     "running": False,
@@ -33,6 +62,12 @@ _sync_state: dict = {
 IC_QUOTAS_PATH = settings.root / "config" / "ic_quotas.json"
 QUOTA_RULES_PATH = settings.root / "config" / "quota_rules.json"
 RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"]
+
+
+class AssignmentRow(BaseModel):
+    division: str = ""
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 
 class IcQuotaPerson(BaseModel):
@@ -47,6 +82,8 @@ class IcQuotaPerson(BaseModel):
     h1_quota: Optional[float] = None
     h2_quota: Optional[float] = 0
     annual_quota: Optional[float] = None
+    assignments: Optional[list[AssignmentRow]] = None
+    transfer_start: Optional[str] = None
 
 
 class QuotaSaveRequest(BaseModel):
@@ -77,17 +114,13 @@ def _load_json(path: Path) -> Any:
 
 
 def _run_parse() -> None:
-    scripts = str(settings.root / "scripts")
-    if scripts not in sys.path:
-        sys.path.insert(0, scripts)
+    _scripts_path()
     import build_quota_data  # type: ignore
     build_quota_data.build(output_path=settings.quota_json)
 
 
 def _deal_counts() -> dict[str, int]:
-    scripts = str(settings.root / "scripts")
-    if scripts not in sys.path:
-        sys.path.insert(0, scripts)
+    _scripts_path()
     import deal_store  # type: ignore
     return deal_store.counts_by_quarter()
 
@@ -115,14 +148,17 @@ def admin_status(user: Annotated[User, Depends(require_admin)]):
 
 @router.get("/quotas")
 def get_quotas(user: Annotated[User, Depends(require_admin)]):
+    ah = _assignment_history()
     raw = _load_json(IC_QUOTAS_PATH)
     people = []
+    today = ah.as_of_today()
     for name, cfg in raw.items():
         if name.startswith("_") or not isinstance(cfg, dict):
             continue
+        assignments = ah.ensure_assignments(cfg)
         people.append({
             "name": name,
-            "division": cfg.get("division") or "",
+            "division": ah.current_division(assignments, today) or (cfg.get("division") or ""),
             "type": cfg.get("type") or "IC",
             "reporting_manager": cfg.get("reporting_manager") or None,
             "q1_quota": cfg.get("q1_quota") or 0,
@@ -132,6 +168,7 @@ def get_quotas(user: Annotated[User, Depends(require_admin)]):
             "h1_quota": cfg.get("h1_quota"),
             "h2_quota": cfg.get("h2_quota") if cfg.get("h2_quota") is not None else 0,
             "annual_quota": cfg.get("annual_quota"),
+            "assignments": assignments,
         })
     people.sort(key=lambda p: (p["division"] or "zzz", p["name"]))
     rules = _load_json(QUOTA_RULES_PATH)
@@ -148,6 +185,8 @@ def save_quotas(
     if not body.people:
         raise HTTPException(status_code=400, detail="At least one IC quota row is required")
 
+    ah = _assignment_history()
+    today = ah.as_of_today()
     seen: set[str] = set()
     prev = _load_json(IC_QUOTAS_PATH)
     if not isinstance(prev, dict):
@@ -162,13 +201,39 @@ def save_quotas(
         seen.add(name)
         existing = prev.get(name) if isinstance(prev.get(name), dict) else {}
         kept = {k: v for k, v in existing.items() if str(k).startswith("_")}
+        requested = ah.normalize_division(p.division)
+        base = ah.ensure_assignments(existing) if existing else []
+        if not base:
+            client_rows = [r.model_dump() for r in (p.assignments or [])]
+            base = ah.ensure_assignments({"division": requested, "assignments": client_rows})
+        current = ah.current_division(base, today)
+        try:
+            if requested and current and requested != current:
+                start = ah.parse_date(p.transfer_start)
+                if start is None:
+                    raise ah.AssignmentError(
+                        f"Effective date is required to move {name} from {current} to {requested}"
+                    )
+                assignments = ah.apply_transfer(base, requested, start)
+            elif p.assignments:
+                assignments = ah.serialize_assignments([r.model_dump() for r in p.assignments])
+                if not assignments:
+                    assignments = base
+                ah.validate_assignments(assignments)
+            else:
+                assignments = base
+                ah.validate_assignments(assignments)
+        except ah.AssignmentError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        as_of = ah.current_division(assignments, today) or requested
         # H1 / H2 / Annual are Finance-owned. Never derive them from Q1–Q4.
         h1 = float(p.h1_quota) if p.h1_quota is not None else 0.0
         h2 = float(p.h2_quota) if p.h2_quota is not None else 0.0
         annual = float(p.annual_quota) if p.annual_quota is not None else 0.0
         out[name] = {
             **kept,
-            "division": p.division.strip(),
+            "division": as_of,
             "type": (p.type or "IC").strip() or "IC",
             "reporting_manager": (p.reporting_manager or "").strip() or None,
             "q1_quota": round(float(p.q1_quota or 0), 4),
@@ -178,6 +243,7 @@ def save_quotas(
             "h1_quota": round(h1, 4),
             "h2_quota": round(h2, 4),
             "annual_quota": round(annual, 4),
+            "assignments": assignments,
         }
 
     _atomic_write_json(IC_QUOTAS_PATH, out)
@@ -236,7 +302,21 @@ def import_t1_template(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Could not read workbook: {exc}") from exc
 
-    body = QuotaSaveRequest(people=[IcQuotaPerson(**row) for row in rows])
+    ah = _assignment_history()
+    today = ah.as_of_today()
+    prev = _load_json(IC_QUOTAS_PATH)
+    if not isinstance(prev, dict):
+        prev = {}
+    people: list[IcQuotaPerson] = []
+    for row in rows:
+        person = IcQuotaPerson(**row)
+        existing = prev.get(person.name) if isinstance(prev.get(person.name), dict) else {}
+        current = ah.current_division(ah.ensure_assignments(existing), today) if existing else ""
+        requested = ah.normalize_division(person.division)
+        if existing and requested and current and requested != current:
+            person.transfer_start = today.isoformat()
+        people.append(person)
+    body = QuotaSaveRequest(people=people)
     result = save_quotas(body, user, db)
     result["message"] = f"Imported {result['count']} people from {file.filename} and rebuilt dashboard"
     return result
@@ -342,3 +422,68 @@ async def vtiger_sync_trigger(
         "message": f"Vtiger sync started for {quarter.upper()}",
         "quarters": quarters,
     }
+
+
+@router.get("/users", response_model=AdminUserList)
+def list_users(
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    q: str | None = Query(None),
+):
+    items, total = user_service.list_users(db, page=page, page_size=page_size, q=q)
+    return AdminUserList(
+        items=[UserOut.model_validate(u) for u in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.post("/users", response_model=UserOut)
+def create_user(
+    request: Request,
+    body: AdminUserCreate,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        created = user_service.create_user(
+            db,
+            actor=user,
+            username=body.username,
+            email=body.email,
+            full_name=body.full_name,
+            role=body.role,
+            password=body.password,
+            employee_name=body.employee_name,
+        )
+    except UserServiceError as exc:
+        raise _user_error(request, user, exc) from None
+    return UserOut.model_validate(created)
+
+
+@router.patch("/users/{user_id}", response_model=UserOut)
+def update_user(
+    request: Request,
+    user_id: int,
+    body: AdminUserUpdate,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        updated = user_service.update_user(
+            db,
+            actor=user,
+            user_id=user_id,
+            email=body.email,
+            full_name=body.full_name,
+            role=body.role,
+            employee_name=body.employee_name,
+            is_active=body.is_active,
+            password=body.password,
+        )
+    except UserServiceError as exc:
+        raise _user_error(request, user, exc) from None
+    return UserOut.model_validate(updated)

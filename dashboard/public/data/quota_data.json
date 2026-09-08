@@ -1,8 +1,8 @@
 {
   "meta": {
-    "generated_at": "2026-08-20T12:33:54.295084",
+    "generated_at": "2026-09-08T17:47:33.488752",
     "fy": "FY 26-27",
-    "timeline_week": 21,
+    "timeline_week": 23,
     "source": "vtiger_sqlite",
     "pipeline_files": {
       "q1": true,
@@ -37,17 +37,17 @@
   "grand_total": {
     "q1": {
       "quota": 204.725,
-      "actuals": 103.7169,
+      "actuals": 103.7164,
       "attainment_pct": 50.66
     },
     "q2": {
       "quota": 333.325,
-      "actuals": 60.2601,
+      "actuals": 60.2598,
       "attainment_pct": 18.08
     },
     "h1": {
       "quota": 547.5,
-      "actuals": 163.977,
+      "actuals": 163.9762,
       "attainment_pct": 29.95
     },
     "h2": {
@@ -57,10 +57,10 @@
     },
     "annual": {
       "quota": 1119.9,
-      "actuals": 163.977,
+      "actuals": 163.9762,
       "attainment_pct": 14.64
     },
-    "header_ic_actuals": 163.977,
+    "header_ic_actuals": 163.9762,
     "header_h1_attainment_pct": 29.95,
     "header_pipeline_cr": null,
     "header_closed_opps": 425
@@ -68,7 +68,7 @@
   "period_metrics": {
     "q1": {
       "ic_quota": 204.725,
-      "ic_actuals": 103.7169,
+      "ic_actuals": 103.7164,
       "ic_attainment_pct": 50.66,
       "closed_deals": 334,
       "show_attainment": true,
@@ -76,7 +76,7 @@
     },
     "q2": {
       "ic_quota": 333.325,
-      "ic_actuals": 60.2601,
+      "ic_actuals": 60.2598,
       "ic_attainment_pct": 18.08,
       "closed_deals": 91,
       "show_attainment": true,
@@ -84,7 +84,7 @@
     },
     "h1": {
       "ic_quota": 547.5,
-      "ic_actuals": 163.977,
+      "ic_actuals": 163.9762,
       "ic_attainment_pct": 29.95,
       "closed_deals": 425,
       "show_attainment": true,
@@ -118,7 +118,7 @@
     },
     "annual": {
       "ic_quota": 1119.9,
-      "ic_actuals": 163.977,
+      "ic_actuals": 163.9762,
       "ic_attainment_pct": 14.64,
       "closed_deals": 425,
       "show_attainment": true,
@@ -130,17 +130,17 @@
       "division": "S1",
       "h1": {
         "quota": 307.35,
-        "actuals": 62.4431,
+        "actuals": 62.4427,
         "attainment_pct": 20.32
       },
       "q1": {
         "quota": 108.175,
-        "actuals": 44.3351,
+        "actuals": 44.335,
         "attainment_pct": 40.98
       },
       "q2": {
         "quota": 194.175,
-        "actuals": 18.108,
+        "actuals": 18.1077,
         "attainment_pct": 9.33
       },
       "h2": {
@@ -150,7 +150,7 @@
       },
       "annual": {
         "quota": 660.0,
-        "actuals": 62.4431,
+        "actuals": 62.4427,
         "attainment_pct": 9.46
       },
       "closed_deals": 141,
@@ -161,17 +161,17 @@
       "division": "S2",
       "h1": {
         "quota": 141.25,
-        "actuals": 51.2585,
+        "actuals": 51.2583,
         "attainment_pct": 36.29
       },
       "q1": {
         "quota": 54.85,
-        "actuals": 15.3966,
+        "actuals": 15.3965,
         "attainment_pct": 28.07
       },
       "q2": {
         "quota": 84.15,
-        "actuals": 35.8619,
+        "actuals": 35.8618,
         "attainment_pct": 42.62
       },
       "h2": {
@@ -181,7 +181,7 @@
       },
       "annual": {
         "quota": 246.0,
-        "actuals": 51.2585,
+        "actuals": 51.2583,
         "attainment_pct": 20.84
       },
       "closed_deals": 41,
@@ -223,17 +223,17 @@
       "division": "GB",
       "h1": {
         "quota": 28.9,
-        "actuals": 16.4516,
+        "actuals": 16.4518,
         "attainment_pct": 56.93
       },
       "q1": {
         "quota": 12.7,
-        "actuals": 15.118,
+        "actuals": 15.1181,
         "attainment_pct": 119.04
       },
       "q2": {
         "quota": 18.0,
-        "actuals": 1.3336,
+        "actuals": 1.3337,
         "attainment_pct": 7.41
       },
       "h2": {
@@ -243,7 +243,7 @@
       },
       "annual": {
         "quota": 86.4,
-        "actuals": 16.4516,
+        "actuals": 16.4518,
         "attainment_pct": 19.04
       },
       "closed_deals": 62,
@@ -254,12 +254,12 @@
       "division": "South",
       "h1": {
         "quota": 22.0,
-        "actuals": 13.3244,
-        "attainment_pct": 60.57
+        "actuals": 13.3243,
+        "attainment_pct": 60.56
       },
       "q1": {
         "quota": 10.5,
-        "actuals": 10.2897,
+        "actuals": 10.2896,
         "attainment_pct": 98.0
       },
       "q2": {
@@ -274,7 +274,7 @@
       },
       "annual": {
         "quota": 45.0,
-        "actuals": 13.3244,
+        "actuals": 13.3243,
         "attainment_pct": 29.61
       },
       "closed_deals": 72,
@@ -285,12 +285,12 @@
       "division": "GeoX",
       "h1": {
         "quota": 15.0,
-        "actuals": 2.7597,
+        "actuals": 2.7594,
         "attainment_pct": 18.4
       },
       "q1": {
         "quota": 5.0,
-        "actuals": 2.7366,
+        "actuals": 2.7363,
         "attainment_pct": 54.73
       },
       "q2": {
@@ -305,7 +305,7 @@
       },
       "annual": {
         "quota": 0.0,
-        "actuals": 2.7597,
+        "actuals": 2.7594,
         "attainment_pct": null
       },
       "closed_deals": 58,
@@ -318,17 +318,17 @@
       "division": "S1",
       "h1": {
         "quota": 307.35,
-        "actuals": 62.4431,
+        "actuals": 62.4427,
         "attainment_pct": 20.32
       },
       "q1": {
         "quota": 108.175,
-        "actuals": 44.3351,
+        "actuals": 44.335,
         "attainment_pct": 40.98
       },
       "q2": {
         "quota": 194.175,
-        "actuals": 18.108,
+        "actuals": 18.1077,
         "attainment_pct": 9.33
       },
       "h2": {
@@ -338,7 +338,7 @@
       },
       "annual": {
         "quota": 660.0,
-        "actuals": 62.4431,
+        "actuals": 62.4427,
         "attainment_pct": 9.46
       },
       "closed_deals": 141,
@@ -349,17 +349,17 @@
       "division": "S2",
       "h1": {
         "quota": 141.25,
-        "actuals": 51.2585,
+        "actuals": 51.2583,
         "attainment_pct": 36.29
       },
       "q1": {
         "quota": 54.85,
-        "actuals": 15.3966,
+        "actuals": 15.3965,
         "attainment_pct": 28.07
       },
       "q2": {
         "quota": 84.15,
-        "actuals": 35.8619,
+        "actuals": 35.8618,
         "attainment_pct": 42.62
       },
       "h2": {
@@ -369,7 +369,7 @@
       },
       "annual": {
         "quota": 246.0,
-        "actuals": 51.2585,
+        "actuals": 51.2583,
         "attainment_pct": 20.84
       },
       "closed_deals": 41,
@@ -411,17 +411,17 @@
       "division": "GB",
       "h1": {
         "quota": 28.9,
-        "actuals": 16.4516,
+        "actuals": 16.4518,
         "attainment_pct": 56.93
       },
       "q1": {
         "quota": 12.7,
-        "actuals": 15.118,
+        "actuals": 15.1181,
         "attainment_pct": 119.04
       },
       "q2": {
         "quota": 18.0,
-        "actuals": 1.3336,
+        "actuals": 1.3337,
         "attainment_pct": 7.41
       },
       "h2": {
@@ -431,7 +431,7 @@
       },
       "annual": {
         "quota": 86.4,
-        "actuals": 16.4516,
+        "actuals": 16.4518,
         "attainment_pct": 19.04
       },
       "closed_deals": 62,
@@ -442,12 +442,12 @@
       "division": "South",
       "h1": {
         "quota": 22.0,
-        "actuals": 13.3244,
-        "attainment_pct": 60.57
+        "actuals": 13.3243,
+        "attainment_pct": 60.56
       },
       "q1": {
         "quota": 10.5,
-        "actuals": 10.2897,
+        "actuals": 10.2896,
         "attainment_pct": 98.0
       },
       "q2": {
@@ -462,7 +462,7 @@
       },
       "annual": {
         "quota": 45.0,
-        "actuals": 13.3244,
+        "actuals": 13.3243,
         "attainment_pct": 29.61
       },
       "closed_deals": 72,
@@ -473,12 +473,12 @@
       "division": "GeoX",
       "h1": {
         "quota": 15.0,
-        "actuals": 2.7597,
+        "actuals": 2.7594,
         "attainment_pct": 18.4
       },
       "q1": {
         "quota": 5.0,
-        "actuals": 2.7366,
+        "actuals": 2.7363,
         "attainment_pct": 54.73
       },
       "q2": {
@@ -493,7 +493,7 @@
       },
       "annual": {
         "quota": 0.0,
-        "actuals": 2.7597,
+        "actuals": 2.7594,
         "attainment_pct": null
       },
       "closed_deals": 58,
@@ -953,6 +953,13 @@
         }
       ],
       "h1_attainment_pct": 13.64,
+      "assignments": [
+        {
+          "division": "S1",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 11,
         "deal_count_total": 11,
@@ -1948,6 +1955,13 @@
         }
       ],
       "h1_attainment_pct": 0.98,
+      "assignments": [
+        {
+          "division": "S1",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 2,
         "deal_count_total": 2,
@@ -3767,6 +3781,13 @@
         }
       ],
       "h1_attainment_pct": 36.66,
+      "assignments": [
+        {
+          "division": "S1",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 44,
         "deal_count_total": 44,
@@ -7085,6 +7106,13 @@
       "rank_division": null,
       "pipeline_deals": [],
       "h1_attainment_pct": 0.0,
+      "assignments": [
+        {
+          "division": "S1",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 0,
         "deal_count_total": 0,
@@ -7442,6 +7470,13 @@
         }
       ],
       "h1_attainment_pct": 40.03,
+      "assignments": [
+        {
+          "division": "S1",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 8,
         "deal_count_total": 8,
@@ -10171,6 +10206,13 @@
         }
       ],
       "h1_attainment_pct": 73.81,
+      "assignments": [
+        {
+          "division": "S1",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 57,
         "deal_count_total": 57,
@@ -14542,6 +14584,13 @@
         }
       ],
       "h1_attainment_pct": null,
+      "assignments": [
+        {
+          "division": "S1",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 1,
         "deal_count_total": 1,
@@ -15379,6 +15428,13 @@
         }
       ],
       "h1_attainment_pct": 43.5,
+      "assignments": [
+        {
+          "division": "S2",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 19,
         "deal_count_total": 19,
@@ -17198,6 +17254,13 @@
         }
       ],
       "h1_attainment_pct": 64.56,
+      "assignments": [
+        {
+          "division": "S2",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 10,
         "deal_count_total": 10,
@@ -18265,6 +18328,13 @@
         }
       ],
       "h1_attainment_pct": 35.51,
+      "assignments": [
+        {
+          "division": "S2",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 6,
         "deal_count_total": 6,
@@ -18952,6 +19022,13 @@
         }
       ],
       "h1_attainment_pct": 6.17,
+      "assignments": [
+        {
+          "division": "S2",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 4,
         "deal_count_total": 4,
@@ -19413,6 +19490,13 @@
         }
       ],
       "h1_attainment_pct": 0.42,
+      "assignments": [
+        {
+          "division": "S2",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 2,
         "deal_count_total": 2,
@@ -19647,6 +19731,13 @@
       "rank_division": null,
       "pipeline_deals": [],
       "h1_attainment_pct": 0.0,
+      "assignments": [
+        {
+          "division": "S2",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 0,
         "deal_count_total": 0,
@@ -20184,6 +20275,13 @@
         }
       ],
       "h1_attainment_pct": 97.79,
+      "assignments": [
+        {
+          "division": "CB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 13,
         "deal_count_total": 13,
@@ -22315,6 +22413,13 @@
         }
       ],
       "h1_attainment_pct": 20.18,
+      "assignments": [
+        {
+          "division": "CB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 29,
         "deal_count_total": 29,
@@ -24622,6 +24727,13 @@
         }
       ],
       "h1_attainment_pct": 0.13,
+      "assignments": [
+        {
+          "division": "CB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 3,
         "deal_count_total": 3,
@@ -25135,6 +25247,13 @@
         }
       ],
       "h1_attainment_pct": null,
+      "assignments": [
+        {
+          "division": "CB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 6,
         "deal_count_total": 6,
@@ -26074,6 +26193,13 @@
         }
       ],
       "h1_attainment_pct": 28.22,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 11,
         "deal_count_total": 11,
@@ -27036,6 +27162,13 @@
       "rank_division": null,
       "pipeline_deals": [],
       "h1_attainment_pct": 0.0,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 0,
         "deal_count_total": 0,
@@ -27249,6 +27382,13 @@
         }
       ],
       "h1_attainment_pct": 10.07,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 4,
         "deal_count_total": 4,
@@ -28224,6 +28364,13 @@
         }
       ],
       "h1_attainment_pct": 128.59,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 16,
         "deal_count_total": 16,
@@ -30009,6 +30156,13 @@
         }
       ],
       "h1_attainment_pct": 161.45,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 12,
         "deal_count_total": 12,
@@ -31616,6 +31770,13 @@
         }
       ],
       "h1_attainment_pct": 59.44,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 17,
         "deal_count_total": 17,
@@ -33000,6 +33161,13 @@
       "rank_division": null,
       "pipeline_deals": [],
       "h1_attainment_pct": 0.0,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 0,
         "deal_count_total": 0,
@@ -33068,6 +33236,13 @@
       "rank_division": null,
       "pipeline_deals": [],
       "h1_attainment_pct": 0.0,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 0,
         "deal_count_total": 0,
@@ -33136,6 +33311,13 @@
       "rank_division": null,
       "pipeline_deals": [],
       "h1_attainment_pct": 0.0,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 0,
         "deal_count_total": 0,
@@ -33204,6 +33386,13 @@
       "rank_division": null,
       "pipeline_deals": [],
       "h1_attainment_pct": 0.0,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 0,
         "deal_count_total": 0,
@@ -33309,6 +33498,13 @@
         }
       ],
       "h1_attainment_pct": null,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 1,
         "deal_count_total": 1,
@@ -33786,6 +33982,13 @@
         }
       ],
       "h1_attainment_pct": 13.23,
+      "assignments": [
+        {
+          "division": "South",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 9,
         "deal_count_total": 9,
@@ -36221,6 +36424,13 @@
         }
       ],
       "h1_attainment_pct": 68.99,
+      "assignments": [
+        {
+          "division": "South",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 46,
         "deal_count_total": 46,
@@ -40156,6 +40366,13 @@
         }
       ],
       "h1_attainment_pct": 63.42,
+      "assignments": [
+        {
+          "division": "South",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 12,
         "deal_count_total": 12,
@@ -41311,6 +41528,13 @@
         }
       ],
       "h1_attainment_pct": 79.14,
+      "assignments": [
+        {
+          "division": "South",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 5,
         "deal_count_total": 5,
@@ -43778,6 +44002,13 @@
         }
       ],
       "h1_attainment_pct": 6.89,
+      "assignments": [
+        {
+          "division": "GeoX",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 56,
         "deal_count_total": 56,
@@ -49117,6 +49348,13 @@
         }
       ],
       "h1_attainment_pct": null,
+      "assignments": [
+        {
+          "division": "DCG",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 31,
         "deal_count_total": 31,
@@ -51968,6 +52206,13 @@
         }
       ],
       "h1_attainment_pct": null,
+      "assignments": [
+        {
+          "division": "Self",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 13,
         "deal_count_total": 13,
@@ -53209,6 +53454,13 @@
         }
       ],
       "h1_attainment_pct": null,
+      "assignments": [
+        {
+          "division": "S1",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 4,
         "deal_count_total": 4,
@@ -53660,6 +53912,13 @@
         }
       ],
       "h1_attainment_pct": 29.91,
+      "assignments": [
+        {
+          "division": "GeoX",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 2,
         "deal_count_total": 2,
@@ -54003,6 +54262,13 @@
         }
       ],
       "h1_attainment_pct": null,
+      "assignments": [
+        {
+          "division": "Cloud",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 3,
         "deal_count_total": 3,
@@ -54346,6 +54612,13 @@
         }
       ],
       "h1_attainment_pct": null,
+      "assignments": [
+        {
+          "division": "GB",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 1,
         "deal_count_total": 1,
@@ -55003,6 +55276,13 @@
         }
       ],
       "h1_attainment_pct": null,
+      "assignments": [
+        {
+          "division": "S1",
+          "start_date": null,
+          "end_date": null
+        }
+      ],
       "pipeline": {
         "deal_count": 14,
         "deal_count_total": 14,

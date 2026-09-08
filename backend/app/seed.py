@@ -105,15 +105,21 @@ def _upsert(
     role: str,
     employee_name: str | None,
     password: str,
+    sync_profile: bool = False,
 ) -> None:
+    """Create missing logins. Never overwrite an existing password hash.
+
+    Privileged accounts (`sync_profile=True`) keep role/email/name/active in
+    sync with PRIVILEGED. Roster rows are insert-only so Admin edits stick.
+    """
     user = db.query(User).filter(User.username == username).first()
     if user:
-        user.email = email
-        user.full_name = full_name
-        user.role = role
-        user.employee_name = employee_name
-        user.is_active = True
-        user.hashed_password = hash_password(password)
+        if sync_profile:
+            user.email = email
+            user.full_name = full_name
+            user.role = role
+            user.employee_name = employee_name
+            user.is_active = True
         return
     db.add(
         User(
@@ -132,7 +138,7 @@ def seed_users(db: Session) -> None:
     password = settings.default_password
 
     for row in PRIVILEGED:
-        _upsert(db, password=password, **row)
+        _upsert(db, password=password, sync_profile=True, **row)
 
     # Roster from quota JSON when available
     names: dict[str, str] = {}

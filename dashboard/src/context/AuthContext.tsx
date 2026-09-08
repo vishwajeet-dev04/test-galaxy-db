@@ -7,6 +7,7 @@ export interface AuthUser {
   full_name: string;
   role: "ceo" | "admin" | "leader" | "tl" | "user" | string;
   employee_name: string | null;
+  is_active?: boolean;
 }
 
 interface AuthState {

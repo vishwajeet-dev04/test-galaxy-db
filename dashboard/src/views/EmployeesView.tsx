@@ -6,6 +6,7 @@ import { Avatar } from "../components/Avatar";
 import { useDashboard } from "../context/DashboardContext";
 import type { QuotaData, DrillState, Individual, ClosedAccount, PeriodKey, PeriodMetrics } from "../types";
 import { formatCr, formatPct, attainmentColor, attainmentBg } from "../utils/format";
+import { formatDisplayDate } from "../utils/fiscal";
 import { ui } from "../theme";
 
 interface EmployeesViewProps {
@@ -89,6 +90,15 @@ function ClosedAccountsSection({ pipeline }: { pipeline: Individual["pipeline"] 
   );
 }
 
+function formatAssignmentDate(value: string | null | undefined): string {
+  if (!value) return "—";
+  try {
+    return formatDisplayDate(value.slice(0, 10));
+  } catch {
+    return value;
+  }
+}
+
 function EmployeeDetail({ emp }: { emp: Individual }) {
   const periods: { label: string; data?: PeriodMetrics }[] = [
     { label: "Q1", data: emp.q1 },
@@ -108,7 +118,7 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
           <div>
             <h3 className="text-lg font-semibold text-galaxy-navy">{emp.name}</h3>
             <p className="text-sm text-galaxy-muted">
-              {emp.division} · {emp.persona} · {emp.fy}
+              Current RTM: {emp.division || "—"} · {emp.persona} · {emp.fy}
             </p>
           </div>
         </div>
@@ -123,6 +133,35 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
               {emp.pipeline.account_count} closed accounts
             </span>
           )}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          Assignment history
+        </p>
+        <div className="overflow-hidden rounded-xl border border-galaxy-border bg-white">
+          <table className="min-w-full text-sm">
+            <thead className={ui.tableHead}>
+              <tr>
+                <th className="px-4 py-2 text-left">RTM</th>
+                <th className="px-4 py-2 text-left">Start Date</th>
+                <th className="px-4 py-2 text-left">End Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(emp.assignments && emp.assignments.length
+                ? emp.assignments
+                : [{ division: emp.division || "—", start_date: null, end_date: null }]
+              ).map((a, i) => (
+                <tr key={`${a.division}-${a.start_date}-${i}`} className="border-t border-slate-100">
+                  <td className="px-4 py-2 font-medium text-galaxy-navy">{a.division}</td>
+                  <td className="px-4 py-2 text-slate-600">{formatAssignmentDate(a.start_date)}</td>
+                  <td className="px-4 py-2 text-slate-600">{a.end_date ? formatAssignmentDate(a.end_date) : "Ongoing"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

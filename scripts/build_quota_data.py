@@ -31,6 +31,8 @@ from typing import Any
 
 import pandas as pd
 
+import assignment_history
+
 ROOT = Path(__file__).resolve().parent.parent
 
 PIPELINE_Q1_PATH = ROOT / "files" / "Opportunity Pipeline Q1.xlsx"
@@ -178,7 +180,11 @@ def _canonical(name: str, aliases: dict[str, str]) -> str:
 
 # ── pipeline loading ──────────────────────────────────────────────────────────
 
-def load_all_pipeline(aliases: dict[str, str], name_to_div: dict[str, str] | None = None) -> pd.DataFrame:
+def load_all_pipeline(
+    aliases: dict[str, str],
+    name_to_div: dict[str, str] | None = None,
+    name_to_assignments: dict[str, list] | None = None,
+) -> pd.DataFrame:
     """Load Q1–Q4 deals from SQLite (migrates leftover Excel once if the table is empty)."""
     import deal_store  # type: ignore
 
@@ -198,11 +204,23 @@ def load_all_pipeline(aliases: dict[str, str], name_to_div: dict[str, str] | Non
     df["_canonical_led_by"] = df.get("Opportunity Led By", pd.Series(dtype=str)).apply(
         lambda x: _canonical(_clean(x), aliases)
     )
-    if name_to_div:
-        df["Division"] = df["_canonical_led_by"].apply(lambda n: name_to_div.get(n, ""))
-        df["Division"] = df["Division"].apply(
-            lambda x: "GeoX" if _clean(x) in ("GeoX", "Geo X") else _clean(x)
-        )
+    name_to_div = name_to_div or {}
+    name_to_assignments = name_to_assignments or {}
+
+    def _row_division(row) -> str:
+        name = _clean(row.get("_canonical_led_by", "") or "")
+        fallback = name_to_div.get(name, "")
+        assigns = name_to_assignments.get(name) or []
+        if assigns:
+            div = assignment_history.division_on(
+                assigns, row.get("Expected Close Date", ""), fallback=fallback
+            )
+        else:
+            div = fallback
+        cleaned = _clean(div)
+        return "GeoX" if cleaned in ("GeoX", "Geo X") else cleaned
+
+    df["Division"] = df.apply(_row_division, axis=1)
     return df
 
 
@@ -285,7 +303,8 @@ def build_individuals(
     for name, cfg in ic_quotas.items():
         if name.startswith("_"):
             continue
-        division = _clean(cfg.get("division", ""))
+        assigns = assignment_history.ensure_assignments(cfg)
+        division = assignment_history.current_division(assigns) or _clean(cfg.get("division", ""))
         ic_type = _clean(cfg.get("type", "IC"))
 
         pa = actuals_by_name.get(name, {})
@@ -335,6 +354,7 @@ def build_individuals(
             "rank_division": None,
             "pipeline_deals": [],
             "h1_attainment_pct": _att(h1_act, h1_q),
+            "assignments": assignment_history.serialize_assignments(assigns),
         })
 
     return individuals
@@ -342,43 +362,70 @@ def build_individuals(
 
 # ── RTM division subtotals ────────────────────────────────────────────────────
 
-def build_rtm_divisions(individuals: list[dict], cat_div_actuals: dict) -> list[dict]:
-    """Aggregate per-IC actuals into division subtotals."""
+def _deal_ic_cr(deal: dict) -> float:
+    name = str(deal.get("employee") or "")
+    if "hrushikesh" in name.lower():
+        return float(deal.get("bottomline_cr") or 0)
+    return float(deal.get("amount_cr") or deal.get("topline_cr") or 0)
+
+
+def build_rtm_divisions(individuals: list[dict], deals: list[dict] | None = None) -> list[dict]:
+    """Quotas from as-of-today members; actuals from deals tagged by assignment-on-close-date."""
     div_data: dict[str, dict] = {}
 
     for ic in individuals:
         div = ic.get("division", "")
         if not div or div not in RTM_DIVISIONS:
             continue
-        d = div_data.setdefault(div, {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")})
+        d = div_data.setdefault(
+            div,
+            {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")},
+        )
         for p in ("q1", "q2", "h1", "h2", "annual"):
-            d[p]["actuals"] += (ic[p].get("actuals") or 0)
             d[p]["quota"] += (ic[p].get("quota") or 0)
-        d["h1"]["deals"] += ic["deals"].get("total", 0)
+        if not deals:
+            for p in ("q1", "q2", "h1", "h2", "annual"):
+                d[p]["actuals"] += (ic[p].get("actuals") or 0)
+            d["h1"]["deals"] += ic["deals"].get("total", 0)
+
+    if deals:
+        for deal in deals:
+            div = deal.get("rtm_division") or ""
+            if div not in RTM_DIVISIONS:
+                continue
+            q = str(deal.get("quarter") or "").lower()
+            d = div_data.setdefault(
+                div,
+                {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")},
+            )
+            cr = _deal_ic_cr(deal)
+            if q in ("q1", "q2", "q3", "q4"):
+                d[q]["actuals"] += cr
+                d[q]["deals"] += 1
+        for d in div_data.values():
+            d["h1"]["actuals"] = d["q1"]["actuals"] + d["q2"]["actuals"]
+            d["h2"]["actuals"] = d["q3"]["actuals"] + d["q4"]["actuals"]
+            d["annual"]["actuals"] = d["h1"]["actuals"] + d["h2"]["actuals"]
+            d["h1"]["deals"] = d["q1"]["deals"] + d["q2"]["deals"]
 
     result = []
     for div in RTM_DIVISIONS:
         d = div_data.get(div)
         if not d:
             continue
-        h1_q = d["h1"]["quota"]
-        h1_a = d["h1"]["actuals"]
-        q1_q = d["q1"]["quota"]
-        q1_a = d["q1"]["actuals"]
-        q2_q = d["q2"]["quota"]
-        q2_a = d["q2"]["actuals"]
-        h2_q = d["h2"]["quota"]
-        h2_a = d["h2"]["actuals"]
-        ann_q = d["annual"]["quota"]
-        ann_a = d["annual"]["actuals"]
+        h1_q, h1_a = d["h1"]["quota"], d["h1"]["actuals"]
+        q1_q, q1_a = d["q1"]["quota"], d["q1"]["actuals"]
+        q2_q, q2_a = d["q2"]["quota"], d["q2"]["actuals"]
+        h2_q, h2_a = d["h2"]["quota"], d["h2"]["actuals"]
+        ann_q, ann_a = d["annual"]["quota"], d["annual"]["actuals"]
 
         result.append({
             "division": div,
-            "h1": {"quota": round(h1_q,4), "actuals": round(h1_a,4), "attainment_pct": _att(h1_a, h1_q)},
-            "q1": {"quota": round(q1_q,4), "actuals": round(q1_a,4), "attainment_pct": _att(q1_a, q1_q)},
-            "q2": {"quota": round(q2_q,4), "actuals": round(q2_a,4), "attainment_pct": _att(q2_a, q2_q)},
-            "h2": {"quota": round(h2_q,4), "actuals": round(h2_a,4), "attainment_pct": _att(h2_a, h2_q)},
-            "annual": {"quota": round(ann_q,4), "actuals": round(ann_a,4), "attainment_pct": _att(ann_a, ann_q)},
+            "h1": {"quota": round(h1_q, 4), "actuals": round(h1_a, 4), "attainment_pct": _att(h1_a, h1_q)},
+            "q1": {"quota": round(q1_q, 4), "actuals": round(q1_a, 4), "attainment_pct": _att(q1_a, q1_q)},
+            "q2": {"quota": round(q2_q, 4), "actuals": round(q2_a, 4), "attainment_pct": _att(q2_a, q2_q)},
+            "h2": {"quota": round(h2_q, 4), "actuals": round(h2_a, 4), "attainment_pct": _att(h2_a, h2_q)},
+            "annual": {"quota": round(ann_q, 4), "actuals": round(ann_a, 4), "attainment_pct": _att(ann_a, ann_q)},
             "closed_deals": d["h1"]["deals"],
             "status": _status_flag(_att(h1_a, h1_q)),
             "employee_count": sum(1 for ic in individuals if ic.get("division") == div),
@@ -554,6 +601,7 @@ def build_deal_records(df: pd.DataFrame, individuals: list[dict]) -> list[dict]:
     dcg_backup = {s.lower() for s in rules.get("dcg_backup_storage_subcategories", [])}
 
     ic_div_map = {ic["name"]: ic.get("division") for ic in individuals}
+    ic_assign_map = {ic["name"]: ic.get("assignments") or [] for ic in individuals}
 
     deals = []
     for _, row in df.iterrows():
@@ -563,7 +611,11 @@ def build_deal_records(df: pd.DataFrame, individuals: list[dict]) -> list[dict]:
         bu = CAT_TO_BU.get(cat, cat)
         amount_inr = _num(row.get("Amount"))
         bl_inr = _num(row.get("Actual Bottomline -")) or _num(row.get("Estimated Bottomline"))
-        div = _clean(row.get("Division", "") or "") or ic_div_map.get(name, "")
+        close_raw = row.get("Expected Close Date", "")
+        assigns = ic_assign_map.get(name) or []
+        fallback = ic_div_map.get(name, "") or _clean(row.get("Division", "") or "")
+        div = assignment_history.division_on(assigns, close_raw, fallback=fallback) if assigns else fallback
+        div = "GeoX" if _clean(div) in ("GeoX", "Geo X") else _clean(div)
 
         # Multiplier logic
         multiplier = 1.0
@@ -1006,15 +1058,17 @@ def build(output_path: Path = OUTPUT_PATH) -> dict:
     if not ic_quotas:
         raise FileNotFoundError(f"ic_quotas.json not found at {IC_QUOTAS_PATH}. Run scripts/extract_quotas.py first.")
 
-    # Build name→division lookup for Division column fallback (legacy pipeline files)
-    name_to_div = {
-        name: _clean(cfg.get("division", ""))
-        for name, cfg in ic_quotas.items()
-        if not name.startswith("_") and cfg.get("division")
-    }
+    name_to_assignments: dict[str, list] = {}
+    name_to_div: dict[str, str] = {}
+    for name, cfg in ic_quotas.items():
+        if str(name).startswith("_") or not isinstance(cfg, dict):
+            continue
+        assigns = assignment_history.ensure_assignments(cfg)
+        name_to_assignments[name] = assigns
+        name_to_div[name] = assignment_history.current_division(assigns) or _clean(cfg.get("division", ""))
 
     print("[build] Loading deals from SQLite...")
-    full_df = load_all_pipeline(aliases, name_to_div=name_to_div)
+    full_df = load_all_pipeline(aliases, name_to_div=name_to_div, name_to_assignments=name_to_assignments)
     total_deals = len(full_df) if not full_df.empty else 0
     print(f"[build]   Loaded {total_deals} total deals across all quarters")
 
@@ -1027,12 +1081,12 @@ def build(output_path: Path = OUTPUT_PATH) -> dict:
     print("[build] Building IC metrics...")
     individuals = build_individuals(ic_quotas, actuals_by_name)
 
-    print("[build] Building RTM division subtotals...")
-    rtm_divisions = build_rtm_divisions(individuals, cat_div_actuals)
-
     print("[build] Building deal records...")
     deals = build_deal_records(full_df, individuals)
     attach_deals_to_individuals(individuals, deals)
+
+    print("[build] Building RTM division subtotals...")
+    rtm_divisions = build_rtm_divisions(individuals, deals)
 
     print("[build] Building BU level metrics...")
     bu_level = build_bu_level(cat_div_actuals, deals=deals)

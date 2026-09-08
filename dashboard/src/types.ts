@@ -249,6 +249,13 @@ export interface Individual {
   active?: boolean;
   reference_only?: boolean;
   exclude_from_pipeline_totals?: boolean;
+  assignments?: AssignmentHistoryRow[];
+}
+
+export interface AssignmentHistoryRow {
+  division: string;
+  start_date: string | null;
+  end_date: string | null;
 }
 
 export interface DivisionAggregate {

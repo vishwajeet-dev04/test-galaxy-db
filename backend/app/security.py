@@ -18,7 +18,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 def hash_password(password: str) -> str:
     raw = password.encode("utf-8")[:72]
-    return bcrypt.hashpw(raw, bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(raw, bcrypt.gensalt(rounds=12)).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:

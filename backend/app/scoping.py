@@ -16,6 +16,13 @@ from app.config import settings
 from app.models import User
 from app.security import can_see_all
 
+import sys
+
+_scripts = str(settings.root / "scripts")
+if _scripts not in sys.path:
+    sys.path.insert(0, _scripts)
+import assignment_history  # noqa: E402
+
 RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"]
 BU_CARD_ORDER = ["DCG", "CSN", "PS", "CSG", "Cloud"]
 LEADER_ROLES = {"leader", "tl", "avp", "bu_head"}
@@ -231,7 +238,7 @@ def _rebuild_pipeline_for_ic(ic: dict[str, Any], ic_deals: list[dict]) -> None:
     }
 
 
-def _rebuild_rtm(individuals: list[dict]) -> list[dict]:
+def _rebuild_rtm(individuals: list[dict], deals: list[dict] | None = None) -> list[dict]:
     div_data: dict[str, dict] = {}
     for ic in individuals:
         div = ic.get("division") or ""
@@ -239,12 +246,33 @@ def _rebuild_rtm(individuals: list[dict]) -> list[dict]:
             continue
         d = div_data.setdefault(
             div,
-            {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual")},
+            {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")},
         )
         for p in ("q1", "q2", "h1", "h2", "annual"):
-            d[p]["actuals"] += float((ic.get(p) or {}).get("actuals") or 0)
             d[p]["quota"] += float((ic.get(p) or {}).get("quota") or 0)
-        d["h1"]["deals"] += int((ic.get("deals") or {}).get("total") or (ic.get("h1") or {}).get("deals") or 0)
+        if not deals:
+            for p in ("q1", "q2", "h1", "h2", "annual"):
+                d[p]["actuals"] += float((ic.get(p) or {}).get("actuals") or 0)
+            d["h1"]["deals"] += int((ic.get("deals") or {}).get("total") or (ic.get("h1") or {}).get("deals") or 0)
+
+    if deals:
+        for deal in deals:
+            div = deal.get("rtm_division") or ""
+            if div not in RTM_DIVISIONS:
+                continue
+            q = _deal_quarter(deal)
+            d = div_data.setdefault(
+                div,
+                {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")},
+            )
+            if q in ("q1", "q2", "q3", "q4"):
+                d[q]["actuals"] += _deal_ic_cr(deal, deal.get("employee"))
+                d[q]["deals"] += 1
+        for d in div_data.values():
+            d["h1"]["actuals"] = d["q1"]["actuals"] + d["q2"]["actuals"]
+            d["h2"]["actuals"] = d["q3"]["actuals"] + d["q4"]["actuals"]
+            d["annual"]["actuals"] = d["h1"]["actuals"] + d["h2"]["actuals"]
+            d["h1"]["deals"] = d["q1"]["deals"] + d["q2"]["deals"]
 
     result = []
     for div in RTM_DIVISIONS:
@@ -456,8 +484,42 @@ def _rebuild_top_and_risk(individuals: list[dict]) -> tuple[dict, list]:
     }, at_risk
 
 
+def _stamp_as_of_today(data: dict[str, Any]) -> dict[str, Any]:
+    today = assignment_history.as_of_today()
+    assign_by_name: dict[str, list] = {}
+    for ic in data.get("individuals") or []:
+        assigns = assignment_history.ensure_assignments(ic) if (ic.get("assignments") or ic.get("division")) else []
+        if assigns:
+            ic["assignments"] = assigns
+            ic["division"] = assignment_history.current_division(assigns, today) or ic.get("division")
+            if ic.get("name"):
+                assign_by_name[ic["name"]] = assigns
+    for deal in _collect_deals(data):
+        name = deal.get("employee") or deal.get("pipeline_led_by") or ""
+        assigns = assign_by_name.get(name) or []
+        if assigns:
+            deal["rtm_division"] = assignment_history.division_on(
+                assigns, deal.get("close_date"), fallback=deal.get("rtm_division") or ""
+            )
+    return data
+
+
 def _apply_deals_to_view(data: dict[str, Any], deals: list[dict]) -> dict[str, Any]:
     """Recompute IC actuals + org cards from a (scoped / date-filtered) deal list. Quotas unchanged."""
+    today = assignment_history.as_of_today()
+    assign_by_name: dict[str, list] = {}
+    for ic in data.get("individuals") or []:
+        assigns = assignment_history.ensure_assignments(ic) if (ic.get("assignments") or ic.get("division")) else []
+        if ic.get("name") and assigns:
+            assign_by_name[ic["name"]] = assigns
+    for d in deals:
+        name = d.get("employee") or d.get("pipeline_led_by") or ""
+        assigns = assign_by_name.get(name) or []
+        if assigns:
+            d["rtm_division"] = assignment_history.division_on(
+                assigns, d.get("close_date"), fallback=d.get("rtm_division") or ""
+            )
+
     by_name: dict[str, list] = {}
     for d in deals:
         by_name.setdefault(d.get("employee") or "", []).append(d)
@@ -465,10 +527,14 @@ def _apply_deals_to_view(data: dict[str, Any], deals: list[dict]) -> dict[str, A
     individuals = []
     for ic in data.get("individuals") or []:
         row = copy.deepcopy(ic)
+        assigns = assign_by_name.get(row.get("name"), [])
+        if assigns:
+            row["assignments"] = assigns
+            row["division"] = assignment_history.current_division(assigns, today) or row.get("division")
         _rebuild_pipeline_for_ic(row, by_name.get(row.get("name"), []))
         individuals.append(row)
 
-    rtm = _rebuild_rtm(individuals)
+    rtm = _rebuild_rtm(individuals, deals)
     bu = _rebuild_bu(deals, data.get("bu_level"))
     period_metrics = _rebuild_period_metrics(rtm, deals)
     kpis = _rebuild_kpis(data, individuals, rtm, deals, bu)
@@ -585,6 +651,7 @@ def apply_date_filter(data: dict[str, Any], start: date | None, end: date | None
 
 
 def scope_quota_data(data: dict[str, Any], user: User) -> dict[str, Any]:
+    data = _stamp_as_of_today(copy.deepcopy(data))
     allowed = _allowed_names_for_user(data, user)
     if allowed is None:
         scoped = copy.deepcopy(data)

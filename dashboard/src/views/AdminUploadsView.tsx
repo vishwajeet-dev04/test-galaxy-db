@@ -1,6 +1,8 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   CloudDownload,
   Database,
   Download,
@@ -14,9 +16,11 @@ import {
   Clock,
   AlertCircle,
 } from "lucide-react";
+import { AdminUsersPanel } from "./AdminUsersPanel";
 import { authHeaders, useAuth } from "../context/AuthContext";
 import { SectionHeader } from "../components/SectionHeader";
 import { ui } from "../theme";
+import { formatDisplayDate, toISODate } from "../utils/fiscal";
 
 interface SyncStatus {
   configured: boolean;
@@ -35,6 +39,12 @@ interface AdminStatus {
   quota_json: { exists: boolean };
 }
 
+interface AssignmentRow {
+  division: string;
+  start_date: string | null;
+  end_date: string | null;
+}
+
 interface QuotaPerson {
   name: string;
   division: string;
@@ -47,6 +57,9 @@ interface QuotaPerson {
   h1_quota: number | null;
   h2_quota: number | null;
   annual_quota: number | null;
+  assignments: AssignmentRow[];
+  baselineDivision: string;
+  transfer_start: string | null;
 }
 
 const QUARTER_OPTIONS = [
@@ -74,7 +87,44 @@ const emptyPerson = (): QuotaPerson => ({
   h1_quota: 0,
   h2_quota: 0,
   annual_quota: 0,
+  assignments: [{ division: "S1", start_date: null, end_date: null }],
+  baselineDivision: "S1",
+  transfer_start: null,
 });
+
+function hydratePerson(raw: Partial<QuotaPerson> & { name: string; division?: string }): QuotaPerson {
+  const division = raw.division || "S1";
+  const assignments = (raw.assignments || []).map((a) => ({
+    division: a.division,
+    start_date: a.start_date ?? null,
+    end_date: a.end_date ?? null,
+  }));
+  return {
+    name: raw.name,
+    division,
+    type: raw.type || "IC",
+    reporting_manager: raw.reporting_manager ?? "",
+    q1_quota: raw.q1_quota ?? 0,
+    q2_quota: raw.q2_quota ?? 0,
+    q3_quota: raw.q3_quota ?? 0,
+    q4_quota: raw.q4_quota ?? 0,
+    h1_quota: raw.h1_quota ?? 0,
+    h2_quota: raw.h2_quota ?? 0,
+    annual_quota: raw.annual_quota ?? 0,
+    assignments: assignments.length ? assignments : [{ division, start_date: null, end_date: null }],
+    baselineDivision: division,
+    transfer_start: null,
+  };
+}
+
+function formatAssignmentDate(value: string | null | undefined): string {
+  if (!value) return "—";
+  try {
+    return formatDisplayDate(value.slice(0, 10));
+  } catch {
+    return value;
+  }
+}
 
 export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void }) {
   const { token } = useAuth();
@@ -90,6 +140,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
   const [error, setError] = useState<string | null>(null);
   const [selectedQuarter, setSelectedQuarter] = useState("h1");
   const [newRow, setNewRow] = useState<QuotaPerson>(emptyPerson());
+  const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadStatus = async () => {
@@ -108,7 +159,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     const res = await fetch("/api/admin/quotas", { headers: authHeaders(token) });
     if (!res.ok) return;
     const body = await res.json();
-    setPeople(body.people || []);
+    setPeople((body.people || []).map((p: QuotaPerson) => hydratePerson(p)));
     setBuQuotas(body.bu_annual_quotas || {});
   };
 
@@ -171,10 +222,29 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     try {
       const cleaned = people.filter((p) => p.name.trim());
       if (!cleaned.length) throw new Error("Add at least one person");
+      const missingDate = cleaned.find((p) => p.division !== p.baselineDivision && !p.transfer_start);
+      if (missingDate) {
+        throw new Error(`Set an effective date to move ${missingDate.name} from ${missingDate.baselineDivision} to ${missingDate.division}`);
+      }
+      const payload = cleaned.map((p) => ({
+        name: p.name,
+        division: p.division,
+        type: p.type,
+        reporting_manager: p.reporting_manager,
+        q1_quota: p.q1_quota,
+        q2_quota: p.q2_quota,
+        q3_quota: p.q3_quota,
+        q4_quota: p.q4_quota,
+        h1_quota: p.h1_quota,
+        h2_quota: p.h2_quota,
+        annual_quota: p.annual_quota,
+        assignments: p.assignments,
+        transfer_start: p.division !== p.baselineDivision ? p.transfer_start : null,
+      }));
       const res = await fetch("/api/admin/quotas", {
         method: "PUT",
         headers: { ...authHeaders(token), "Content-Type": "application/json" },
-        body: JSON.stringify({ people: cleaned, bu_annual_quotas: buQuotas }),
+        body: JSON.stringify({ people: payload, bu_annual_quotas: buQuotas }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.detail || "Save failed");
@@ -270,7 +340,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
       setError(`"${name}" is already on the roster`);
       return;
     }
-    setPeople((prev) => [...prev, { ...newRow, name }]);
+    setPeople((prev) => [...prev, hydratePerson({ ...newRow, name })]);
     setNewRow(emptyPerson());
     setError(null);
   };
@@ -299,6 +369,8 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           Sync Closed Won deals from Vtiger. Quota targets come from Finance (T1 template) — H1 and H2 are fixed and never auto-summed from Q1–Q4.
         </p>
       </div>
+
+      <AdminUsersPanel />
 
       {(message || error) && (
         <div
@@ -415,7 +487,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         <div className="flex flex-wrap items-end justify-between gap-3">
           <SectionHeader
             label="Quota roster"
-            description="H1, H2 and Annual are independent Finance figures. Changing Q1–Q4 does not rewrite them. Change RTM to transfer an IC — Admin only."
+            description="H1, H2 and Annual are independent Finance figures. Changing RTM keeps history — set an effective date; it does not overwrite the previous team."
           />
           <div className="flex items-center gap-3">
             <select
@@ -472,8 +544,10 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           <table className="min-w-full text-sm">
             <thead className={ui.tableHead}>
               <tr>
+                <th className="px-3 py-2" />
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">RTM</th>
+                <th className="px-3 py-2">Effective date</th>
                 <th className="px-3 py-2">Type</th>
                 <th className="px-3 py-2 text-right">Q1</th>
                 <th className="px-3 py-2 text-right">Q2</th>
@@ -488,57 +562,29 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
             <tbody>
               {visible.map((p) => {
                 const idx = people.indexOf(p);
+                const rtmChanged = p.division !== p.baselineDivision;
+                const historyOpen = expandedHistory[p.name];
                 return (
-                  <tr key={`${p.name}-${idx}`} className="border-b border-slate-100">
-                    <td className="px-3 py-1.5 font-medium text-galaxy-navy">{p.name}</td>
-                    <td className="px-3 py-1.5">
-                      <select
-                        value={p.division}
-                        onChange={(e) => updatePerson(idx, { division: e.target.value })}
-                        className="rounded-lg border border-galaxy-border bg-white px-2 py-1 text-xs"
-                      >
-                        { (DIVISIONS.includes(p.division) ? DIVISIONS : [p.division, ...DIVISIONS]).map((d) => (
-                          <option key={d || "blank"} value={d}>
-                            {d || "—"}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <select
-                        value={p.type}
-                        onChange={(e) => updatePerson(idx, { type: e.target.value })}
-                        className="rounded-lg border border-galaxy-border bg-white px-2 py-1 text-xs"
-                      >
-                        {TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    {QUOTA_KEYS.map((key) => (
-                      <td key={key} className="px-3 py-1.5 text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={p[key] ?? 0}
-                          onChange={(e) => updatePerson(idx, { [key]: e.target.value === "" ? 0 : Number(e.target.value) })}
-                          className={`w-20 rounded-lg border px-2 py-1 text-right font-mono text-xs ${
-                            FIXED_HALF_KEYS.has(key)
-                              ? "border-amber-200 bg-amber-50"
-                              : "border-galaxy-border"
-                          }`}
-                          title={FIXED_HALF_KEYS.has(key) ? "Finance-fixed — not derived from quarters" : undefined}
-                        />
-                      </td>
-                    ))}
-                    <td className="px-3 py-1.5">
-                      <button type="button" onClick={() => removePerson(idx)} className="text-slate-400 hover:text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
+                  <RosterPersonRows
+                    key={`${p.name}-${idx}`}
+                    p={p}
+                    rtmChanged={rtmChanged}
+                    historyOpen={!!historyOpen}
+                    onToggleHistory={() =>
+                      setExpandedHistory((prev) => ({ ...prev, [p.name]: !prev[p.name] }))
+                    }
+                    onChangeDivision={(value) =>
+                      updatePerson(idx, {
+                        division: value,
+                        transfer_start:
+                          value === p.baselineDivision ? null : p.transfer_start || toISODate(new Date()),
+                      })
+                    }
+                    onChangeTransferStart={(value) => updatePerson(idx, { transfer_start: value || null })}
+                    onChangeType={(value) => updatePerson(idx, { type: value })}
+                    onChangeQuota={(key, value) => updatePerson(idx, { [key]: value })}
+                    onRemove={() => removePerson(idx)}
+                  />
                 );
               })}
             </tbody>
@@ -557,7 +603,14 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           </label>
           <select
             value={newRow.division}
-            onChange={(e) => setNewRow((r) => ({ ...r, division: e.target.value }))}
+            onChange={(e) =>
+              setNewRow((r) => ({
+                ...r,
+                division: e.target.value,
+                baselineDivision: e.target.value,
+                assignments: [{ division: e.target.value, start_date: null, end_date: null }],
+              }))
+            }
             className="rounded-lg border border-galaxy-border px-2 py-1.5 text-sm"
           >
             {DIVISIONS.filter(Boolean).map((d) => (
@@ -648,5 +701,131 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         </div>
       )}
     </div>
+  );
+}
+
+function RosterPersonRows({
+  p,
+  rtmChanged,
+  historyOpen,
+  onToggleHistory,
+  onChangeDivision,
+  onChangeTransferStart,
+  onChangeType,
+  onChangeQuota,
+  onRemove,
+}: {
+  p: QuotaPerson;
+  rtmChanged: boolean;
+  historyOpen: boolean;
+  onToggleHistory: () => void;
+  onChangeDivision: (value: string) => void;
+  onChangeTransferStart: (value: string) => void;
+  onChangeType: (value: string) => void;
+  onChangeQuota: (key: (typeof QUOTA_KEYS)[number], value: number) => void;
+  onRemove: () => void;
+}) {
+  const rtmOptions = DIVISIONS.includes(p.division) ? DIVISIONS : [p.division, ...DIVISIONS];
+  return (
+    <Fragment>
+      <tr className="border-b border-slate-100">
+        <td className="px-2 py-1.5">
+          <button
+            type="button"
+            onClick={onToggleHistory}
+            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-galaxy-navy"
+            aria-label={`Toggle assignment history for ${p.name}`}
+          >
+            {historyOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+        </td>
+        <td className="px-3 py-1.5 font-medium text-galaxy-navy">{p.name}</td>
+        <td className="px-3 py-1.5">
+          <select
+            value={p.division}
+            onChange={(e) => onChangeDivision(e.target.value)}
+            className="rounded-lg border border-galaxy-border bg-white px-2 py-1 text-xs"
+          >
+            {rtmOptions.map((d) => (
+              <option key={d || "blank"} value={d}>
+                {d || "—"}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td className="px-3 py-1.5">
+          {rtmChanged ? (
+            <input
+              type="date"
+              value={p.transfer_start || ""}
+              onChange={(e) => onChangeTransferStart(e.target.value)}
+              className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs"
+              title="Previous RTM ends the day before this date"
+            />
+          ) : (
+            <span className="text-xs text-slate-400">—</span>
+          )}
+        </td>
+        <td className="px-3 py-1.5">
+          <select
+            value={p.type}
+            onChange={(e) => onChangeType(e.target.value)}
+            className="rounded-lg border border-galaxy-border bg-white px-2 py-1 text-xs"
+          >
+            {TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </td>
+        {QUOTA_KEYS.map((key) => (
+          <td key={key} className="px-3 py-1.5 text-right">
+            <input
+              type="number"
+              step="0.01"
+              value={p[key] ?? 0}
+              onChange={(e) => onChangeQuota(key, e.target.value === "" ? 0 : Number(e.target.value))}
+              className={`w-20 rounded-lg border px-2 py-1 text-right font-mono text-xs ${
+                FIXED_HALF_KEYS.has(key) ? "border-amber-200 bg-amber-50" : "border-galaxy-border"
+              }`}
+              title={FIXED_HALF_KEYS.has(key) ? "Finance-fixed — not derived from quarters" : undefined}
+            />
+          </td>
+        ))}
+        <td className="px-3 py-1.5">
+          <button type="button" onClick={onRemove} className="text-slate-400 hover:text-red-600">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </td>
+      </tr>
+      {historyOpen && (
+        <tr className="border-b border-slate-100 bg-slate-50/80">
+          <td colSpan={13} className="px-6 py-3">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Assignment history
+            </p>
+            <table className="w-full max-w-lg text-xs">
+              <thead>
+                <tr className="text-left text-slate-400">
+                  <th className="py-1 pr-4 font-medium">RTM</th>
+                  <th className="py-1 pr-4 font-medium">Start Date</th>
+                  <th className="py-1 font-medium">End Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {p.assignments.map((a, i) => (
+                  <tr key={`${a.division}-${a.start_date}-${i}`}>
+                    <td className="py-1 pr-4 font-medium text-galaxy-navy">{a.division}</td>
+                    <td className="py-1 pr-4 text-slate-600">{formatAssignmentDate(a.start_date)}</td>
+                    <td className="py-1 text-slate-600">{a.end_date ? formatAssignmentDate(a.end_date) : "Ongoing"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }
