@@ -22,7 +22,10 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode("utf-8")[:72], hashed.encode("utf-8"))
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8")[:72], hashed.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
 
 
 def create_access_token(subject: str) -> str:

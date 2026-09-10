@@ -44,9 +44,9 @@ function getPeriodMetrics(emp: Individual, sortBy: SortKey) {
     case "h1_attainment":
       return { actuals: emp.h1.actuals, quota: emp.h1.quota, attainment: emp.h1.attainment_pct, label: "H1" };
     case "q3_attainment":
-      return { actuals: emp.q2.actuals, quota: emp.q2.quota, attainment: emp.q2.attainment_pct, label: "Q3*" };
+      return { actuals: emp.q3.actuals, quota: emp.q3.quota, attainment: emp.q3.attainment_pct, label: "Q3" };
     case "q4_attainment":
-      return { actuals: emp.h2.actuals, quota: emp.h2.quota, attainment: emp.h2.attainment_pct, label: "Q4*" };
+      return { actuals: emp.q4.actuals, quota: emp.q4.quota, attainment: emp.q4.attainment_pct, label: "Q4" };
     case "h2_attainment":
       return { actuals: emp.h2.actuals, quota: emp.h2.quota, attainment: emp.h2.attainment_pct, label: "H2" };
     default:

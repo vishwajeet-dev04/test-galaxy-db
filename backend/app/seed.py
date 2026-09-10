@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import User
 from app.security import hash_password
+from app.repositories import user_repo
 
 LEADER_TYPES = {"TL", "AVP", "BU HEAD", "BU HEAD / TL", "TOPLINE", "BOTTOMLINE"}
 LEADER_ROSTER_PATH = settings.root / "config" / "leader_roster.json"
@@ -109,8 +110,8 @@ def _upsert(
 ) -> None:
     """Create missing logins. Never overwrite an existing password hash.
 
-    Privileged accounts (`sync_profile=True`) keep role/email/name/active in
-    sync with PRIVILEGED. Roster rows are insert-only so Admin edits stick.
+    Privileged accounts (`sync_profile=True`) keep role/email/name in
+    sync with PRIVILEGED but do not force is_active. Roster rows are insert-only.
     """
     user = db.query(User).filter(User.username == username).first()
     if user:
@@ -119,7 +120,6 @@ def _upsert(
             user.full_name = full_name
             user.role = role
             user.employee_name = employee_name
-            user.is_active = True
         return
     db.add(
         User(
@@ -157,6 +157,7 @@ def seed_users(db: Session) -> None:
 
     leader_names = _leader_roster_names()
     used_usernames = {r["username"] for r in PRIVILEGED}
+    blocked = {n.lower() for n in user_repo.seed_exclusion_usernames(db)}
     for name in sorted(names):
         username = make_username(name)
         if not username or username in used_usernames:
@@ -167,6 +168,8 @@ def seed_users(db: Session) -> None:
             while username in used_usernames:
                 username += "x"
         used_usernames.add(username)
+        if username.lower() in blocked:
+            continue
         email = f"{username}@goapl.com"
         _upsert(
             db,

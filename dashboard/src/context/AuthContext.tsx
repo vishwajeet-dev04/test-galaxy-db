@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { apiDetail } from "../utils/apiError";
 
 export interface AuthUser {
   id: number;
@@ -34,7 +35,7 @@ async function apiLogin(username: string, password: string) {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || "Login failed");
+    throw new Error(apiDetail(body, "Login failed"));
   }
   return res.json() as Promise<{ access_token: string; user: AuthUser }>;
 }
@@ -44,19 +45,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const logout = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    setToken(null);
+    setUser(null);
+  }, []);
+
   useEffect(() => {
     const t = localStorage.getItem(TOKEN_KEY);
-    const u = localStorage.getItem(USER_KEY);
-    if (t && u) {
-      setToken(t);
-      try {
-        setUser(JSON.parse(u));
-      } catch {
+    if (!t) {
+      localStorage.removeItem(USER_KEY);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/auth/me", { headers: { Authorization: `Bearer ${t}` } })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("session");
+        return r.json() as Promise<AuthUser>;
+      })
+      .then((u) => {
+        if (cancelled) return;
+        localStorage.setItem(USER_KEY, JSON.stringify(u));
+        setToken(t);
+        setUser(u);
+      })
+      .catch(() => {
+        if (cancelled) return;
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
-      }
-    }
-    setLoading(false);
+        setToken(null);
+        setUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
@@ -65,13 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     setToken(data.access_token);
     setUser(data.user);
-  }, []);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    setToken(null);
-    setUser(null);
   }, []);
 
   const value = useMemo<AuthState>(

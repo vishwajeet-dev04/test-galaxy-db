@@ -16,5 +16,6 @@ dashboard/tsconfig.tsbuildinfo
 !.env.production
 !dashboard/.env.production
 backend/galaxy.db
+backend/data/quota_data.json
 backend/**/__pycache__/
 *.db

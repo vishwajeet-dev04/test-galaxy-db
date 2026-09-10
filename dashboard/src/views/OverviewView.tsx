@@ -53,25 +53,15 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
   const [selectedChartPeriod, setSelectedChartPeriod] = useState<PerformancePeriodKey>("q1");
 
   const getChartData = () => {
-    const rtmData = (rtm_divisions ?? []).map((d) => {
-      let val = 0;
-      if (selectedChartPeriod === "q3" || selectedChartPeriod === "q4") {
-        val = (d.h2?.actuals ?? 0) / 2;
-      } else {
-        val = (d as any)[selectedChartPeriod]?.actuals ?? 0;
-      }
-      return { name: d.division, value: val };
-    });
+    const rtmData = (rtm_divisions ?? []).map((d) => ({
+      name: d.division,
+      value: (d as { [k: string]: { actuals?: number } | undefined })[selectedChartPeriod]?.actuals ?? 0,
+    }));
     const buData = (bu_level ?? [])
-      .map((b) => {
-        let val = 0;
-        if (selectedChartPeriod === "q3" || selectedChartPeriod === "q4") {
-          val = ((b as any).h2?.actuals ?? 0) / 2;
-        } else {
-          val = (b as any)[selectedChartPeriod]?.actuals ?? 0;
-        }
-        return { name: b.bu, value: val };
-      })
+      .map((b) => ({
+        name: b.bu,
+        value: (b as { [k: string]: { actuals?: number } | undefined })[selectedChartPeriod]?.actuals ?? 0,
+      }))
       .sort((a, b) => {
         const order = ["DCG", "CSN", "PS", "CSG", "Cloud"];
         const ia = order.indexOf(a.name);

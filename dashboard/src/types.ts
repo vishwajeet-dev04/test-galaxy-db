@@ -5,7 +5,15 @@ export interface PeriodMetrics {
   deals?: number | null;
 }
 
-export type StatusFlag = "green" | "amber" | "red" | "grey";
+export type StatusFlag =
+  | "green"
+  | "amber"
+  | "red"
+  | "grey"
+  | "on_track"
+  | "at_risk"
+  | "critical"
+  | "unknown";
 
 export interface PeriodSnapshot {
   bu_quota: number;
@@ -25,6 +33,8 @@ export interface RTMDivision {
   division: string;
   q1: PeriodMetrics;
   q2: PeriodMetrics;
+  q3?: PeriodMetrics;
+  q4?: PeriodMetrics;
   h1: PeriodMetrics;
   h2: PeriodMetrics;
   annual: PeriodMetrics;
@@ -285,6 +295,8 @@ export interface BURecord {
   bu: string;
   q1: PeriodMetrics;
   q2: PeriodMetrics;
+  q3?: PeriodMetrics;
+  q4?: PeriodMetrics;
   h1: PeriodMetrics;
   h2: PeriodMetrics;
   annual: PeriodMetrics;

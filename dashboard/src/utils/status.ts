@@ -17,10 +17,7 @@ export function getStatusMaps(
 ) {
   // Resolve the period key that drives the coloured underline.
   // Falls back to the chart period if no explicit statusPeriod is given.
-  const resolveKey = (period: string) =>
-    period === "q3" || period === "q4" ? "h2" : period;
-
-  const colorKey = resolveKey(statusPeriod ?? selectedChartPeriod);
+  const colorKey = statusPeriod ?? selectedChartPeriod;
 
   const rtmStatusMap = Object.fromEntries(
     (rtm_divisions ?? []).map((d) => {

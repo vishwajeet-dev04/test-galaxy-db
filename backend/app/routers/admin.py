@@ -5,11 +5,13 @@ import logging
 import os
 import sys
 import tempfile
+import threading
+import urllib.error
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -18,7 +20,7 @@ from app.config import settings
 from app.database import get_db
 from app.models import User
 from app.quota_template import parse_t1_workbook
-from app.schemas import AdminUserCreate, AdminUserList, AdminUserUpdate, UploadResult, UserOut
+from app.schemas import AdminUserCreate, AdminUserList, AdminUserUpdate, UploadResult, UserOut, user_out
 from app.security import require_admin
 from app.seed import seed_users
 from app.services.user_service import UserServiceError
@@ -51,13 +53,6 @@ def _assignment_history():
     import assignment_history  # type: ignore
 
     return assignment_history
-
-_sync_state: dict = {
-    "running": False,
-    "last_run": None,
-    "last_result": None,
-    "last_error": None,
-}
 
 IC_QUOTAS_PATH = settings.root / "config" / "ic_quotas.json"
 QUOTA_RULES_PATH = settings.root / "config" / "quota_rules.json"
@@ -113,6 +108,14 @@ def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _reject_if_syncing() -> None:
+    _scripts_path()
+    import deal_store  # type: ignore
+
+    if deal_store.has_running_job():
+        raise HTTPException(status_code=409, detail="A Vtiger sync is running. Wait until it finishes.")
+
+
 def _run_parse() -> None:
     _scripts_path()
     import build_quota_data  # type: ignore
@@ -133,13 +136,13 @@ def admin_status(user: Annotated[User, Depends(require_admin)]):
     try:
         deals = _deal_counts()
     except Exception:
+        _log.exception("admin_status_deal_counts_failed")
         deals = {"q1": 0, "q2": 0, "q3": 0, "q4": 0, "total": 0}
     return {
         "deals": deals,
         "quota_count": len(ic),
         "rtm_count": rtm,
         "quota_json": {
-            "path": str(settings.quota_json),
             "exists": settings.quota_json.exists(),
         },
         "source": "sqlite+config",
@@ -184,6 +187,7 @@ def save_quotas(
 ):
     if not body.people:
         raise HTTPException(status_code=400, detail="At least one IC quota row is required")
+    _reject_if_syncing()
 
     ah = _assignment_history()
     today = ah.as_of_today()
@@ -266,8 +270,9 @@ def save_quotas(
 
     try:
         _run_parse()
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Quotas saved but dashboard rebuild failed: {exc}") from exc
+    except Exception:
+        _log.exception("quota_save_rebuild_failed")
+        raise HTTPException(status_code=500, detail="Quotas saved but dashboard rebuild failed") from None
 
     seed_users(db)
     return {"ok": True, "message": f"Saved {len(out)} people and rebuilt dashboard", "count": len(out)}
@@ -294,13 +299,17 @@ def import_t1_template(
     name = (file.filename or "").lower()
     if not name.endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="Upload the Finance .xlsx template (T1 sheet)")
-    content = file.file.read()
+    max_bytes = 5 * 1024 * 1024
+    content = file.file.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise HTTPException(status_code=413, detail="Template is too large (max 5 MB)")
     try:
         rows = parse_t1_workbook(content)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"Could not read workbook: {exc}") from exc
+    except Exception:
+        _log.exception("t1_import_parse_failed")
+        raise HTTPException(status_code=400, detail="Could not read workbook") from None
 
     ah = _assignment_history()
     today = ah.as_of_today()
@@ -324,22 +333,34 @@ def import_t1_template(
 
 @router.post("/reparse", response_model=UploadResult)
 def reparse(user: Annotated[User, Depends(require_admin)], db: Annotated[Session, Depends(get_db)]):
+    _reject_if_syncing()
     try:
         _run_parse()
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Rebuild failed: {exc}") from exc
+    except Exception:
+        _log.exception("reparse_failed")
+        raise HTTPException(status_code=500, detail="Rebuild failed") from None
     seed_users(db)
     return UploadResult(ok=True, message="Dashboard data regenerated from SQLite deals + quotas", regenerated=True)
 
 
-def _run_vtiger_sync(quarters: list[str], db_session_factory) -> None:
-    _sync_state["running"] = True
-    _sync_state["last_error"] = None
-    try:
-        scripts_dir = str(settings.root / "scripts")
-        if scripts_dir not in sys.path:
-            sys.path.insert(0, scripts_dir)
+def _public_sync_error(exc: BaseException) -> str:
+    text = str(exc).lower()
+    if isinstance(exc, TimeoutError) or "timed out" in text or "timeout" in text:
+        return "Vtiger CRM timed out"
+    if isinstance(exc, urllib.error.URLError) or "urlopen" in text:
+        return "Could not reach Vtiger CRM"
+    if "not configured" in text or "credentials" in text:
+        return "Vtiger credentials not configured"
+    if "refusing to replace" in text or "0 deals" in text:
+        return "CRM returned no deals for a quarter that already has data"
+    return "Sync failed"
 
+
+def _run_vtiger_sync(job_id: str, quarters: list[str]) -> None:
+    _scripts_path()
+    import deal_store  # type: ignore
+
+    try:
         from vtiger_sync import sync as vtiger_sync  # type: ignore
 
         if not settings.vtiger_url or not settings.vtiger_access_key:
@@ -354,52 +375,69 @@ def _run_vtiger_sync(quarters: list[str], db_session_factory) -> None:
             access_key=settings.vtiger_access_key,
             quarters=quarters,
             run_parse=True,
+            job_id=job_id,
         )
 
         from app.database import SessionLocal  # type: ignore
+
         db = SessionLocal()
         try:
             seed_users(db)
         finally:
             db.close()
 
-        _sync_state["last_result"] = {
-            "quarters": quarters,
-            "deal_counts": counts,
-            "total_deals": sum(counts.values()),
-        }
-    except Exception as exc:  # noqa: BLE001
-        _sync_state["last_error"] = str(exc)
-        raise
-    finally:
-        _sync_state["running"] = False
-        _sync_state["last_run"] = datetime.utcnow().isoformat()
+        deal_store.finish_job(
+            job_id,
+            result={
+                "quarters": quarters,
+                "deal_counts": counts,
+                "total_deals": sum(counts.values()),
+            },
+        )
+    except Exception as exc:
+        _log.exception("vtiger_sync_failed job_id=%s", job_id)
+        try:
+            deal_store.finish_job(job_id, error=_public_sync_error(exc))
+        except Exception:
+            _log.exception("vtiger_sync_finish_failed job_id=%s", job_id)
 
 
 @router.get("/vtiger-sync/status")
-def vtiger_sync_status(user: Annotated[User, Depends(require_admin)]):
+def vtiger_sync_status(
+    user: Annotated[User, Depends(require_admin)],
+    job_id: Optional[str] = Query(None),
+):
+    _scripts_path()
+    import deal_store  # type: ignore
+
     try:
         deals = _deal_counts()
     except Exception:
+        _log.exception("vtiger_sync_deal_counts_failed")
         deals = None
-    return {
+
+    job = deal_store.get_job(job_id) if job_id else deal_store.get_latest_job()
+    payload: dict[str, Any] = {
         "configured": bool(settings.vtiger_url and settings.vtiger_access_key),
-        "vtiger_url": settings.vtiger_url or None,
         "deals": deals,
-        **_sync_state,
+        "job_id": None,
+        "status": None,
+        "running": False,
+        "last_run": None,
+        "last_result": None,
+        "last_error": None,
+        "quarters": [],
     }
+    if job:
+        payload.update(job)
+    return payload
 
 
 @router.post("/vtiger-sync")
-async def vtiger_sync_trigger(
+def vtiger_sync_trigger(
     user: Annotated[User, Depends(require_admin)],
-    background_tasks: BackgroundTasks,
-    db: Annotated[Session, Depends(get_db)],
-    quarter: str = "h1",
+    quarter: str = "all",
 ):
-    if _sync_state["running"]:
-        raise HTTPException(status_code=409, detail="A sync is already in progress")
-
     if not settings.vtiger_url or not settings.vtiger_access_key:
         raise HTTPException(
             status_code=503,
@@ -415,10 +453,29 @@ async def vtiger_sync_trigger(
     if not quarters:
         raise HTTPException(status_code=400, detail=f"Invalid quarter '{quarter}'")
 
-    background_tasks.add_task(_run_vtiger_sync, quarters, None)
+    _scripts_path()
+    import deal_store  # type: ignore
+
+    job_id = deal_store.try_start_job(quarters)
+    if not job_id:
+        raise HTTPException(status_code=409, detail="A sync is already in progress")
+
+    thread = threading.Thread(
+        target=_run_vtiger_sync,
+        args=(job_id, quarters),
+        daemon=True,
+        name=f"vtiger-sync-{job_id[:8]}",
+    )
+    try:
+        thread.start()
+    except Exception:
+        _log.exception("vtiger_sync_thread_start_failed job_id=%s", job_id)
+        deal_store.finish_job(job_id, error="Sync failed")
+        raise HTTPException(status_code=500, detail="Could not start sync") from None
 
     return {
         "ok": True,
+        "job_id": job_id,
         "message": f"Vtiger sync started for {quarter.upper()}",
         "quarters": quarters,
     }
@@ -426,19 +483,31 @@ async def vtiger_sync_trigger(
 
 @router.get("/users", response_model=AdminUserList)
 def list_users(
+    request: Request,
     user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    q: str | None = Query(None),
+    q: Optional[str] = Query(None),
 ):
-    items, total = user_service.list_users(db, page=page, page_size=page_size, q=q)
-    return AdminUserList(
-        items=[UserOut.model_validate(u) for u in items],
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
+    try:
+        items, total = user_service.list_users(db, page=page, page_size=page_size, q=q)
+        return AdminUserList(
+            items=[user_out(u) for u in items],
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
+    except UserServiceError as exc:
+        raise _user_error(request, user, exc) from None
+    except Exception:
+        _log.exception(
+            "user_list_failed ts=%s user_id=%s path=%s",
+            datetime.utcnow().isoformat(),
+            user.id,
+            request.url.path,
+        )
+        raise HTTPException(status_code=500, detail="Could not load users") from None
 
 
 @router.post("/users", response_model=UserOut)
@@ -461,7 +530,7 @@ def create_user(
         )
     except UserServiceError as exc:
         raise _user_error(request, user, exc) from None
-    return UserOut.model_validate(created)
+    return user_out(created)
 
 
 @router.patch("/users/{user_id}", response_model=UserOut)
@@ -486,4 +555,18 @@ def update_user(
         )
     except UserServiceError as exc:
         raise _user_error(request, user, exc) from None
-    return UserOut.model_validate(updated)
+    return user_out(updated)
+
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    request: Request,
+    user_id: int,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        user_service.delete_user(db, actor=user, user_id=user_id)
+    except UserServiceError as exc:
+        raise _user_error(request, user, exc) from None
+    return {"ok": True}

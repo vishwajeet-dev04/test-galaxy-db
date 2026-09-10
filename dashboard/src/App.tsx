@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { RefreshCw, Menu } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
 import { Breadcrumbs } from "./components/Breadcrumbs";
@@ -23,12 +23,49 @@ import { formatCr, formatPctCard } from "./utils/format";
 import { defaultDateRange, type DateRangeValue } from "./utils/fiscal";
 
 const DEFAULT_DRILL: DrillState = { view: "overview" };
+const VIEW_IDS: ViewId[] = [
+  "overview",
+  "divisions",
+  "bu",
+  "employees",
+  "leaderboard",
+  "leaders",
+  "accounts",
+  "brands",
+  "admin",
+];
+const DRILL_VIEW_KEY = "galaxy.drill.view";
+
+function loadSavedView(): ViewId {
+  try {
+    const raw = sessionStorage.getItem(DRILL_VIEW_KEY);
+    if (raw && VIEW_IDS.includes(raw as ViewId)) return raw as ViewId;
+  } catch {
+    // sessionStorage can throw in locked-down browsers
+  }
+  return DEFAULT_DRILL.view;
+}
 
 function DashboardApp() {
+  const { isAdmin } = useAuth();
   const [dateRange, setDateRange] = useState<DateRangeValue>(defaultDateRange);
-  const { data, loading, error, refresh } = useQuotaData(dateRange);
-  const [drill, setDrill] = useState<DrillState>(DEFAULT_DRILL);
+  const { data, loading, error, refresh, refreshing } = useQuotaData(dateRange);
+  const [drill, setDrill] = useState<DrillState>({ view: loadSavedView() });
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (drill.view === "admin" && !isAdmin) {
+      setDrill(DEFAULT_DRILL);
+    }
+  }, [drill.view, isAdmin]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(DRILL_VIEW_KEY, drill.view);
+    } catch {
+      // ignore
+    }
+  }, [drill.view]);
 
   const navigate = useCallback((view: ViewId) => {
     setDrill({ view });
@@ -54,7 +91,7 @@ function DashboardApp() {
     drill.account ||
     drill.brand;
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="app-shell flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -67,7 +104,7 @@ function DashboardApp() {
     );
   }
 
-  if (error || !data) {
+  if (!data) {
     return (
       <div className="app-shell flex min-h-screen items-center justify-center p-6">
         <div className="max-w-md rounded-2xl border border-galaxy-primary/20 bg-white p-8 text-center shadow-lg">
@@ -163,6 +200,19 @@ function DashboardApp() {
             </div>
           </header>
 
+          {error && data && (
+            <div className="border-b border-amber-100 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-800 sm:px-6 lg:px-8">
+              Could not refresh numbers: {error}. Showing the last loaded data.
+              <button type="button" onClick={refresh} className="ml-2 font-semibold underline hover:no-underline">
+                Retry
+              </button>
+            </div>
+          )}
+          {refreshing && !error && (
+            <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-center text-xs font-medium text-slate-500 sm:px-6 lg:px-8">
+              Updating for the selected dates…
+            </div>
+          )}
           {data._scope?.mode === "filtered" && (
             <div className="border-b border-sky-100 bg-sky-50 px-4 py-2 text-center text-xs font-medium text-sky-800 sm:px-6 lg:px-8">
               Showing your login data only
@@ -179,7 +229,7 @@ function DashboardApp() {
             {drill.view === "leaders" && <LeadersView data={data} />}
             {drill.view === "employees" && <EmployeesView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "leaderboard" && <LeaderboardView data={data} onDrill={onDrill} />}
-            {drill.view === "admin" && <AdminUploadsView onDataRefresh={refresh} />}
+            {drill.view === "admin" && isAdmin && <AdminUploadsView onDataRefresh={refresh} />}
           </div>
         </main>
       </div>

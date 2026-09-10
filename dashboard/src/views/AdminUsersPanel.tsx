@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { AlertCircle, Pencil, Plus, Search, UserPlus, X } from "lucide-react";
+import { AlertCircle, Pencil, Plus, Search, Trash2, UserPlus, X } from "lucide-react";
 import { authHeaders, useAuth } from "../context/AuthContext";
 import { SectionHeader } from "../components/SectionHeader";
 import { ui } from "../theme";
@@ -67,7 +67,7 @@ function fromUser(u: AdminUser): FormState {
   };
 }
 
-function apiDetail(body: unknown): string {
+function apiDetail(body: unknown, status = 0): string {
   if (body && typeof body === "object" && "detail" in body) {
     const d = (body as { detail: unknown }).detail;
     if (typeof d === "string") return d;
@@ -75,7 +75,8 @@ function apiDetail(body: unknown): string {
       return String((d[0] as { msg: string }).msg);
     }
   }
-  return "Request failed";
+  if (typeof body === "string" && body.trim()) return body.slice(0, 180);
+  return `Request failed (${status})`;
 }
 
 function validate(form: FormState, isCreate: boolean): FieldErrors {
@@ -106,11 +107,14 @@ export function AdminUsersPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [banner, setBanner] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -123,8 +127,14 @@ export function AdminUsersPanel() {
       });
       if (appliedQ) params.set("q", appliedQ);
       const res = await fetch(`/api/admin/users?${params}`, { headers: authHeaders(token) });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(apiDetail(body));
+      const raw = await res.text();
+      let body: unknown = {};
+      try {
+        body = raw ? JSON.parse(raw) : {};
+      } catch {
+        body = raw.slice(0, 200);
+      }
+      if (!res.ok) throw new Error(apiDetail(body, res.status));
       const data = body as UserListResponse;
       setItems(data.items || []);
       setTotal(data.total ?? 0);
@@ -144,7 +154,8 @@ export function AdminUsersPanel() {
     setEditing(null);
     setForm(emptyForm());
     setFieldErrors({});
-    setBanner(null);
+    setFormError(null);
+    setSuccess(null);
     setFormOpen(true);
   };
 
@@ -152,7 +163,8 @@ export function AdminUsersPanel() {
     setEditing(u);
     setForm(fromUser(u));
     setFieldErrors({});
-    setBanner(null);
+    setFormError(null);
+    setSuccess(null);
     setFormOpen(true);
   };
 
@@ -161,7 +173,20 @@ export function AdminUsersPanel() {
     setFormOpen(false);
     setEditing(null);
     setFieldErrors({});
+    setFormError(null);
   };
+
+  useEffect(() => {
+    if (!formOpen && !confirmDelete) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (saving || deletingId != null) return;
+      if (formOpen) closeForm();
+      if (confirmDelete) setConfirmDelete(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [formOpen, confirmDelete, saving, deletingId]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -172,7 +197,8 @@ export function AdminUsersPanel() {
     if (Object.keys(errors).length) return;
 
     setSaving(true);
-    setBanner(null);
+    setFormError(null);
+    setSuccess(null);
     try {
       if (isCreate) {
         const res = await fetch("/api/admin/users", {
@@ -188,8 +214,8 @@ export function AdminUsersPanel() {
           }),
         });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(apiDetail(body));
-        setBanner("User created");
+        if (!res.ok) throw new Error(apiDetail(body, res.status));
+        setSuccess("User created");
       } else {
         const payload: Record<string, unknown> = {
           email: form.email.trim(),
@@ -205,28 +231,63 @@ export function AdminUsersPanel() {
           body: JSON.stringify(payload),
         });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(apiDetail(body));
-        setBanner(form.password ? "User updated and password changed" : "User updated");
+        if (!res.ok) throw new Error(apiDetail(body, res.status));
+        setSuccess(form.password ? "User updated and password changed" : "User updated");
       }
       setFormOpen(false);
       setEditing(null);
       await load();
     } catch (err) {
-      setBanner(err instanceof Error ? err.message : "Save failed");
+      setFormError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
     }
   };
 
+  const askDelete = (u: AdminUser) => {
+    if (saving || deletingId != null || u.id === me?.id) return;
+    setError(null);
+    setSuccess(null);
+    setConfirmDelete(u);
+  };
+
+  const onConfirmDelete = async () => {
+    if (!token || !confirmDelete || deletingId != null) return;
+    const target = confirmDelete;
+    setDeletingId(target.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${target.id}`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(apiDetail(body, res.status));
+      setConfirmDelete(null);
+      setSuccess(`Deleted ${target.username}`);
+      if (items.length === 1 && page > 1) {
+        setPage((p) => p - 1);
+      } else {
+        await load();
+      }
+    } catch (err) {
+      setConfirmDelete(null);
+      setError(err instanceof Error ? err.message : "Could not delete user");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const isCreate = editing == null;
+  const rowBusy = saving || deletingId != null;
 
   return (
     <div className={`${ui.card} space-y-5 p-6`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SectionHeader
           label="Users"
-          description="Create logins, set roles, and change passwords. Employee name must match the quota roster for IC scoping."
+          description="Create, edit, or delete logins. Employee name must match the quota roster for IC scoping."
         />
         <button type="button" onClick={openCreate} className={ui.btnPrimary}>
           <Plus className="h-4 w-4" />
@@ -257,12 +318,12 @@ export function AdminUsersPanel() {
         </button>
       </form>
 
-      {banner && !formOpen && (
-        <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-100">{banner}</p>
+      {success && !formOpen && (
+        <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-100">{success}</p>
       )}
 
       {loading && <p className="text-sm text-galaxy-muted">Loading users…</p>}
-      {error && !loading && (
+      {error && (
         <p className="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-100">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {error}
@@ -272,7 +333,7 @@ export function AdminUsersPanel() {
         <p className="text-sm text-galaxy-muted">No users match this search.</p>
       )}
 
-      {!loading && !error && items.length > 0 && (
+      {!loading && items.length > 0 && (
         <>
           <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full text-sm">
@@ -297,12 +358,33 @@ export function AdminUsersPanel() {
                       <span className={ui.badge}>{u.role}</span>
                     </td>
                     <td className="px-3 py-2 text-galaxy-muted">{u.employee_name || "—"}</td>
-                    <td className="px-3 py-2">{u.is_active ? "Active" : "Inactive"}</td>
-                    <td className="px-3 py-2 text-right">
-                      <button type="button" onClick={() => openEdit(u)} className={ui.btnGhost}>
-                        <Pencil className="h-4 w-4" />
-                        Edit
-                      </button>
+                    <td className="px-3 py-2">
+                      <span className={`${ui.badge} ${u.is_active ? "" : "opacity-70"}`}>
+                        {u.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(u)}
+                          disabled={rowBusy}
+                          className={ui.btnGhost}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => askDelete(u)}
+                          disabled={rowBusy || u.id === me?.id}
+                          className={ui.btnGhost}
+                          title={u.id === me?.id ? "You cannot delete your own account" : "Delete user"}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {deletingId === u.id ? "Deleting…" : "Delete"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -321,11 +403,26 @@ export function AdminUsersPanel() {
                   <span className={ui.badge}>{u.role}</span>
                 </div>
                 <p className="mt-2 text-sm text-galaxy-muted">{u.email}</p>
-                <p className="mt-1 text-xs text-galaxy-muted">{u.employee_name || "No roster name"} · {u.is_active ? "Active" : "Inactive"}</p>
-                <button type="button" onClick={() => openEdit(u)} className={`${ui.btnGhost} mt-2`}>
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </button>
+                <p className="mt-1 text-xs text-galaxy-muted">{u.employee_name || "No roster name"}</p>
+                <span className={`${ui.badge} mt-2 inline-flex ${u.is_active ? "" : "opacity-70"}`}>
+                  {u.is_active ? "Active" : "Inactive"}
+                </span>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  <button type="button" onClick={() => openEdit(u)} disabled={rowBusy} className={ui.btnGhost}>
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => askDelete(u)}
+                    disabled={rowBusy || u.id === me?.id}
+                    className={ui.btnGhost}
+                    title={u.id === me?.id ? "You cannot delete your own account" : "Delete user"}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deletingId === u.id ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -372,10 +469,10 @@ export function AdminUsersPanel() {
               </button>
             </div>
 
-            {banner && formOpen && (
+            {formError && (
               <p className="mb-4 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-100">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                {banner}
+                {formError}
               </p>
             )}
 
@@ -487,6 +584,51 @@ export function AdminUsersPanel() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-galaxy-navy/20 p-0 sm:items-center sm:p-6">
+          <div className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-lg sm:rounded-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-semibold text-galaxy-navy">Delete {confirmDelete.username}?</h3>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(null)}
+                disabled={deletingId != null}
+                className={ui.btnGhost}
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-sm text-galaxy-muted">
+              This removes the login for {confirmDelete.full_name} ({confirmDelete.username}). They will not be able to sign in.
+            </p>
+            {confirmDelete.employee_name ? (
+              <p className="mt-2 text-sm text-galaxy-muted">
+                {confirmDelete.employee_name} is on the quota roster and may be recreated on the next quota save or Vtiger sync. Deactivate instead if you only want to block sign-in.
+              </p>
+            ) : null}
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(null)}
+                disabled={deletingId != null}
+                className={ui.btnGhost}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void onConfirmDelete()}
+                disabled={deletingId != null}
+                className={ui.btnPrimary}
+              >
+                {deletingId === confirmDelete.id ? "Deleting…" : "Delete user"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

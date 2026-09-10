@@ -21,3 +21,11 @@ class User(Base):
     employee_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class SeedExclusion(Base):
+    """Usernames Admin deleted — seed must not recreate them."""
+
+    __tablename__ = "seed_exclusions"
+
+    username: Mapped[str] = mapped_column(String(64), primary_key=True)

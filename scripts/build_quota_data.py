@@ -39,7 +39,7 @@ PIPELINE_Q1_PATH = ROOT / "files" / "Opportunity Pipeline Q1.xlsx"
 PIPELINE_Q2_PATH = ROOT / "files" / "Opportunity Pipeline Q2.xlsx"
 PIPELINE_Q3_PATH = ROOT / "files" / "Opportunity Pipeline Q3.xlsx"
 PIPELINE_Q4_PATH = ROOT / "files" / "Opportunity Pipeline Q4.xlsx"
-OUTPUT_PATH = ROOT / "dashboard" / "public" / "data" / "quota_data.json"
+OUTPUT_PATH = ROOT / "backend" / "data" / "quota_data.json"
 IC_QUOTAS_PATH = ROOT / "config" / "ic_quotas.json"
 QUOTA_RULES_PATH = ROOT / "config" / "quota_rules.json"
 ALIASES_PATH = ROOT / "config" / "pipeline_aliases.json"
@@ -185,7 +185,7 @@ def load_all_pipeline(
     name_to_div: dict[str, str] | None = None,
     name_to_assignments: dict[str, list] | None = None,
 ) -> pd.DataFrame:
-    """Load Q1–Q4 deals from SQLite (migrates leftover Excel once if the table is empty)."""
+    """Load Q1–Q4 deals from SQLite (optional Excel migrate only if GALAXY_MIGRATE_EXCEL=1)."""
     import deal_store  # type: ignore
 
     migrated = deal_store.migrate_from_excel_if_empty()
@@ -381,10 +381,10 @@ def build_rtm_divisions(individuals: list[dict], deals: list[dict] | None = None
             div,
             {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")},
         )
-        for p in ("q1", "q2", "h1", "h2", "annual"):
+        for p in ("q1", "q2", "q3", "q4", "h1", "h2", "annual"):
             d[p]["quota"] += (ic[p].get("quota") or 0)
         if not deals:
-            for p in ("q1", "q2", "h1", "h2", "annual"):
+            for p in ("q1", "q2", "q3", "q4", "h1", "h2", "annual"):
                 d[p]["actuals"] += (ic[p].get("actuals") or 0)
             d["h1"]["deals"] += ic["deals"].get("total", 0)
 
@@ -416,6 +416,8 @@ def build_rtm_divisions(individuals: list[dict], deals: list[dict] | None = None
         h1_q, h1_a = d["h1"]["quota"], d["h1"]["actuals"]
         q1_q, q1_a = d["q1"]["quota"], d["q1"]["actuals"]
         q2_q, q2_a = d["q2"]["quota"], d["q2"]["actuals"]
+        q3_q, q3_a = d["q3"]["quota"], d["q3"]["actuals"]
+        q4_q, q4_a = d["q4"]["quota"], d["q4"]["actuals"]
         h2_q, h2_a = d["h2"]["quota"], d["h2"]["actuals"]
         ann_q, ann_a = d["annual"]["quota"], d["annual"]["actuals"]
 
@@ -424,6 +426,8 @@ def build_rtm_divisions(individuals: list[dict], deals: list[dict] | None = None
             "h1": {"quota": round(h1_q, 4), "actuals": round(h1_a, 4), "attainment_pct": _att(h1_a, h1_q)},
             "q1": {"quota": round(q1_q, 4), "actuals": round(q1_a, 4), "attainment_pct": _att(q1_a, q1_q)},
             "q2": {"quota": round(q2_q, 4), "actuals": round(q2_a, 4), "attainment_pct": _att(q2_a, q2_q)},
+            "q3": {"quota": round(q3_q, 4), "actuals": round(q3_a, 4), "attainment_pct": _att(q3_a, q3_q)},
+            "q4": {"quota": round(q4_q, 4), "actuals": round(q4_a, 4), "attainment_pct": _att(q4_a, q4_q)},
             "h2": {"quota": round(h2_q, 4), "actuals": round(h2_a, 4), "attainment_pct": _att(h2_a, h2_q)},
             "annual": {"quota": round(ann_q, 4), "actuals": round(ann_a, 4), "attainment_pct": _att(ann_a, ann_q)},
             "closed_deals": d["h1"]["deals"],
@@ -473,19 +477,25 @@ def build_bu_level(cat_div_actuals: dict, deals: list[dict] | None = None) -> li
         d = bu_data.get(bu, {})
         q1_a = d.get("q1", 0)
         q2_a = d.get("q2", 0)
+        q3_a = d.get("q3", 0)
+        q4_a = d.get("q4", 0)
         h1_a = round(q1_a + q2_a, 4)
-        h2_a = round(d.get("q3", 0) + d.get("q4", 0), 4)
+        h2_a = round(q3_a + q4_a, 4)
         ann_a = round(h1_a + h2_a, 4)
         div_quotas = cat_quotas.get(bu, {})
         pq = _split_annual_quota(sum(div_quotas.values()) if div_quotas else 0, shares)
         bd = bu_deals.get(bu, {})
         h1_deals = bd.get("q1", 0) + bd.get("q2", 0)
         h2_deals = bd.get("q3", 0) + bd.get("q4", 0)
+        q3_q = round(pq["h2"] / 2, 4)
+        q4_q = round(pq["h2"] - q3_q, 4)
         result.append({
             "bu": bu,
             "service": BU_SERVICE_NAMES.get(bu, bu),
             "q1": {**_period(q1_a, pq["q1"]), "deals": bd.get("q1", 0)},
             "q2": {**_period(q2_a, pq["q2"]), "deals": bd.get("q2", 0)},
+            "q3": {**_period(q3_a, q3_q), "deals": bd.get("q3", 0)},
+            "q4": {**_period(q4_a, q4_q), "deals": bd.get("q4", 0)},
             "h1": {**_period(h1_a, pq["h1"]), "deals": h1_deals},
             "h2": {**_period(h2_a, pq["h2"]), "deals": h2_deals},
             "annual": {**_period(ann_a, pq["annual"]), "deals": h1_deals + h2_deals},

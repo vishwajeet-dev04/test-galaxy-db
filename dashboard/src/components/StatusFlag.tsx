@@ -1,14 +1,18 @@
 import type { StatusFlag as StatusFlagType } from "../types";
 
-const FLAG_STYLES: Record<StatusFlagType, { bg: string; dot: string; label: string }> = {
+const FLAG_STYLES: Record<string, { bg: string; dot: string; label: string }> = {
   green: { bg: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500", label: "On Track" },
+  on_track: { bg: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500", label: "On Track" },
   amber: { bg: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500", label: "At Risk" },
+  at_risk: { bg: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500", label: "At Risk" },
   red: { bg: "bg-red-50 text-red-700 ring-red-200", dot: "bg-galaxy-primary", label: "Critical" },
+  critical: { bg: "bg-red-50 text-red-700 ring-red-200", dot: "bg-galaxy-primary", label: "Critical" },
   grey: { bg: "bg-slate-50 text-slate-600 ring-slate-200", dot: "bg-slate-400", label: "N/A" },
+  unknown: { bg: "bg-slate-50 text-slate-600 ring-slate-200", dot: "bg-slate-400", label: "N/A" },
 };
 
 interface StatusFlagProps {
-  status: StatusFlagType;
+  status: StatusFlagType | string;
   showLabel?: boolean;
 }
 

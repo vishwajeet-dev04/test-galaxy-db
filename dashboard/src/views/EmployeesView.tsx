@@ -104,8 +104,8 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
     { label: "Q1", data: emp.q1 },
     { label: "Q2", data: emp.q2 },
     { label: "H1", data: emp.h1 },
-    { label: "Q3" },
-    { label: "Q4" },
+    { label: "Q3", data: emp.q3 },
+    { label: "Q4", data: emp.q4 },
     { label: "H2", data: emp.h2 },
     { label: "Annual", data: emp.annual },
   ];

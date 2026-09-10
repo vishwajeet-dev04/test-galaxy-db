@@ -29,6 +29,15 @@ LEADER_ROLES = {"leader", "tl", "avp", "bu_head"}
 LEADER_TYPES = {"TL", "AVP", "BU Head", "BU Head / TL", "Topline", "Bottomline", "Other"}
 
 
+def _at_risk_threshold() -> float:
+    path = settings.root / "config" / "quota_rules.json"
+    try:
+        rules = json.loads(path.read_text(encoding="utf-8"))
+        return float((rules.get("status_thresholds") or {}).get("at_risk", 30))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return 30.0
+
+
 def _norm(name: str | None) -> str:
     if not name:
         return ""
@@ -248,10 +257,10 @@ def _rebuild_rtm(individuals: list[dict], deals: list[dict] | None = None) -> li
             div,
             {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")},
         )
-        for p in ("q1", "q2", "h1", "h2", "annual"):
+        for p in ("q1", "q2", "q3", "q4", "h1", "h2", "annual"):
             d[p]["quota"] += float((ic.get(p) or {}).get("quota") or 0)
         if not deals:
-            for p in ("q1", "q2", "h1", "h2", "annual"):
+            for p in ("q1", "q2", "q3", "q4", "h1", "h2", "annual"):
                 d[p]["actuals"] += float((ic.get(p) or {}).get("actuals") or 0)
             d["h1"]["deals"] += int((ic.get("deals") or {}).get("total") or (ic.get("h1") or {}).get("deals") or 0)
 
@@ -284,6 +293,8 @@ def _rebuild_rtm(individuals: list[dict], deals: list[dict] | None = None) -> li
             "division": div,
             "q1": {"quota": round(d["q1"]["quota"], 4), "actuals": round(d["q1"]["actuals"], 4), "attainment_pct": _att(d["q1"]["actuals"], d["q1"]["quota"])},
             "q2": {"quota": round(d["q2"]["quota"], 4), "actuals": round(d["q2"]["actuals"], 4), "attainment_pct": _att(d["q2"]["actuals"], d["q2"]["quota"])},
+            "q3": {"quota": round(d["q3"]["quota"], 4), "actuals": round(d["q3"]["actuals"], 4), "attainment_pct": _att(d["q3"]["actuals"], d["q3"]["quota"])},
+            "q4": {"quota": round(d["q4"]["quota"], 4), "actuals": round(d["q4"]["actuals"], 4), "attainment_pct": _att(d["q4"]["actuals"], d["q4"]["quota"])},
             "h1": {"quota": round(h1_q, 4), "actuals": round(h1_a, 4), "attainment_pct": _att(h1_a, h1_q)},
             "h2": {"quota": round(d["h2"]["quota"], 4), "actuals": round(d["h2"]["actuals"], 4), "attainment_pct": _att(d["h2"]["actuals"], d["h2"]["quota"])},
             "annual": {"quota": round(d["annual"]["quota"], 4), "actuals": round(d["annual"]["actuals"], 4), "attainment_pct": _att(d["annual"]["actuals"], d["annual"]["quota"])},
@@ -317,11 +328,14 @@ def _rebuild_bu(deals: list[dict], original: list[dict] | None) -> list[dict]:
         d = by_bu.get(bu, {"q1": 0.0, "q2": 0.0, "q3": 0.0, "q4": 0.0})
         bd = deal_counts.get(bu, {})
         q1_a, q2_a = d.get("q1", 0), d.get("q2", 0)
+        q3_a, q4_a = d.get("q3", 0), d.get("q4", 0)
         h1_a = q1_a + q2_a
-        h2_a = d.get("q3", 0) + d.get("q4", 0)
+        h2_a = q3_a + q4_a
         periods = {
             "q1": (q1_a, bd.get("q1", 0)),
             "q2": (q2_a, bd.get("q2", 0)),
+            "q3": (q3_a, bd.get("q3", 0)),
+            "q4": (q4_a, bd.get("q4", 0)),
             "h1": (h1_a, bd.get("q1", 0) + bd.get("q2", 0)),
             "h2": (h2_a, bd.get("q3", 0) + bd.get("q4", 0)),
             "annual": (h1_a + h2_a, sum(bd.values())),
@@ -425,28 +439,214 @@ def _rebuild_kpis(data: dict[str, Any], individuals: list[dict], rtm: list[dict]
     return kpis
 
 
-def _rebuild_accounts_brands(original_list: list[dict], deals: list[dict], key_field: str) -> list[dict]:
-    grouped: dict[str, list] = {}
+def _rebuild_accounts_brands(
+    deals: list[dict],
+    key_field: str,
+    ic_h1_quota_cr: float,
+    pipe_tl_cr: float,
+    pipe_bl_cr: float,
+) -> list[dict]:
+    grouped: dict[str, dict[str, Any]] = {}
     for d in deals:
         key = (d.get(key_field) or "Unknown").strip() or "Unknown"
-        grouped.setdefault(key, []).append(d)
-    orig_map = {row.get(key_field): row for row in original_list if row.get(key_field)}
+        a = grouped.setdefault(
+            key,
+            {
+                "deal_count": 0,
+                "revenue_inr": 0.0,
+                "bottomline_inr": 0.0,
+                "quota_credit_inr": 0.0,
+                "_employees": set(),
+                "_rtm": set(),
+                "_accounts": {},
+                "_by_bu": {},
+                "deals": [],
+            },
+        )
+        a["deal_count"] += 1
+        a["revenue_inr"] += float(d.get("topline_inr") or 0)
+        a["bottomline_inr"] += float(d.get("bottomline_inr") or 0)
+        a["quota_credit_inr"] += float(d.get("quota_credit_inr") or 0)
+        if d.get("employee"):
+            a["_employees"].add(d["employee"])
+        if d.get("rtm_division"):
+            a["_rtm"].add(d["rtm_division"])
+        if key_field != "account" and d.get("account"):
+            acct = d["account"]
+            a["_accounts"][acct] = a["_accounts"].get(acct, 0.0) + float(d.get("topline_inr") or 0)
+        bu = d.get("bu") or "Other"
+        b = a["_by_bu"].setdefault(bu, {"bu": bu, "deal_count": 0, "revenue_inr": 0.0, "bottomline_inr": 0.0})
+        b["deal_count"] += 1
+        b["revenue_inr"] += float(d.get("topline_inr") or 0)
+        b["bottomline_inr"] += float(d.get("bottomline_inr") or 0)
+        a["deals"].append(d)
+
+    ic_q_inr = float(ic_h1_quota_cr or 0) * 1e7
     out = []
-    for key, rows in grouped.items():
-        src = copy.deepcopy(orig_map.get(key) or {key_field: key})
-        rev = sum(float(d.get("topline_inr") or 0) for d in rows)
-        bl = sum(float(d.get("bottomline_inr") or 0) for d in rows)
-        src["deal_count"] = len(rows)
-        src["revenue_inr"] = round(rev, 2)
-        src["revenue_cr"] = round(rev / 1e7, 4)
-        src["bottomline_inr"] = round(bl, 2)
-        src["bottomline_cr"] = round(bl / 1e7, 4)
-        src["deals"] = rows
-        emps = sorted({d.get("employee") for d in rows if d.get("employee")})
-        src["employees"] = emps
-        src["employee_count"] = len(emps)
-        out.append(src)
+    for key, a in grouped.items():
+        rev = a["revenue_inr"]
+        bl = a["bottomline_inr"]
+        qc = a["quota_credit_inr"]
+        gp = round(bl / rev * 100, 2) if rev else 0.0
+        by_bu = [
+            {
+                "bu": v["bu"],
+                "deal_count": v["deal_count"],
+                "revenue_inr": round(v["revenue_inr"], 2),
+                "revenue_cr": round(v["revenue_inr"] / 1e7, 4),
+                "bottomline_inr": round(v["bottomline_inr"], 2),
+                "bottomline_cr": round(v["bottomline_inr"] / 1e7, 4),
+            }
+            for v in sorted(a["_by_bu"].values(), key=lambda x: x["revenue_inr"], reverse=True)
+        ]
+        row: dict[str, Any] = {
+            key_field: key,
+            "deal_count": a["deal_count"],
+            "revenue_inr": round(rev, 2),
+            "revenue_cr": round(rev / 1e7, 4),
+            "bottomline_inr": round(bl, 2),
+            "bottomline_cr": round(bl / 1e7, 4),
+            "quota_credit_inr": round(qc, 2),
+            "quota_credit_cr": round(qc / 1e7, 4),
+            "gp_pct": gp,
+            "pct_of_ic_h1_quota": round(rev / ic_q_inr * 100, 2) if ic_q_inr else None,
+            "pct_of_pipeline_topline": round((rev / 1e7) / pipe_tl_cr * 100, 2) if pipe_tl_cr else None,
+            "pct_of_pipeline_bottomline": round((bl / 1e7) / pipe_bl_cr * 100, 2) if pipe_bl_cr else None,
+            "employees": sorted(a["_employees"]),
+            "employee_count": len(a["_employees"]),
+            "rtm_divisions": sorted(a["_rtm"]),
+            "primary_bu": by_bu[0]["bu"] if by_bu else None,
+            "by_bu": by_bu,
+            "deals": sorted(a["deals"], key=lambda x: float(x.get("amount_inr") or x.get("topline_inr") or 0), reverse=True),
+        }
+        if key_field == "brand":
+            row["top_accounts"] = [
+                {"account": n, "revenue_inr": round(v, 2), "revenue_cr": round(v / 1e7, 4)}
+                for n, v in sorted(a["_accounts"].items(), key=lambda x: x[1], reverse=True)[:8]
+            ]
+        out.append(row)
     out.sort(key=lambda r: r.get("revenue_inr") or 0, reverse=True)
+    return out
+
+
+def _rebuild_rtm_by_bu(deals: list[dict], original: dict[str, list] | None) -> dict[str, list]:
+    orig = original or {}
+    quota_lookup: dict[tuple[str, str], dict] = {}
+    for bu, rows in orig.items():
+        for r in rows or []:
+            div = r.get("division") or r.get("name")
+            if div:
+                quota_lookup[(bu, div)] = r
+
+    grouped: dict[str, dict[str, dict[str, float]]] = {}
+    for d in deals:
+        bu = d.get("bu") or "Other"
+        div = d.get("rtm_division") or ""
+        if not div:
+            continue
+        q = _deal_quarter(d)
+        cr = float(d.get("amount_cr") or d.get("topline_cr") or 0)
+        cell = grouped.setdefault(bu, {}).setdefault(div, {"q1": 0.0, "q2": 0.0, "q3": 0.0, "q4": 0.0})
+        if q in cell:
+            cell[q] += cr
+
+    out: dict[str, list] = {}
+    bus = list(dict.fromkeys([*orig.keys(), *grouped.keys()]))
+    for bu in bus:
+        divs = list(dict.fromkeys(
+            [*(r.get("division") or r.get("name") for r in orig.get(bu) or [] if r.get("division") or r.get("name")),
+             *grouped.get(bu, {}).keys()]
+        ))
+        rows = []
+        for div in divs:
+            src = quota_lookup.get((bu, div)) or {}
+            act = grouped.get(bu, {}).get(div, {"q1": 0.0, "q2": 0.0, "q3": 0.0, "q4": 0.0})
+            q1, q2, q3, q4 = act["q1"], act["q2"], act["q3"], act["q4"]
+            h1, h2 = q1 + q2, q3 + q4
+            row = {
+                "name": div,
+                "division": div,
+                "bu": bu,
+            }
+            periods = {
+                "q1": q1, "q2": q2, "q3": q3, "q4": q4,
+                "h1": h1, "h2": h2, "annual": h1 + h2,
+            }
+            for key, actuals in periods.items():
+                src_period = src.get(key) if isinstance(src.get(key), dict) else {}
+                quota_raw = (src_period or {}).get("quota")
+                quota = float(quota_raw or 0)
+                row[key] = {
+                    "quota": quota_raw,
+                    "actuals": round(actuals, 4),
+                    "attainment_pct": _att(actuals, quota) if quota else None,
+                }
+            rows.append(row)
+        out[bu] = rows
+    return out
+
+
+def _rebuild_leaders(original: list[dict] | None, deals: list[dict]) -> list[dict]:
+    """Refresh personal Led-By actuals for the date window. team_members stays empty."""
+    by_name_deals: dict[str, list] = {}
+    for d in deals:
+        name = d.get("employee") or ""
+        if name:
+            by_name_deals.setdefault(name, []).append(d)
+
+    out = []
+    for leader in original or []:
+        row = copy.deepcopy(leader)
+        name = row.get("name") or ""
+        ldeals = by_name_deals.get(name) or []
+        by_q = {"q1": 0.0, "q2": 0.0, "q3": 0.0, "q4": 0.0}
+        tl = bl = qc = 0.0
+        for d in ldeals:
+            q = _deal_quarter(d)
+            cr = float(d.get("topline_cr") or 0)
+            if q in by_q:
+                by_q[q] += cr
+            tl += float(d.get("topline_inr") or 0)
+            bl += float(d.get("bottomline_inr") or 0)
+            qc += float(d.get("quota_credit_inr") or 0)
+        tl_cr = round(tl / 1e7, 4)
+        bl_cr = round(bl / 1e7, 4)
+        h1 = by_q["q1"] + by_q["q2"]
+        h2 = by_q["q3"] + by_q["q4"]
+
+        def _set(period: str, actuals: float) -> None:
+            prev = dict(row.get(period) or {})
+            quota = float(prev.get("quota") or 0)
+            prev["actuals"] = round(actuals, 4)
+            prev["quota"] = quota
+            prev["attainment_pct"] = _att(actuals, quota)
+            row[period] = prev
+
+        _set("q1", by_q["q1"])
+        _set("q2", by_q["q2"])
+        _set("q3", by_q["q3"])
+        _set("q4", by_q["q4"])
+        _set("h1", h1)
+        _set("h2", h2)
+        _set("annual", h1 + h2)
+        gp = round(bl / tl * 100, 2) if tl else 0.0
+        row["team_size"] = len(ldeals)
+        row["team_members"] = []
+        row["pipeline"] = {
+            **(row.get("pipeline") or {}),
+            "deal_count": len(ldeals),
+            "topline_cr": tl_cr,
+            "bottomline_cr": bl_cr,
+            "quota_credit_cr": round(qc / 1e7, 4),
+            "gp_pct": gp,
+            "total_revenue_cr": tl_cr,
+            "total_bottomline_cr": bl_cr,
+        }
+        row["top_deals"] = sorted(
+            ldeals, key=lambda x: float(x.get("topline_inr") or 0), reverse=True
+        )[:10]
+        row["status"] = _status_flag(_att(h1, float((row.get("h1") or {}).get("quota") or 0)))
+        out.append(row)
     return out
 
 
@@ -471,10 +671,11 @@ def _rebuild_top_and_risk(individuals: list[dict]) -> tuple[dict, list]:
             "h1_attainment_pct": h1.get("attainment_pct") or 0,
         }
 
+    at_risk_threshold = _at_risk_threshold()
     at_risk = [
         _row(ic)
         for ic in rtm_ics
-        if ((ic.get("h1") or {}).get("attainment_pct") or 0) < 25
+        if ((ic.get("h1") or {}).get("attainment_pct") or 0) < at_risk_threshold
         and ((ic.get("h1") or {}).get("quota") or 0) > 0
     ]
     at_risk.sort(key=lambda r: r["h1_attainment_pct"])
@@ -570,8 +771,13 @@ def _apply_deals_to_view(data: dict[str, Any], deals: list[dict]) -> dict[str, A
     data["kpis"] = kpis
     data["grand_total"] = grand
     data["pipeline"] = pipe or data.get("pipeline")
-    data["accounts"] = _rebuild_accounts_brands(data.get("accounts") or [], deals, "account")
-    data["brands"] = _rebuild_accounts_brands(data.get("brands") or [], deals, "brand")
+    ic_h1_q = float(grand.get("h1", {}).get("quota") or 0)
+    pipe_bl = round(sum(float(d.get("bottomline_inr") or 0) for d in deals) / 1e7, 4)
+    data["accounts"] = _rebuild_accounts_brands(deals, "account", ic_h1_q, pipe_cr, pipe_bl)
+    data["brands"] = _rebuild_accounts_brands(deals, "brand", ic_h1_q, pipe_cr, pipe_bl)
+    orig_rtm_by_bu = data.get("rtm_by_bu") if isinstance(data.get("rtm_by_bu"), dict) else {}
+    data["rtm_by_bu"] = _rebuild_rtm_by_bu(deals, orig_rtm_by_bu)
+    data["leaders_dashboard"] = _rebuild_leaders(data.get("leaders_dashboard") or [], deals)
     data["top_attainers"] = top
     data["at_risk_ics"] = at_risk
     return data

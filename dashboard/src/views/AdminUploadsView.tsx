@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ChevronRight,
   CloudDownload,
-  Database,
   Download,
   FileSpreadsheet,
   Plus,
@@ -21,15 +20,18 @@ import { authHeaders, useAuth } from "../context/AuthContext";
 import { SectionHeader } from "../components/SectionHeader";
 import { ui } from "../theme";
 import { formatDisplayDate, toISODate } from "../utils/fiscal";
+import { apiDetail } from "../utils/apiError";
 
 interface SyncStatus {
   configured: boolean;
-  vtiger_url: string | null;
+  job_id: string | null;
+  status: "running" | "done" | "error" | null;
   running: boolean;
   last_run: string | null;
   last_result: { quarters: string[]; deal_counts: Record<string, number>; total_deals: number } | null;
   last_error: string | null;
   deals?: Record<string, number> | null;
+  quarters?: string[];
 }
 
 interface AdminStatus {
@@ -62,13 +64,28 @@ interface QuotaPerson {
   transfer_start: string | null;
 }
 
-const QUARTER_OPTIONS = [
-  { value: "h1", label: "H1 — Q1 + Q2 (Apr–Sep)" },
-  { value: "q1", label: "Q1 only (Apr–Jun)" },
-  { value: "q2", label: "Q2 only (Jul–Sep)" },
-  { value: "h2", label: "H2 — Q3 + Q4 (Oct–Mar)" },
-  { value: "all", label: "Full Year (all quarters)" },
-];
+function formatDbDeals(deals?: Record<string, number> | null): string {
+  if (!deals) return "";
+  const q1 = deals.q1 ?? 0;
+  const q2 = deals.q2 ?? 0;
+  const q3 = deals.q3 ?? 0;
+  const q4 = deals.q4 ?? 0;
+  const total = deals.total ?? q1 + q2 + q3 + q4;
+  return `Q1 ${q1} · Q2 ${q2} · Q3 ${q3} · Q4 ${q4} · total ${total}`;
+}
+
+function formatSyncComplete(st: SyncStatus): string {
+  const counts = st.last_result?.deal_counts || {};
+  const quarters = st.last_result?.quarters?.length
+    ? st.last_result.quarters
+    : Object.keys(counts);
+  const stored =
+    quarters.length > 0
+      ? quarters.map((q) => `${q.toUpperCase()} stored ${counts[q] ?? 0}`).join(", ")
+      : "Sync complete";
+  const db = formatDbDeals(st.deals);
+  return db ? `${stored} deals. Database: ${db}.` : `${stored} deals.`;
+}
 
 const DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"];
 const TYPES = ["IC", "TL", "AVP", "BU Head", "BU Head / TL", "Topline", "Bottomline", "Other"];
@@ -138,27 +155,120 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
   const [syncBusy, setSyncBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedQuarter, setSelectedQuarter] = useState("h1");
+  const [syncStatusReady, setSyncStatusReady] = useState(false);
   const [newRow, setNewRow] = useState<QuotaPerson>(emptyPerson());
   const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeJobId = useRef<string | null>(null);
+  const jobFinished = useRef(false);
+  const pollFails = useRef(0);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  const readJson = async (res: Response) => {
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      throw new Error(`Request failed (${res.status})`);
+    }
+    return res.json();
+  };
+
+  const fetchJobStatus = async (jobId?: string | null): Promise<SyncStatus> => {
+    const qs = jobId ? `?job_id=${encodeURIComponent(jobId)}` : "";
+    const res = await fetch(`/api/admin/vtiger-sync/status${qs}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    return readJson(res);
+  };
 
   const loadStatus = async () => {
     const res = await fetch("/api/admin/status", { headers: authHeaders(token) });
     if (!res.ok) return;
-    setStatus(await res.json());
+    setStatus(await readJson(res));
+  };
+
+  const applyJobFinished = async (st: SyncStatus) => {
+    if (jobFinished.current) return;
+    jobFinished.current = true;
+    stopPolling();
+    activeJobId.current = null;
+    setSyncBusy(false);
+    if (st.status === "error" || st.last_error) {
+      setError(`Sync failed: ${st.last_error || "Sync failed"}`);
+      setMessage(null);
+      return;
+    }
+    if (st.status === "done" && st.last_result) {
+      setMessage(formatSyncComplete(st));
+      await loadStatus();
+      onDataRefresh();
+      return;
+    }
+    if (st.status === "done") {
+      setMessage("Sync complete. Dashboard updated.");
+      await loadStatus();
+      onDataRefresh();
+    }
+  };
+
+  const startPolling = (jobId: string) => {
+    stopPolling();
+    pollFails.current = 0;
+    activeJobId.current = jobId;
+    jobFinished.current = false;
+    const tick = async () => {
+      if (jobFinished.current) return;
+      try {
+        const st = await fetchJobStatus(jobId);
+        pollFails.current = 0;
+        setSyncStatus(st);
+        if (st.job_id && st.job_id !== jobId) return;
+        if (st.status === "running" || st.running) return;
+        if (st.status === "done" || st.status === "error") {
+          await applyJobFinished(st);
+        }
+      } catch (err) {
+        pollFails.current += 1;
+        if (pollFails.current >= 8) {
+          stopPolling();
+          setSyncBusy(false);
+          setError("Could not read sync status. Try Sync again.");
+        }
+      }
+    };
+    void tick();
+    pollRef.current = setInterval(() => {
+      void tick();
+    }, 2500);
   };
 
   const loadSyncStatus = async () => {
-    const res = await fetch("/api/admin/vtiger-sync/status", { headers: authHeaders(token) });
-    if (!res.ok) return;
-    setSyncStatus(await res.json());
+    try {
+      const st = await fetchJobStatus(activeJobId.current);
+      setSyncStatus(st);
+      if (st.running && st.job_id && !pollRef.current) {
+        startPolling(st.job_id);
+      }
+    } catch (err) {
+      setSyncStatus(null);
+      setError(err instanceof Error ? err.message : "Could not load Vtiger sync status");
+    } finally {
+      setSyncStatusReady(true);
+    }
   };
 
   const loadQuotas = async () => {
     const res = await fetch("/api/admin/quotas", { headers: authHeaders(token) });
-    if (!res.ok) return;
-    const body = await res.json();
+    if (!res.ok) {
+      setError(`Could not load quota roster (${res.status})`);
+      return;
+    }
+    const body = await readJson(res);
     setPeople((body.people || []).map((p: QuotaPerson) => hydratePerson(p)));
     setBuQuotas(body.bu_annual_quotas || {});
   };
@@ -167,50 +277,41 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     void loadStatus();
     void loadSyncStatus();
     void loadQuotas();
+    return () => {
+      stopPolling();
+    };
   }, [token]);
-
-  useEffect(() => {
-    if (!syncStatus?.running) return;
-    const id = setInterval(() => {
-      void loadSyncStatus();
-    }, 3000);
-    return () => clearInterval(id);
-  }, [syncStatus?.running]);
 
   const triggerSync = async () => {
     setSyncBusy(true);
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`/api/admin/vtiger-sync?quarter=${selectedQuarter}`, {
+      const res = await fetch(`/api/admin/vtiger-sync?quarter=all`, {
         method: "POST",
         headers: authHeaders(token),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || "Sync failed");
-      setMessage(`Sync started for ${selectedQuarter.toUpperCase()} — fetching from Vtiger CRM...`);
-      await loadSyncStatus();
-
-      const poll = setInterval(async () => {
-        const s = await fetch("/api/admin/vtiger-sync/status", { headers: authHeaders(token) });
-        const st: SyncStatus = await s.json();
-        setSyncStatus(st);
-        if (!st.running) {
-          clearInterval(poll);
-          if (st.last_error) {
-            setError(`Sync failed: ${st.last_error}`);
-            setMessage(null);
-          } else if (st.last_result) {
-            setMessage(`Sync complete — ${st.last_result.total_deals} deals stored in the database. Dashboard updated.`);
-          }
-          await loadStatus();
-          onDataRefresh();
-        }
-      }, 2500);
+      const body = await readJson(res);
+      if (!res.ok) throw new Error(apiDetail(body, `Request failed (${res.status})`));
+      const jobId = body.job_id as string | undefined;
+      if (!jobId) throw new Error("Sync did not return a job id");
+      setMessage("Sync started — fetching Closed Won for the full FY (Q1–Q4)…");
+      setSyncStatus((prev) => ({
+        configured: prev?.configured ?? true,
+        job_id: jobId,
+        status: "running",
+        running: true,
+        last_run: prev?.last_run ?? null,
+        last_result: prev?.last_result ?? null,
+        last_error: null,
+        deals: prev?.deals,
+        quarters: body.quarters,
+      }));
+      startPolling(jobId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed");
-    } finally {
+      stopPolling();
       setSyncBusy(false);
+      setError(err instanceof Error ? err.message : "Sync failed");
     }
   };
 
@@ -247,7 +348,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         body: JSON.stringify({ people: payload, bu_annual_quotas: buQuotas }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || "Save failed");
+      if (!res.ok) throw new Error(apiDetail(body, "Save failed"));
       setMessage(body.message || "Quotas saved");
       await loadQuotas();
       await loadStatus();
@@ -269,7 +370,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         headers: authHeaders(token),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || "Rebuild failed");
+      if (!res.ok) throw new Error(apiDetail(body, "Rebuild failed"));
       setMessage(body.message || "Dashboard rebuilt");
       await loadStatus();
       onDataRefresh();
@@ -309,7 +410,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         body: form,
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || "Import failed");
+      if (!res.ok) throw new Error(apiDetail(body, "Import failed"));
       setMessage(body.message || "Template imported");
       await loadQuotas();
       await loadStatus();
@@ -356,7 +457,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     [people, divFilter],
   );
 
-  const isRunning = syncStatus?.running || syncBusy;
+  const isRunning = syncStatus?.running || syncBusy || syncStatus?.status === "running";
   const dealCounts = status?.deals || syncStatus?.deals || {};
   const buNames = Object.keys(buQuotas);
   const buDivs = ["S1", "S2", "CB", "GB", "South", "GeoX"];
@@ -387,10 +488,17 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         <div className="flex items-center justify-between">
           <SectionHeader
             label="Sync from Vtiger CRM"
-            description="Fetches Closed Won opportunities for the selected period and stores them in SQLite — no Excel export"
+            description="Pulls Closed Won for the full FY (Q1–Q4)."
           />
           <div className="flex items-center gap-1.5 text-xs font-medium">
-            {syncStatus?.configured ? (
+            {!syncStatusReady ? (
+              <span className="text-slate-400">Checking…</span>
+            ) : !syncStatus ? (
+              <>
+                <WifiOff className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-amber-700">Status unavailable</span>
+              </>
+            ) : syncStatus.configured ? (
               <>
                 <Wifi className="h-3.5 w-3.5 text-emerald-500" />
                 <span className="text-emerald-600">Connected</span>
@@ -403,13 +511,6 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
             )}
           </div>
         </div>
-
-        {syncStatus?.vtiger_url && (
-          <p className="flex items-center gap-1.5 text-xs text-slate-400">
-            <Database className="h-3 w-3" />
-            {syncStatus.vtiger_url}
-          </p>
-        )}
 
         <div className="grid gap-3 sm:grid-cols-5">
           {["q1", "q2", "q3", "q4"].map((q) => (
@@ -427,10 +528,13 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         </div>
 
         {syncStatus?.last_result && !isRunning && (
-          <p className="flex items-center gap-1 text-xs text-slate-400">
+          <p className="flex items-center gap-1 text-xs text-galaxy-muted">
             <Clock className="h-3 w-3" />
             Last sync {syncStatus.last_run ? new Date(syncStatus.last_run + "Z").toLocaleString("en-IN") : "—"}
-            {syncStatus.last_result.total_deals != null ? ` · ${syncStatus.last_result.total_deals} deals` : ""}
+            {syncStatus.last_result.quarters?.length
+              ? ` · ${syncStatus.last_result.quarters.map((q) => `${q.toUpperCase()} ${syncStatus.last_result?.deal_counts?.[q] ?? 0}`).join(" · ")}`
+              : ""}
+            {formatDbDeals(dealCounts) ? ` · database ${formatDbDeals(dealCounts)}` : ""}
           </p>
         )}
 
@@ -441,23 +545,11 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         )}
 
         <div className="flex flex-wrap items-center gap-4">
-          <select
-            value={selectedQuarter}
-            onChange={(e) => setSelectedQuarter(e.target.value)}
-            disabled={isRunning || !syncStatus?.configured}
-            className="rounded-xl border border-galaxy-border bg-white px-3 py-2.5 text-sm text-galaxy-navy focus:outline-none focus:ring-2 focus:ring-galaxy-navy/30 disabled:opacity-50"
-          >
-            {QUARTER_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
           <button
             type="button"
             onClick={() => void triggerSync()}
-            disabled={isRunning || !syncStatus?.configured}
-            className="inline-flex items-center gap-2 rounded-xl bg-galaxy-navy px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-galaxy-navy-dark disabled:opacity-50"
+            disabled={isRunning || busy || !syncStatus?.configured}
+            className={ui.btnPrimary}
           >
             {isRunning ? (
               <>
@@ -474,7 +566,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           <button
             type="button"
             onClick={() => void rebuild()}
-            disabled={busy}
+            disabled={busy || isRunning}
             className="inline-flex items-center gap-2 rounded-xl border border-galaxy-border bg-white px-4 py-2.5 text-sm font-semibold text-galaxy-navy hover:bg-slate-50 disabled:opacity-60"
           >
             <RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
@@ -505,7 +597,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              disabled={busy}
+              disabled={busy || isRunning}
               className="inline-flex items-center gap-2 rounded-xl border border-galaxy-border bg-white px-3 py-2 text-sm font-semibold text-galaxy-navy hover:bg-slate-50 disabled:opacity-60"
             >
               <FileSpreadsheet className="h-4 w-4" />
@@ -531,7 +623,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
             />
             <button
               type="submit"
-              disabled={busy}
+              disabled={busy || isRunning}
               className="inline-flex items-center gap-2 rounded-xl bg-galaxy-navy px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
             >
               <Save className="h-4 w-4" />

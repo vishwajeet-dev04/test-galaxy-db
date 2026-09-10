@@ -35,16 +35,29 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 # ----------------------------------------------------------------- FY config
 
-FY = "FY 26-27"
+def _fy_start_year(today: date | None = None) -> int:
+    today = today or date.today()
+    return today.year if today.month >= 4 else today.year - 1
 
-QUARTERS = {
-    "q1": (date(2026, 4, 1),  date(2026, 6, 30)),
-    "q2": (date(2026, 7, 1),  date(2026, 9, 30)),
-    "q3": (date(2026, 10, 1), date(2026, 12, 31)),
-    "q4": (date(2027, 1, 1),  date(2027, 3, 31)),
-    "h1": (date(2026, 4, 1),  date(2026, 9, 30)),
-    "h2": (date(2026, 10, 1), date(2027, 3, 31)),
-}
+
+def _fy_label(year: int) -> str:
+    return f"FY {str(year)[2:]}-{str(year + 1)[2:]}"
+
+
+def fy_quarter_windows(today: date | None = None) -> dict[str, tuple[date, date]]:
+    year = _fy_start_year(today)
+    return {
+        "q1": (date(year, 4, 1), date(year, 6, 30)),
+        "q2": (date(year, 7, 1), date(year, 9, 30)),
+        "q3": (date(year, 10, 1), date(year, 12, 31)),
+        "q4": (date(year + 1, 1, 1), date(year + 1, 3, 31)),
+        "h1": (date(year, 4, 1), date(year, 9, 30)),
+        "h2": (date(year, 10, 1), date(year + 1, 3, 31)),
+    }
+
+
+FY = _fy_label(_fy_start_year())
+QUARTERS = fy_quarter_windows()
 
 def load_env_credentials() -> dict[str, str]:
     """Read VTIGER_* from backend/.env or environment."""
@@ -78,6 +91,7 @@ def sync(
     quarters: list[str] = None,
     run_parse: bool = True,
     sales_stage: str = "Closed Won",
+    job_id: str | None = None,
 ) -> dict[str, int]:
     """
     Full sync: Vtiger → SQLite crm_deals → quota_data.json
@@ -88,17 +102,16 @@ def sync(
     import deal_store  # type: ignore
 
     if quarters is None:
-        quarters = ["q1", "q2"]
+        quarters = ["q1", "q2", "q3", "q4"]
 
     counts: dict[str, int] = {}
 
     with VtigerSession(vtiger_url, username, access_key) as vtiger:
-        # Pre-load all reference lookups (accounts, contacts, users)
-        vtiger.load_accounts()
-        vtiger.load_contacts()
-        vtiger.load_users()
-
         for q in quarters:
+            if job_id:
+                job = deal_store.get_job(job_id)
+                if not job or job.get("status") != "running":
+                    raise RuntimeError("Sync interrupted")
             if q not in QUARTERS:
                 print(f"  [!] Unknown quarter '{q}' — skip")
                 continue
@@ -107,6 +120,7 @@ def sync(
             print(f"\n[sync] Fetching {q.upper()} ({start} to {end}) ...")
 
             records = vtiger.fetch_potentials(start, end, sales_stage=sales_stage)
+            vtiger.resolve_references(records)
             rows = vtiger.to_pipeline_rows(records)
             stored = deal_store.replace_quarter(q, rows)
             counts[q] = stored
@@ -133,9 +147,9 @@ def main() -> None:
     parser.add_argument("--accesskey", help="Vtiger API access key")
     parser.add_argument(
         "--quarter",
-        default="h1",
+        default="all",
         choices=["q1", "q2", "q3", "q4", "h1", "h2", "all"],
-        help="Which quarter(s) to sync (default: h1 = Q1+Q2)",
+        help="Which quarter(s) to sync (default: all = Q1–Q4)",
     )
     parser.add_argument("--no-parse", action="store_true", help="Skip running parse_excel after sync")
     parser.add_argument("--all-stages", action="store_true", help="Fetch all deal stages, not just Closed Won")
@@ -173,14 +187,35 @@ def main() -> None:
     print(f"  Server   : {url}")
     print(f"{'='*60}\n")
 
-    counts = sync(
-        vtiger_url=url,
-        username=username,
-        access_key=access_key,
-        quarters=quarters,
-        run_parse=not args.no_parse,
-        sales_stage=sales_stage,
-    )
+    import deal_store  # type: ignore
+
+    job_id = deal_store.try_start_job(quarters)
+    if not job_id:
+        print("[ERROR] A sync is already in progress")
+        sys.exit(1)
+
+    try:
+        counts = sync(
+            vtiger_url=url,
+            username=username,
+            access_key=access_key,
+            quarters=quarters,
+            run_parse=not args.no_parse,
+            sales_stage=sales_stage,
+            job_id=job_id,
+        )
+        deal_store.finish_job(
+            job_id,
+            result={
+                "quarters": quarters,
+                "deal_counts": counts,
+                "total_deals": sum(counts.values()),
+            },
+        )
+    except Exception as exc:
+        deal_store.finish_job(job_id, error="Sync failed")
+        print(f"[ERROR] {exc}")
+        sys.exit(1)
 
     print(f"\n{'='*60}")
     print("  Sync complete:")

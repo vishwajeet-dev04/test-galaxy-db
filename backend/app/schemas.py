@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +23,18 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
+def user_out(user: Any) -> UserOut:
+    return UserOut(
+        id=int(user.id),
+        username=str(user.username),
+        email=str(user.email or ""),
+        full_name=str(user.full_name or ""),
+        role=str(user.role or "user"),
+        employee_name=user.employee_name,
+        is_active=bool(getattr(user, "is_active", True)),
+    )
+
+
 class AdminUserCreate(BaseModel):
     username: str = Field(min_length=2, max_length=64)
     email: str = Field(min_length=3, max_length=255)
@@ -42,7 +54,7 @@ class AdminUserUpdate(BaseModel):
 
 
 class AdminUserList(BaseModel):
-    items: list[UserOut]
+    items: List[UserOut]
     total: int
     page: int
     page_size: int

@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.models import User
+from app.models import SeedExclusion, User
 
 
 def get_by_id(db: Session, user_id: int) -> User | None:
@@ -68,3 +68,31 @@ def save(db: Session, user: User) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def delete(db: Session, user: User) -> None:
+    db.delete(user)
+    db.commit()
+
+
+def add_seed_exclusion(db: Session, username: str) -> None:
+    name = (username or "").strip().lower()
+    if not name:
+        return
+    existing = db.query(SeedExclusion).filter(SeedExclusion.username == name).first()
+    if existing:
+        return
+    db.add(SeedExclusion(username=name))
+    db.commit()
+
+
+def remove_seed_exclusion(db: Session, username: str) -> None:
+    name = (username or "").strip().lower()
+    row = db.query(SeedExclusion).filter(SeedExclusion.username == name).first()
+    if row:
+        db.delete(row)
+        db.commit()
+
+
+def seed_exclusion_usernames(db: Session) -> set[str]:
+    return {row.username for row in db.query(SeedExclusion).all()}

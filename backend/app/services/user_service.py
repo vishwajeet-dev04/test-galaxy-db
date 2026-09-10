@@ -11,12 +11,14 @@ from sqlalchemy.orm import Session
 from app.models import User
 from app.repositories import user_repo
 from app.security import hash_password
+from app.seed import PRIVILEGED
 
 logger = logging.getLogger("galaxy.users")
 
 ALLOWED_ROLES = frozenset({"user", "tl", "leader", "admin", "ceo"})
 USERNAME_RE = re.compile(r"^[a-z][a-z0-9._-]{1,62}$")
 MIN_PASSWORD_LEN = 8
+PRIVILEGED_USERNAMES = frozenset(str(row["username"]) for row in PRIVILEGED)
 
 
 class UserServiceError(Exception):
@@ -121,7 +123,9 @@ def create_user(
         hashed_password=hash_password(password),
         is_active=True,
     )
-    return user_repo.add(db, user)
+    created = user_repo.add(db, user)
+    user_repo.remove_seed_exclusion(db, username)
+    return created
 
 
 def update_user(
@@ -183,3 +187,33 @@ def update_user(
         user.hashed_password = hash_password(_validate_password(password))
 
     return user_repo.save(db, user)
+
+
+def delete_user(db: Session, *, actor: User, user_id: int) -> None:
+    user = user_repo.get_by_id(db, user_id)
+    if user is None:
+        _log_fail(actor.id, "delete", "not_found")
+        raise UserServiceError("User not found", 404)
+
+    if user.id == actor.id:
+        _log_fail(actor.id, "delete", "self_lockout")
+        raise UserServiceError("You cannot delete your own account")
+
+    if user.username in PRIVILEGED_USERNAMES:
+        _log_fail(actor.id, "delete", "privileged")
+        raise UserServiceError("Privileged accounts cannot be deleted. Deactivate them instead.")
+
+    if user.role == "admin" and user.is_active and user_repo.count_active_admins(db) <= 1:
+        _log_fail(actor.id, "delete", "last_admin")
+        raise UserServiceError("Cannot delete the last remaining admin")
+
+    logger.info(
+        "%s user_id=%s action=delete target_id=%s username=%s",
+        datetime.now(timezone.utc).isoformat(),
+        actor.id,
+        user.id,
+        user.username,
+    )
+    username = user.username
+    user_repo.delete(db, user)
+    user_repo.add_seed_exclusion(db, username)

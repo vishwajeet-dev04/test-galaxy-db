@@ -44,7 +44,7 @@ BUSINESS_PLAN_PATH = ROOT / "files" / "Business Plan Final Ver 1.6.xlsx"
 SALES_TEAM_PATH = ROOT / "files" / "Sales Team - S1, S2 , CB, GB, South.xlsx"
 EMPLOYEE_MAPPING_PATH = ROOT / "data" / "Employee_Mapping.csv"
 TARGET_QUOTA_PATH = ROOT / "data" / "Target_Quota.csv"
-OUTPUT_PATH = ROOT / "dashboard" / "public" / "data" / "quota_data.json"
+OUTPUT_PATH = ROOT / "backend" / "data" / "quota_data.json"
 
 RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South", "GeoX"}
 

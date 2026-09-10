@@ -38,9 +38,10 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 
@@ -105,8 +106,9 @@ class VtigerSession:
     """Authenticated Vtiger REST API session."""
 
     PAGE_SIZE = 100
+    MAX_RETRIES = 3
 
-    def __init__(self, base_url: str, username: str, access_key: str, timeout: int = 20):
+    def __init__(self, base_url: str, username: str, access_key: str, timeout: int = 60):
         self.base_url = base_url.rstrip("/")
         self.username = username
         self.access_key = access_key
@@ -135,40 +137,55 @@ class VtigerSession:
         if self.session_name:
             try:
                 self._get({"operation": "logout", "sessionName": self.session_name})
-            except Exception:
-                pass
+            except Exception as exc:
+                # This access key often cannot call logout; the job already finished.
+                if "Permission denied" not in str(exc):
+                    print(f"[vtiger] Logout failed: {exc}")
             self.session_name = None
 
     # --------------------------------------------------------- raw HTTP helpers
 
+    def _read_json(self, opener) -> dict:
+        last_exc: BaseException | None = None
+        for attempt in range(1, self.MAX_RETRIES + 1):
+            try:
+                with opener() as r:
+                    data = json.loads(r.read())
+                if not data.get("success"):
+                    err = data.get("error", {})
+                    raise RuntimeError(f"Vtiger API error: {err.get('message', data)}")
+                return data
+            except RuntimeError:
+                raise
+            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
+                last_exc = exc
+                if attempt < self.MAX_RETRIES:
+                    wait = 0.5 * attempt
+                    print(f"[vtiger] Request failed ({exc}); retry {attempt}/{self.MAX_RETRIES} in {wait:.1f}s")
+                    time.sleep(wait)
+                    continue
+                raise
+        raise last_exc or RuntimeError("Vtiger request failed")
+
     def _get(self, params: dict) -> dict:
         url = f"{self.base_url}/webservice.php?" + urllib.parse.urlencode(params)
-        with urllib.request.urlopen(url, timeout=self.timeout) as r:
-            data = json.loads(r.read())
-        if not data.get("success"):
-            err = data.get("error", {})
-            raise RuntimeError(f"Vtiger API error: {err.get('message', data)}")
-        return data
+        return self._read_json(lambda: urllib.request.urlopen(url, timeout=self.timeout))
 
     def _post(self, params: dict) -> dict:
         body = urllib.parse.urlencode(params).encode()
         req = urllib.request.Request(f"{self.base_url}/webservice.php", data=body, method="POST")
-        with urllib.request.urlopen(req, timeout=self.timeout) as r:
-            data = json.loads(r.read())
-        if not data.get("success"):
-            err = data.get("error", {})
-            raise RuntimeError(f"Vtiger API error: {err.get('message', data)}")
-        return data
+        return self._read_json(lambda: urllib.request.urlopen(req, timeout=self.timeout))
 
     # --------------------------------------------------------- query helpers
 
     def _query(self, sql: str) -> list[dict]:
         """Run a VQL query and return results."""
-        return self._get({
+        result = self._get({
             "operation": "query",
             "sessionName": self.session_name,
             "query": sql,
-        })["result"]
+        }).get("result")
+        return result if isinstance(result, list) else []
 
     def _query_all(self, base_sql: str) -> list[dict]:
         """Paginate through all results of a VQL query (Vtiger caps at 100/page).
@@ -207,14 +224,49 @@ class VtigerSession:
         print(f"[vtiger]   Loaded {len(self._contact_cache)} contacts")
 
     def load_users(self) -> None:
-        """Pre-load all users into cache {id → full name}."""
+        """Pre-load users into cache {id → full name} (paginated; VQL LIMIT offset, count)."""
         print("[vtiger] Loading users...")
-        rows = self._query("SELECT id, first_name, last_name, user_name FROM Users LIMIT 200;")
+        rows = self._query_all("SELECT id, first_name, last_name, user_name FROM Users")
         for r in rows:
             uid = r["id"]
             full = f"{r.get('first_name', '')} {r.get('last_name', '')}".strip()
             self._user_cache[uid] = full or r.get("user_name", uid)
         print(f"[vtiger]   Loaded {len(self._user_cache)} users")
+
+    def _retrieve(self, record_id: str) -> dict:
+        return self._get({
+            "operation": "retrieve",
+            "sessionName": self.session_name,
+            "id": record_id,
+        }).get("result") or {}
+
+    def _person_name(self, rec: dict) -> str:
+        full = f"{rec.get('first_name') or rec.get('firstname') or ''} {rec.get('last_name') or rec.get('lastname') or ''}".strip()
+        return full or rec.get("user_name") or rec.get("accountname") or ""
+
+    def _fill_cache(self, cache: dict[str, str], ids: set[str], kind: str) -> None:
+        missing = [rid for rid in ids if rid and rid not in cache]
+        if not missing:
+            return
+        print(f"[vtiger] Resolving {len(missing)} {kind}...")
+        misses = 0
+        for rid in missing:
+            try:
+                rec = self._retrieve(rid)
+                if kind == "accounts":
+                    cache[rid] = rec.get("accountname") or rid
+                else:
+                    cache[rid] = self._person_name(rec) or rid
+            except Exception:
+                misses += 1
+                cache[rid] = rid
+        if misses:
+            print(f"[vtiger] Could not resolve {misses} {kind} (CRM permission or deleted).")
+
+    def resolve_references(self, records: list[dict]) -> None:
+        """Resolve account names only. Quota math uses Organization Led By (cf_825) on the Potential."""
+        account_ids = {str(r.get("related_to") or "") for r in records}
+        self._fill_cache(self._account_cache, account_ids, "accounts")
 
     def resolve_account(self, ref_id: str) -> str:
         return self._account_cache.get(ref_id, ref_id)
