@@ -259,6 +259,8 @@ function periodLabel(period: PeriodKey): string {
     q1: "Q1",
     q2: "Q2",
     h1: "H1",
+    q3: "Q3",
+    q4: "Q4",
     h2: "H2",
     annual: "Annual",
   };
@@ -405,7 +407,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Period</span>
-        {(["q1", "q2", "h1", "h2", "annual"] as PeriodKey[]).map((p) => (
+        {(["q1", "q2", "h1", "q3", "q4", "h2", "annual"] as PeriodKey[]).map((p) => (
           <button
             key={p}
             onClick={() => setPeriod(p)}

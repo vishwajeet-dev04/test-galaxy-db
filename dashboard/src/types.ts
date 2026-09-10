@@ -33,8 +33,8 @@ export interface RTMDivision {
   division: string;
   q1: PeriodMetrics;
   q2: PeriodMetrics;
-  q3?: PeriodMetrics;
-  q4?: PeriodMetrics;
+  q3: PeriodMetrics;
+  q4: PeriodMetrics;
   h1: PeriodMetrics;
   h2: PeriodMetrics;
   annual: PeriodMetrics;
@@ -241,6 +241,8 @@ export interface Individual {
   persona: string;
   q1: PeriodMetrics;
   q2: PeriodMetrics;
+  q3: PeriodMetrics;
+  q4: PeriodMetrics;
   h1: PeriodMetrics;
   h2: PeriodMetrics;
   annual: PeriodMetrics;
@@ -295,8 +297,8 @@ export interface BURecord {
   bu: string;
   q1: PeriodMetrics;
   q2: PeriodMetrics;
-  q3?: PeriodMetrics;
-  q4?: PeriodMetrics;
+  q3: PeriodMetrics;
+  q4: PeriodMetrics;
   h1: PeriodMetrics;
   h2: PeriodMetrics;
   annual: PeriodMetrics;
@@ -431,7 +433,7 @@ export type ViewId =
   | "brands"
   | "admin";
 
-export type PeriodKey = "q1" | "q2" | "h1" | "h2" | "annual";
+export type PeriodKey = "q1" | "q2" | "h1" | "q3" | "q4" | "h2" | "annual";
 
 export interface DrillState {
   view: ViewId;

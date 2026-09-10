@@ -13,7 +13,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
+# auto_error=False: missing Authorization is 401 (not FastAPI's default 403).
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token", auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -47,7 +48,7 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
 
 
 def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    token: Annotated[Optional[str], Depends(oauth2_scheme)],
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
     cred_exc = HTTPException(
@@ -55,6 +56,8 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if not token:
+        raise cred_exc
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         username = payload.get("sub")

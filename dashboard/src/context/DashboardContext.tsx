@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import type { PeriodKey } from "../types";
 
-export type PeriodKey = "q1" | "q2" | "h1" | "h2" | "annual";
+export type { PeriodKey };
 
 interface DashboardContextValue {
   period: PeriodKey;

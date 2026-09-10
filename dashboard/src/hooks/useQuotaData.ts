@@ -29,7 +29,7 @@ export function useQuotaData(dateRange?: DateRangeValue) {
     const params = new URLSearchParams({ from: range.start, to: range.end });
     fetch(`/api/quota?${params.toString()}`, { headers: authHeaders(token) })
       .then(async (r) => {
-        if (r.status === 401) {
+        if (r.status === 401 || r.status === 403) {
           logout();
           throw new Error("Session expired — please sign in again");
         }

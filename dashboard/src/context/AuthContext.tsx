@@ -117,6 +117,15 @@ export function useAuth() {
   return ctx;
 }
 
-export function authHeaders(token: string | null): HeadersInit {
-  return token ? { Authorization: `Bearer ${token}` } : {};
+function storedToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function authHeaders(token?: string | null): HeadersInit {
+  const t = (token || storedToken() || "").trim();
+  return t ? { Authorization: `Bearer ${t}` } : {};
 }

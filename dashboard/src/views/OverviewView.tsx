@@ -6,7 +6,7 @@ import { PerformerList } from "../components/PerformerList";
 import { PerformanceCard } from "../components/PerformanceCard";
 import { InfoTooltip } from "../components/InfoTooltip";
 import { DonutChart } from "../components/charts/DonutChart";
-import type { QuotaData, DrillState, PeriodSnapshot } from "../types";
+import type { QuotaData, DrillState, PeriodMetrics, PeriodSnapshot } from "../types";
 import { formatCr, formatPct } from "../utils/format";
 import {
   getPeriodElapsedLabel,
@@ -17,6 +17,12 @@ import {
 interface OverviewViewProps {
   data: QuotaData;
   onDrill: (drill: Partial<DrillState>) => void;
+}
+
+type PeriodActualsRow = Record<PerformancePeriodKey, PeriodMetrics>;
+
+function periodActuals(row: PeriodActualsRow, key: PerformancePeriodKey): number {
+  return row[key]?.actuals ?? 0;
 }
 
 function periodCardProps(key: PerformancePeriodKey, snapshot: PeriodSnapshot | undefined) {
@@ -55,12 +61,12 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
   const getChartData = () => {
     const rtmData = (rtm_divisions ?? []).map((d) => ({
       name: d.division,
-      value: (d as { [k: string]: { actuals?: number } | undefined })[selectedChartPeriod]?.actuals ?? 0,
+      value: periodActuals(d, selectedChartPeriod),
     }));
     const buData = (bu_level ?? [])
       .map((b) => ({
         name: b.bu,
-        value: (b as { [k: string]: { actuals?: number } | undefined })[selectedChartPeriod]?.actuals ?? 0,
+        value: periodActuals(b, selectedChartPeriod),
       }))
       .sort((a, b) => {
         const order = ["DCG", "CSN", "PS", "CSG", "Cloud"];
