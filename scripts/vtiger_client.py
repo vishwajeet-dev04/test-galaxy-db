@@ -106,13 +106,21 @@ class VtigerSession:
     """Authenticated Vtiger REST API session."""
 
     PAGE_SIZE = 100
-    MAX_RETRIES = 3
+    MAX_RETRIES = 5
 
-    def __init__(self, base_url: str, username: str, access_key: str, timeout: int = 60):
+    def __init__(
+        self,
+        base_url: str,
+        username: str,
+        access_key: str,
+        timeout: int = 180,
+        host_header: str | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.username = username
         self.access_key = access_key
         self.timeout = timeout
+        self.host_header = host_header
         self.session_name: str | None = None
         self._account_cache: dict[str, str] = {}
         self._contact_cache: dict[str, str] = {}
@@ -160,21 +168,26 @@ class VtigerSession:
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
                 last_exc = exc
                 if attempt < self.MAX_RETRIES:
-                    wait = 0.5 * attempt
+                    wait = min(16, 2 ** attempt)
                     print(f"[vtiger] Request failed ({exc}); retry {attempt}/{self.MAX_RETRIES} in {wait:.1f}s")
                     time.sleep(wait)
                     continue
                 raise
         raise last_exc or RuntimeError("Vtiger request failed")
 
+    def _urlopen(self, url: str, data: bytes | None = None):
+        req = urllib.request.Request(url, data=data)
+        if self.host_header:
+            req.add_header("Host", self.host_header)
+        return urllib.request.urlopen(req, timeout=self.timeout)
+
     def _get(self, params: dict) -> dict:
         url = f"{self.base_url}/webservice.php?" + urllib.parse.urlencode(params)
-        return self._read_json(lambda: urllib.request.urlopen(url, timeout=self.timeout))
+        return self._read_json(lambda: self._urlopen(url))
 
     def _post(self, params: dict) -> dict:
         body = urllib.parse.urlencode(params).encode()
-        req = urllib.request.Request(f"{self.base_url}/webservice.php", data=body, method="POST")
-        return self._read_json(lambda: urllib.request.urlopen(req, timeout=self.timeout))
+        return self._read_json(lambda: self._urlopen(f"{self.base_url}/webservice.php", data=body))
 
     # --------------------------------------------------------- query helpers
 

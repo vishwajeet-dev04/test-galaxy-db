@@ -232,11 +232,16 @@ interface DivisionGroup {
   periodAttainment: number;
   pipelineDeals: number;
   pipelineAccounts: number;
+  isRtm: boolean;
 }
 
 const RTM_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South"]);
 const EMPLOYEE_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"]);
-const HIDDEN_EMPLOYEE_PERSONAS = new Set(["TL", "AVP", "BU Head", "BU Head / TL", "Topline", "Bottomline", "Other"]);
+// Roster divisions shown as their own Employees group but never treated as an RTM:
+// no RTM card, no RTM quota/actuals roll-up, not in rtm_divisions.
+const NON_RTM_GROUPS = new Set(["Self"]);
+// TLs stay in the list (TL badge); BU heads / AVPs / topline leaders live on the Leaders page.
+const HIDDEN_EMPLOYEE_PERSONAS = new Set(["AVP", "BU Head", "BU Head / TL", "Topline", "Bottomline", "Other"]);
 
 const RTM_ORDER = ["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"];
 const sortDivisions = (a: string | null | undefined, b: string | null | undefined) => {
@@ -284,7 +289,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
         ...new Set(
           data.individuals
             .map((e) => e.division)
-            .filter((d) => d && (EMPLOYEE_DIVISIONS.has(d) || RTM_DIVISIONS.has(d)))
+            .filter((d) => d && (EMPLOYEE_DIVISIONS.has(d) || RTM_DIVISIONS.has(d) || NON_RTM_GROUPS.has(d)))
         ),
       ].sort(sortDivisions) as string[],
     [data]
@@ -295,9 +300,12 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
     return data.individuals.filter((e) => {
       if (["Total", "Total Opportunity"].includes(e.name)) return false;
       if (/sanjeev\s+kohli/i.test(e.name)) return false;
-      if (HIDDEN_EMPLOYEE_PERSONAS.has(e.persona)) return false;
-      const isHrushikesh = /hrushikesh/i.test(e.name);
-      if (!e.division || (!EMPLOYEE_DIVISIONS.has(e.division) && !isHrushikesh)) return false;
+      const inNonRtmGroup = !!e.division && NON_RTM_GROUPS.has(e.division);
+      if (!inNonRtmGroup) {
+        if (HIDDEN_EMPLOYEE_PERSONAS.has(e.persona)) return false;
+        const isHrushikesh = /hrushikesh/i.test(e.name);
+        if (!e.division || (!EMPLOYEE_DIVISIONS.has(e.division) && !isHrushikesh)) return false;
+      }
       const q = search.toLowerCase();
       if (q) {
         const nameMatch = e.name.toLowerCase().includes(q);
@@ -311,6 +319,11 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
     });
   }, [data.individuals, search, divisionFilter, personaFilter, hasDealsOnly]);
 
+  const rtmByDivision = useMemo(
+    () => new Map((data.rtm_divisions ?? []).map((r) => [r.division, r])),
+    [data.rtm_divisions]
+  );
+
   const groupedByDivision = useMemo((): DivisionGroup[] => {
     const map = new Map<string, Individual[]>();
     for (const emp of filtered) {
@@ -321,23 +334,20 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
 
     return [...map.entries()]
       .map(([division, employees]) => {
-        const sumEmployees = employees.filter(e => {
-          if (e.persona !== 'IC') return false;
-          if (division === 'S1' && /ishwari kadam/i.test(e.name)) return false;
-          return true;
-        });
-
-        let periodQuota = sumEmployees.reduce((s, e) => s + (e[period].quota ?? 0), 0);
-        let periodActuals = sumEmployees.reduce((s, e) => s + (e[period].actuals ?? 0), 0);
-
-        if (division === 'GeoX') {
-          const hbMax = employees
-            .filter((e) => /hrushikesh bagade/i.test(e.name))
-            .sort((a, b) => (b[period].actuals ?? 0) - (a[period].actuals ?? 0))[0];
-          periodActuals = hbMax ? (hbMax[period].actuals ?? 0) : 0;
-          periodQuota = 0;
-        }
+        // RTM team totals are the RTM card figures, not a re-sum of this list: the list hides
+        // heads (Topline etc.) and RTM actuals follow the deal's close-date RTM, so a re-sum
+        // would disagree with the RTMs page. Non-RTM groups (Self) have no card, so they sum
+        // their own members.
+        const isRtm = !NON_RTM_GROUPS.has(division);
+        const card = isRtm ? rtmByDivision.get(division === "Geo X" ? "GeoX" : division) : undefined;
+        const periodQuota = isRtm
+          ? card?.[period].quota ?? 0
+          : employees.reduce((s, e) => s + (e[period].quota ?? 0), 0);
+        const periodActuals = isRtm
+          ? card?.[period].actuals ?? 0
+          : employees.reduce((s, e) => s + (e[period].actuals ?? 0), 0);
         return {
+          isRtm,
           division,
           // Sort employees by selected period's actuals descending
           employees: employees.sort((a, b) => (b[period].actuals ?? 0) - (a[period].actuals ?? 0)),
@@ -349,7 +359,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
         };
       })
       .sort((a, b) => sortDivisions(a.division, b.division));
-  }, [filtered, period]);
+  }, [filtered, period, rtmByDivision]);
 
   const toggleDivision = (div: string) => {
     setCollapsed((prev) => ({ ...prev, [div]: !prev[div] }));
@@ -360,7 +370,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
       <div>
         <h2 className={ui.pageTitle}>Employees</h2>
         <p className={ui.pageSub}>
-          Grouped by RTM division · period selector drives actuals column · closed-won accounts from pipeline
+          Grouped by RTM division (plus Self) · period selector drives actuals column · closed-won accounts from pipeline
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
           <span className="font-semibold text-slate-600">CRM indicators:</span>
@@ -452,7 +462,10 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                     <Users className="h-4 w-4 text-galaxy-navy" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-galaxy-navy">{group.division}</h3>
+                    <h3 className="flex flex-wrap items-center gap-2 font-semibold text-galaxy-navy">
+                      {group.division}
+                      {!group.isRtm && <span className={ui.badge}>Not an RTM</span>}
+                    </h3>
                     <p className="text-xs text-galaxy-muted">
                       {group.employees.length} employees
                       {group.pipelineDeals > 0 && (
@@ -519,7 +532,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={ui.badge}>{emp.persona}</span>
+                            <span className={emp.persona === "TL" ? ui.pill : ui.badge}>{emp.persona}</span>
                           </td>
                           <td className="px-4 py-3 text-center">
                             {emp.pipeline?.closed_accounts?.length > 0 ? (

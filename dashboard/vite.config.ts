@@ -11,6 +11,7 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
+        // Local Galaxy API. Vite proxies /api here (scripts/run_backend.ps1).
         target: "http://127.0.0.1:8080",
         changeOrigin: true,
       },

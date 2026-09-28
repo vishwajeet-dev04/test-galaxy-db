@@ -46,7 +46,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(data.router, prefix="/api", tags=["data"])
-app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])  # /logins + /users alias
 
 
 def _migrate_quota_json() -> None:

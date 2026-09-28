@@ -19,3 +19,6 @@ backend/galaxy.db
 backend/data/quota_data.json
 backend/**/__pycache__/
 *.db
+
+*.db-shm
+*.db-wal

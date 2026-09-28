@@ -287,7 +287,14 @@ function LeaderDetail({ leader }: { leader: LeaderDashboardRecord }) {
               </tr>
             </thead>
             <tbody>
-              {leader.team_members.map((m) => {
+              {leader.team_members.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-galaxy-muted">
+                    No team members in this leader’s RTM
+                  </td>
+                </tr>
+              ) : (
+                leader.team_members.map((m) => {
                 const att = m.h1_attainment_pct ?? 0;
                 return (
                   <tr key={m.name} className="border-b border-galaxy-border/40 hover:bg-slate-50/80">
@@ -314,7 +321,8 @@ function LeaderDetail({ leader }: { leader: LeaderDashboardRecord }) {
                     <td className="px-4 py-3 text-right font-mono text-slate-500">{m.deal_count}</td>
                   </tr>
                 );
-              })}
+              })
+              )}
             </tbody>
           </table>
         </div>

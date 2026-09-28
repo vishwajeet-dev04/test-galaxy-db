@@ -17,6 +17,7 @@ const VIEW_LABELS: Record<string, string> = {
   leaderboard: "Leaderboard",
   accounts: "Accounts",
   brands: "Brands",
+  help: "Help",
 };
 
 export function Breadcrumbs({ drill, onNavigate }: BreadcrumbsProps) {

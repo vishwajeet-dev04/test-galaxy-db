@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { apiDetail } from "../utils/apiError";
+import { apiFetch, httpErrorMessage, isSessionExpiredStatus } from "../utils/apiError";
 
 export interface AuthUser {
   id: number;
@@ -28,16 +28,15 @@ const USER_KEY = "galaxy_user";
 const AuthContext = createContext<AuthState | null>(null);
 
 async function apiLogin(username: string, password: string) {
-  const res = await fetch("/api/auth/login", {
+  const { res, json, raw } = await apiFetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(apiDetail(body, "Login failed"));
+    throw new Error(httpErrorMessage(res.status, json, raw, "Login failed"));
   }
-  return res.json() as Promise<{ access_token: string; user: AuthUser }>;
+  return json as { access_token: string; user: AuthUser };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -60,21 +59,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     let cancelled = false;
-    fetch("/api/auth/me", { headers: { Authorization: `Bearer ${t}` } })
-      .then(async (r) => {
-        if (!r.ok) throw new Error("session");
-        return r.json() as Promise<AuthUser>;
-      })
-      .then((u) => {
+    apiFetch("/api/auth/me", { headers: { Authorization: `Bearer ${t}` } })
+      .then(({ res, json, raw }) => {
         if (cancelled) return;
-        localStorage.setItem(USER_KEY, JSON.stringify(u));
+        // HTML block pages are not JWT failures — keep the stored session.
+        if (isSessionExpiredStatus(res.status, raw)) {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+          setToken(null);
+          setUser(null);
+          return;
+        }
+        if (res.ok && json && typeof json === "object") {
+          const u = json as AuthUser;
+          localStorage.setItem(USER_KEY, JSON.stringify(u));
+          setToken(t);
+          setUser(u);
+          return;
+        }
+        const stored = localStorage.getItem(USER_KEY);
+        if (stored) {
+          try {
+            setUser(JSON.parse(stored) as AuthUser);
+            setToken(t);
+            return;
+          } catch (err) {
+            console.error("galaxy_user_cache_invalid", err);
+          }
+        }
         setToken(t);
-        setUser(u);
+        setUser(null);
       })
       .catch(() => {
         if (cancelled) return;
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
+        const stored = localStorage.getItem(USER_KEY);
+        if (stored) {
+          try {
+            setUser(JSON.parse(stored) as AuthUser);
+            setToken(t);
+            return;
+          } catch (err) {
+            console.error("galaxy_user_cache_invalid", err);
+          }
+        }
         setToken(null);
         setUser(null);
       })

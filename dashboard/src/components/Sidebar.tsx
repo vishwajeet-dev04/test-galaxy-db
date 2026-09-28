@@ -8,6 +8,7 @@ import {
   Briefcase,
   Tag,
   Settings,
+  HelpCircle,
   X,
 } from "lucide-react";
 import type { ViewId } from "../types";
@@ -30,6 +31,7 @@ const ALL_NAV: { id: ViewId; label: string; icon: typeof LayoutDashboard; adminO
   { id: "leaders", label: "Leaders", icon: Crown },
   { id: "employees", label: "Employees", icon: Users },
   { id: "leaderboard", label: "Leaderboard", icon: Trophy },
+  { id: "help", label: "Help", icon: HelpCircle },
   { id: "admin", label: "Admin", icon: Settings, adminOnly: true },
 ];
 

@@ -68,6 +68,93 @@ def _load_leader_roster() -> list[dict[str, Any]]:
     return [row for row in raw if isinstance(row, dict) and row.get("name")]
 
 
+def _load_pipeline_aliases() -> dict[str, str]:
+    path = settings.root / "config" / "pipeline_aliases.json"
+    if not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k): str(v) for k, v in raw.items() if k and not str(k).startswith("_") and v}
+
+
+def _leader_deal_names(leader_name: str, aliases: dict[str, str]) -> set[str]:
+    """Roster name plus canonical Led-By (Ishwari Santosh Kadam → Ishwari Kadam)."""
+    if not leader_name:
+        return set()
+    canon = aliases.get(leader_name, leader_name)
+    names = {leader_name, canon}
+    for raw, mapped in aliases.items():
+        if mapped == canon or mapped == leader_name or raw == leader_name:
+            names.add(raw)
+            names.add(mapped)
+    return names
+
+
+def _deals_for_leader(leader_name: str, deals: list[dict], aliases: dict[str, str]) -> list[dict]:
+    keys = _leader_deal_names(leader_name, aliases)
+    canon = aliases.get(leader_name, leader_name)
+    out: list[dict] = []
+    seen: set[str] = set()
+    for d in deals:
+        emp = d.get("employee") or ""
+        if not emp:
+            continue
+        if emp not in keys and not _names_match(emp, leader_name) and not _names_match(emp, canon):
+            continue
+        oid = str(d.get("opportunity_number") or "")
+        token = oid if oid else str(id(d))
+        if token in seen:
+            continue
+        seen.add(token)
+        out.append(d)
+    return out
+
+
+def _leader_scope_divs(leader_name: str, row: dict[str, Any] | None = None) -> set[str]:
+    """RTM codes for Team Roster. Prefer rollup_divisions (Ajay is DCG BU, team is South)."""
+    for r in _load_leader_roster():
+        if not _names_match(r.get("name"), leader_name):
+            continue
+        divs = r.get("rollup_divisions") or r.get("fallback_divisions") or []
+        return {str(d) for d in divs if d}
+    div = (row or {}).get("division")
+    return {str(div)} if div else set()
+
+
+def _team_member_rows(leader_name: str, individuals: list[dict] | None) -> list[dict]:
+    """As-of-today ICs in the leader's rollup RTMs. Leader themselves is omitted."""
+    divs = _leader_scope_divs(leader_name)
+    rows: list[dict] = []
+    for ic in individuals or []:
+        name = ic.get("name") or ""
+        if not name or _names_match(name, leader_name):
+            continue
+        if (ic.get("division") or "") not in divs:
+            continue
+        pipe = ic.get("pipeline") or {}
+        h1 = ic.get("h1") or {}
+        closed = pipe.get("closed_deals") or []
+        rows.append(
+            {
+                "name": name,
+                "division": ic.get("division"),
+                "persona": ic.get("persona"),
+                "h1_actuals": h1.get("actuals"),
+                "h1_quota": h1.get("quota"),
+                "h1_attainment_pct": h1.get("attainment_pct"),
+                "pipeline_topline_cr": pipe.get("total_revenue_cr") or pipe.get("topline_cr") or 0,
+                "pipeline_bottomline_cr": pipe.get("total_bottomline_cr") or pipe.get("bottomline_cr") or 0,
+                "deal_count": pipe.get("deal_count") or len(closed),
+            }
+        )
+    rows.sort(key=lambda x: float(x.get("h1_actuals") or 0), reverse=True)
+    return rows
+
+
 def _att(actuals: float, quota: float) -> float | None:
     if quota:
         return round(actuals / quota * 100, 2)
@@ -122,13 +209,7 @@ def _deal_quarter(deal: dict[str, Any]) -> str:
     return _quarter_from_date(parsed) if parsed else ""
 
 
-def _is_geox_bottomline(name: str | None) -> bool:
-    return "hrushikesh" in _norm(name)
-
-
-def _deal_ic_cr(deal: dict[str, Any], employee_name: str | None) -> float:
-    if _is_geox_bottomline(employee_name or deal.get("employee")):
-        return float(deal.get("bottomline_cr") or 0)
+def _deal_ic_cr(deal: dict[str, Any]) -> float:
     return float(deal.get("amount_cr") or deal.get("topline_cr") or 0)
 
 
@@ -197,11 +278,10 @@ def _rebuild_pipeline_for_ic(ic: dict[str, Any], ic_deals: list[dict]) -> None:
 
     by_q = {"q1": 0.0, "q2": 0.0, "q3": 0.0, "q4": 0.0}
     deals_q = {"q1": 0, "q2": 0, "q3": 0, "q4": 0}
-    name = ic.get("name")
     for d in ic_deals:
         q = _deal_quarter(d)
         if q in by_q:
-            by_q[q] += _deal_ic_cr(d, name)
+            by_q[q] += _deal_ic_cr(d)
             deals_q[q] += 1
 
     def _set_period(key: str, actuals: float, deal_count: int | None = None) -> None:
@@ -275,7 +355,7 @@ def _rebuild_rtm(individuals: list[dict], deals: list[dict] | None = None) -> li
                 {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")},
             )
             if q in ("q1", "q2", "q3", "q4"):
-                d[q]["actuals"] += _deal_ic_cr(deal, deal.get("employee"))
+                d[q]["actuals"] += _deal_ic_cr(deal)
                 d[q]["deals"] += 1
         for d in div_data.values():
             d["h1"]["actuals"] = d["q1"]["actuals"] + d["q2"]["actuals"]
@@ -305,10 +385,18 @@ def _rebuild_rtm(individuals: list[dict], deals: list[dict] | None = None) -> li
     return result
 
 
+def _is_rtm_deal(deal: dict[str, Any]) -> bool:
+    return (deal.get("rtm_division") or "") in RTM_DIVISIONS
+
+
 def _rebuild_bu(deals: list[dict], original: list[dict] | None) -> list[dict]:
+    # BU actuals are RTM-team achievement only: BU quotas are set per RTM, so deals led by
+    # non-RTM people (DCG/Cloud heads, Self) would inflate attainment with no matching quota.
     by_bu: dict[str, dict[str, float]] = {}
     deal_counts: dict[str, dict[str, int]] = {}
     for d in deals:
+        if not _is_rtm_deal(d):
+            continue
         bu = d.get("bu") or "Other"
         q = _deal_quarter(d)
         cr = float(d.get("amount_cr") or d.get("topline_cr") or 0)
@@ -540,10 +628,10 @@ def _rebuild_rtm_by_bu(deals: list[dict], original: dict[str, list] | None) -> d
 
     grouped: dict[str, dict[str, dict[str, float]]] = {}
     for d in deals:
-        bu = d.get("bu") or "Other"
-        div = d.get("rtm_division") or ""
-        if not div:
+        if not _is_rtm_deal(d):
             continue
+        bu = d.get("bu") or "Other"
+        div = d["rtm_division"]
         q = _deal_quarter(d)
         cr = float(d.get("amount_cr") or d.get("topline_cr") or 0)
         cell = grouped.setdefault(bu, {}).setdefault(div, {"q1": 0.0, "q2": 0.0, "q3": 0.0, "q4": 0.0})
@@ -554,7 +642,8 @@ def _rebuild_rtm_by_bu(deals: list[dict], original: dict[str, list] | None) -> d
     bus = list(dict.fromkeys([*orig.keys(), *grouped.keys()]))
     for bu in bus:
         divs = list(dict.fromkeys(
-            [*(r.get("division") or r.get("name") for r in orig.get(bu) or [] if r.get("division") or r.get("name")),
+            [*(r.get("division") or r.get("name") for r in orig.get(bu) or []
+               if (r.get("division") or r.get("name")) in RTM_DIVISIONS),
              *grouped.get(bu, {}).keys()]
         ))
         rows = []
@@ -586,19 +675,19 @@ def _rebuild_rtm_by_bu(deals: list[dict], original: dict[str, list] | None) -> d
     return out
 
 
-def _rebuild_leaders(original: list[dict] | None, deals: list[dict]) -> list[dict]:
-    """Refresh personal Led-By actuals for the date window. team_members stays empty."""
-    by_name_deals: dict[str, list] = {}
-    for d in deals:
-        name = d.get("employee") or ""
-        if name:
-            by_name_deals.setdefault(name, []).append(d)
-
+def _rebuild_leaders(
+    original: list[dict] | None,
+    deals: list[dict],
+    individuals: list[dict] | None = None,
+) -> list[dict]:
+    """Refresh personal Led-By actuals; Team Roster is as-of-today ICs in rollup_divisions."""
+    aliases = _load_pipeline_aliases()
     out = []
     for leader in original or []:
         row = copy.deepcopy(leader)
         name = row.get("name") or ""
-        ldeals = by_name_deals.get(name) or []
+        ldeals = _deals_for_leader(name, deals, aliases)
+        members = _team_member_rows(name, individuals)
         by_q = {"q1": 0.0, "q2": 0.0, "q3": 0.0, "q4": 0.0}
         tl = bl = qc = 0.0
         for d in ldeals:
@@ -630,8 +719,8 @@ def _rebuild_leaders(original: list[dict] | None, deals: list[dict]) -> list[dic
         _set("h2", h2)
         _set("annual", h1 + h2)
         gp = round(bl / tl * 100, 2) if tl else 0.0
-        row["team_size"] = len(ldeals)
-        row["team_members"] = []
+        row["team_size"] = len(members)
+        row["team_members"] = members
         row["pipeline"] = {
             **(row.get("pipeline") or {}),
             "deal_count": len(ldeals),
@@ -777,7 +866,9 @@ def _apply_deals_to_view(data: dict[str, Any], deals: list[dict]) -> dict[str, A
     data["brands"] = _rebuild_accounts_brands(deals, "brand", ic_h1_q, pipe_cr, pipe_bl)
     orig_rtm_by_bu = data.get("rtm_by_bu") if isinstance(data.get("rtm_by_bu"), dict) else {}
     data["rtm_by_bu"] = _rebuild_rtm_by_bu(deals, orig_rtm_by_bu)
-    data["leaders_dashboard"] = _rebuild_leaders(data.get("leaders_dashboard") or [], deals)
+    data["leaders_dashboard"] = _rebuild_leaders(
+        data.get("leaders_dashboard") or [], deals, individuals
+    )
     data["top_attainers"] = top
     data["at_risk_ics"] = at_risk
     return data

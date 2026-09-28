@@ -1,6 +1,7 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Pencil, Plus, Search, Trash2, UserPlus, X } from "lucide-react";
 import { authHeaders, useAuth } from "../context/AuthContext";
+import { apiFetch, httpErrorMessage } from "../utils/apiError";
 import { SectionHeader } from "../components/SectionHeader";
 import { ui } from "../theme";
 
@@ -16,7 +17,7 @@ interface AdminUser {
   is_active: boolean;
 }
 
-interface UserListResponse {
+export interface UserListResponse {
   items: AdminUser[];
   total: number;
   page: number;
@@ -67,18 +68,6 @@ function fromUser(u: AdminUser): FormState {
   };
 }
 
-function apiDetail(body: unknown, status = 0): string {
-  if (body && typeof body === "object" && "detail" in body) {
-    const d = (body as { detail: unknown }).detail;
-    if (typeof d === "string") return d;
-    if (Array.isArray(d) && d[0] && typeof d[0] === "object" && d[0] && "msg" in d[0]) {
-      return String((d[0] as { msg: string }).msg);
-    }
-  }
-  if (typeof body === "string" && body.trim()) return body.slice(0, 180);
-  return `Request failed (${status})`;
-}
-
 function validate(form: FormState, isCreate: boolean): FieldErrors {
   const errors: FieldErrors = {};
   if (isCreate) {
@@ -96,17 +85,22 @@ function validate(form: FormState, isCreate: boolean): FieldErrors {
   return errors;
 }
 
-export function AdminUsersPanel() {
+export function AdminUsersPanel({
+  seed,
+  seedReady,
+  onRefresh,
+}: {
+  seed?: UserListResponse | null;
+  seedReady?: boolean;
+  onRefresh?: () => Promise<void>;
+}) {
   const { token, user: me } = useAuth();
-  const [items, setItems] = useState<AdminUser[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
   const [q, setQ] = useState("");
   const [appliedQ, setAppliedQ] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -116,39 +110,27 @@ export function AdminUsersPanel() {
   const [success, setSuccess] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        page_size: String(pageSize),
-      });
-      if (appliedQ) params.set("q", appliedQ);
-      const res = await fetch(`/api/admin/users?${params}`, { headers: authHeaders(token) });
-      const raw = await res.text();
-      let body: unknown = {};
-      try {
-        body = raw ? JSON.parse(raw) : {};
-      } catch {
-        body = raw.slice(0, 200);
-      }
-      if (!res.ok) throw new Error(apiDetail(body, res.status));
-      const data = body as UserListResponse;
-      setItems(data.items || []);
-      setTotal(data.total ?? 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load users");
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [token, page, pageSize, appliedQ]);
+  const allItems = seed?.items ?? [];
+  const filtered = useMemo(() => {
+    const n = appliedQ.trim().toLowerCase();
+    if (!n) return allItems;
+    return allItems.filter(
+      (u) =>
+        u.username.toLowerCase().includes(n) ||
+        u.email.toLowerCase().includes(n) ||
+        u.full_name.toLowerCase().includes(n) ||
+        (u.employee_name || "").toLowerCase().includes(n),
+    );
+  }, [allItems, appliedQ]);
+  const total = filtered.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const items = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const loading = seedReady === false;
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const load = async () => {
+    if (onRefresh) await onRefresh();
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -201,23 +183,27 @@ export function AdminUsersPanel() {
     setSuccess(null);
     try {
       if (isCreate) {
-        const res = await fetch("/api/admin/users", {
-          method: "POST",
+        const { res, json, raw } = await apiFetch("/api/admin/quotas", {
+          method: "PUT",
           headers: { ...authHeaders(token), "Content-Type": "application/json" },
           body: JSON.stringify({
-            username: form.username.trim().toLowerCase(),
-            email: form.email.trim(),
-            full_name: form.full_name.trim(),
-            role: form.role,
-            password: form.password,
-            employee_name: form.employee_name.trim() || null,
+            account: {
+              op: "create",
+              username: form.username.trim().toLowerCase(),
+              email: form.email.trim(),
+              full_name: form.full_name.trim(),
+              role: form.role,
+              password: form.password,
+              employee_name: form.employee_name.trim() || null,
+            },
           }),
         });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(apiDetail(body, res.status));
+        if (!res.ok) throw new Error(httpErrorMessage(res.status, json, raw, "Create failed"));
         setSuccess("User created");
       } else {
         const payload: Record<string, unknown> = {
+          op: "update",
+          id: editing.id,
           email: form.email.trim(),
           full_name: form.full_name.trim(),
           role: form.role,
@@ -225,13 +211,12 @@ export function AdminUsersPanel() {
           is_active: form.is_active,
         };
         if (form.password) payload.password = form.password;
-        const res = await fetch(`/api/admin/users/${editing.id}`, {
-          method: "PATCH",
+        const { res, json, raw } = await apiFetch("/api/admin/quotas", {
+          method: "PUT",
           headers: { ...authHeaders(token), "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ account: payload }),
         });
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(apiDetail(body, res.status));
+        if (!res.ok) throw new Error(httpErrorMessage(res.status, json, raw, "Update failed"));
         setSuccess(form.password ? "User updated and password changed" : "User updated");
       }
       setFormOpen(false);
@@ -257,19 +242,18 @@ export function AdminUsersPanel() {
     setDeletingId(target.id);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/users/${target.id}`, {
-        method: "DELETE",
-        headers: authHeaders(token),
+      const { res, json, raw } = await apiFetch("/api/admin/quotas", {
+        method: "PUT",
+        headers: { ...authHeaders(token), "Content-Type": "application/json" },
+        body: JSON.stringify({ account: { op: "delete", id: target.id } }),
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(apiDetail(body, res.status));
+      if (!res.ok) throw new Error(httpErrorMessage(res.status, json, raw, "Could not delete user"));
       setConfirmDelete(null);
       setSuccess(`Deleted ${target.username}`);
       if (items.length === 1 && page > 1) {
         setPage((p) => p - 1);
-      } else {
-        await load();
       }
+      await load();
     } catch (err) {
       setConfirmDelete(null);
       setError(err instanceof Error ? err.message : "Could not delete user");
@@ -278,7 +262,6 @@ export function AdminUsersPanel() {
     }
   };
 
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const isCreate = editing == null;
   const rowBusy = saving || deletingId != null;
 

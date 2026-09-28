@@ -15,12 +15,12 @@ import {
   Clock,
   AlertCircle,
 } from "lucide-react";
-import { AdminUsersPanel } from "./AdminUsersPanel";
+import { AdminUsersPanel, type UserListResponse } from "./AdminUsersPanel";
 import { authHeaders, useAuth } from "../context/AuthContext";
 import { SectionHeader } from "../components/SectionHeader";
 import { ui } from "../theme";
 import { formatDisplayDate, toISODate } from "../utils/fiscal";
-import { apiDetail } from "../utils/apiError";
+import { apiFetch, httpErrorMessage } from "../utils/apiError";
 
 interface SyncStatus {
   configured: boolean;
@@ -39,6 +39,14 @@ interface AdminStatus {
   quota_count: number;
   rtm_count: number;
   quota_json: { exists: boolean };
+  configured?: boolean;
+  job_id?: string | null;
+  status?: SyncStatus["status"];
+  running?: boolean;
+  last_run?: string | null;
+  last_result?: SyncStatus["last_result"];
+  last_error?: string | null;
+  quarters?: string[];
 }
 
 interface AssignmentRow {
@@ -148,6 +156,8 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [people, setPeople] = useState<QuotaPerson[]>([]);
+  const [loginSeed, setLoginSeed] = useState<UserListResponse | null>(null);
+  const [loginSeedReady, setLoginSeedReady] = useState(false);
   const [buQuotas, setBuQuotas] = useState<Record<string, Record<string, number>>>({});
   const [divFilter, setDivFilter] = useState("all");
 
@@ -171,25 +181,44 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     }
   };
 
-  const readJson = async (res: Response) => {
-    const ct = res.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) {
-      throw new Error(`Request failed (${res.status})`);
+  const getJson = async <T,>(input: RequestInfo | URL, init: RequestInit | undefined, fallback: string) => {
+    const { res, json, raw } = await apiFetch(input, init);
+    if (!res.ok) throw new Error(httpErrorMessage(res.status, json, raw, fallback));
+    return json as T;
+  };
+
+  const parseCrm = (body: Record<string, unknown>): SyncStatus => {
+    const crm = (
+      body.crm && typeof body.crm === "object" ? body.crm : {}
+    ) as Partial<SyncStatus> & { deals?: Record<string, number> };
+    if (crm.deals) {
+      setStatus((prev) => ({
+        deals: crm.deals as Record<string, number>,
+        quota_count: prev?.quota_count ?? 0,
+        rtm_count: prev?.rtm_count ?? 0,
+        quota_json: prev?.quota_json ?? { exists: false },
+      }));
     }
-    return res.json();
+    return {
+      configured: Boolean(crm.configured),
+      job_id: crm.job_id ?? null,
+      status: crm.status ?? null,
+      running: Boolean(crm.running),
+      last_run: crm.last_run ?? null,
+      last_result: crm.last_result ?? null,
+      last_error: crm.last_error ?? null,
+      deals: crm.deals,
+      quarters: crm.quarters,
+    };
   };
 
-  const fetchJobStatus = async (jobId?: string | null): Promise<SyncStatus> => {
-    const qs = jobId ? `?job_id=${encodeURIComponent(jobId)}` : "";
-    const res = await fetch(`/api/admin/vtiger-sync/status${qs}`, { headers: authHeaders(token) });
-    if (!res.ok) throw new Error(`Request failed (${res.status})`);
-    return readJson(res);
-  };
-
-  const loadStatus = async () => {
-    const res = await fetch("/api/admin/status", { headers: authHeaders(token) });
-    if (!res.ok) return;
-    setStatus(await readJson(res));
+  const fetchJobStatus = async (_jobId?: string | null): Promise<SyncStatus> => {
+    const body = await getJson<Record<string, unknown>>(
+      "/api/admin/quotas",
+      { headers: authHeaders(token) },
+      `Request failed`,
+    );
+    return parseCrm(body);
   };
 
   const applyJobFinished = async (st: SyncStatus) => {
@@ -205,13 +234,13 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     }
     if (st.status === "done" && st.last_result) {
       setMessage(formatSyncComplete(st));
-      await loadStatus();
+      await loadQuotas();
       onDataRefresh();
       return;
     }
     if (st.status === "done") {
       setMessage("Sync complete. Dashboard updated.");
-      await loadStatus();
+      await loadQuotas();
       onDataRefresh();
     }
   };
@@ -247,35 +276,32 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     }, 2500);
   };
 
-  const loadSyncStatus = async () => {
+  const loadQuotas = async () => {
     try {
-      const st = await fetchJobStatus(activeJobId.current);
+      const body = await getJson<Record<string, unknown>>(
+        "/api/admin/quotas",
+        { headers: authHeaders(token) },
+        `Could not load quota roster`,
+      );
+      setPeople(((body.people as QuotaPerson[]) || []).map((p: QuotaPerson) => hydratePerson(p)));
+      setBuQuotas((body.bu_annual_quotas as Record<string, Record<string, number>>) || {});
+      setLoginSeed((body.accounts as UserListResponse) || { items: [], total: 0, page: 1, page_size: 20 });
+      setLoginSeedReady(true);
+      const st = parseCrm(body);
       setSyncStatus(st);
       if (st.running && st.job_id && !pollRef.current) {
         startPolling(st.job_id);
       }
     } catch (err) {
-      setSyncStatus(null);
-      setError(err instanceof Error ? err.message : "Could not load Vtiger sync status");
+      setLoginSeed({ items: [], total: 0, page: 1, page_size: 20 });
+      setLoginSeedReady(true);
+      setError(err instanceof Error ? err.message : `Could not load quota roster`);
     } finally {
       setSyncStatusReady(true);
     }
   };
 
-  const loadQuotas = async () => {
-    const res = await fetch("/api/admin/quotas", { headers: authHeaders(token) });
-    if (!res.ok) {
-      setError(`Could not load quota roster (${res.status})`);
-      return;
-    }
-    const body = await readJson(res);
-    setPeople((body.people || []).map((p: QuotaPerson) => hydratePerson(p)));
-    setBuQuotas(body.bu_annual_quotas || {});
-  };
-
   useEffect(() => {
-    void loadStatus();
-    void loadSyncStatus();
     void loadQuotas();
     return () => {
       stopPolling();
@@ -287,12 +313,15 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch(`/api/admin/vtiger-sync?quarter=all`, {
-        method: "POST",
-        headers: authHeaders(token),
-      });
-      const body = await readJson(res);
-      if (!res.ok) throw new Error(apiDetail(body, `Request failed (${res.status})`));
+      const body = await getJson<Record<string, unknown>>(
+        "/api/admin/quotas",
+        {
+          method: "PUT",
+          headers: { ...authHeaders(token), "Content-Type": "application/json" },
+          body: JSON.stringify({ sync: true }),
+        },
+        `Request failed`,
+      );
       const jobId = body.job_id as string | undefined;
       if (!jobId) throw new Error("Sync did not return a job id");
       setMessage("Sync started — fetching Closed Won for the full FY (Q1–Q4)…");
@@ -305,7 +334,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         last_result: prev?.last_result ?? null,
         last_error: null,
         deals: prev?.deals,
-        quarters: body.quarters,
+        quarters: Array.isArray(body.quarters) ? (body.quarters as string[]) : undefined,
       }));
       startPolling(jobId);
     } catch (err) {
@@ -342,16 +371,17 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         assignments: p.assignments,
         transfer_start: p.division !== p.baselineDivision ? p.transfer_start : null,
       }));
-      const res = await fetch("/api/admin/quotas", {
-        method: "PUT",
-        headers: { ...authHeaders(token), "Content-Type": "application/json" },
-        body: JSON.stringify({ people: payload, bu_annual_quotas: buQuotas }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(apiDetail(body, "Save failed"));
-      setMessage(body.message || "Quotas saved");
+      const body = await getJson<Record<string, unknown>>(
+        "/api/admin/quotas",
+        {
+          method: "PUT",
+          headers: { ...authHeaders(token), "Content-Type": "application/json" },
+          body: JSON.stringify({ people: payload, bu_annual_quotas: buQuotas }),
+        },
+        "Save failed",
+      );
+      setMessage(typeof body.message === "string" ? body.message : "Quotas saved");
       await loadQuotas();
-      await loadStatus();
       onDataRefresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -365,14 +395,13 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/admin/reparse", {
-        method: "POST",
-        headers: authHeaders(token),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(apiDetail(body, "Rebuild failed"));
-      setMessage(body.message || "Dashboard rebuilt");
-      await loadStatus();
+      const body = await getJson<Record<string, unknown>>(
+        "/api/admin/reparse",
+        { method: "POST", headers: authHeaders(token) },
+        "Rebuild failed",
+      );
+      setMessage(typeof body.message === "string" ? body.message : "Dashboard rebuilt");
+      await loadQuotas();
       onDataRefresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rebuild failed");
@@ -384,7 +413,16 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
   const downloadTemplate = async () => {
     try {
       const res = await fetch("/api/admin/templates/data", { headers: authHeaders(token) });
-      if (!res.ok) throw new Error("Could not download template");
+      if (!res.ok) {
+        const raw = await res.text();
+        let json: unknown = null;
+        try {
+          json = raw ? JSON.parse(raw) : {};
+        } catch (err) {
+          console.error("template_download_not_json", err);
+        }
+        throw new Error(httpErrorMessage(res.status, json, raw, "Could not download template"));
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -404,16 +442,13 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/admin/quotas/import", {
-        method: "POST",
-        headers: authHeaders(token),
-        body: form,
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(apiDetail(body, "Import failed"));
-      setMessage(body.message || "Template imported");
+      const body = await getJson<Record<string, unknown>>(
+        "/api/admin/quotas/import",
+        { method: "POST", headers: authHeaders(token), body: form },
+        "Import failed",
+      );
+      setMessage(typeof body.message === "string" ? body.message : "Template imported");
       await loadQuotas();
-      await loadStatus();
       onDataRefresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
@@ -471,7 +506,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         </p>
       </div>
 
-      <AdminUsersPanel />
+      <AdminUsersPanel seed={loginSeed} seedReady={loginSeedReady} onRefresh={loadQuotas} />
 
       {(message || error) && (
         <div
@@ -638,7 +673,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
               <tr>
                 <th className="px-3 py-2" />
                 <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">RTM</th>
+                <th className="px-3 py-2">RTM/BU</th>
                 <th className="px-3 py-2">Effective date</th>
                 <th className="px-3 py-2">Type</th>
                 <th className="px-3 py-2 text-right">Q1</th>
@@ -900,7 +935,7 @@ function RosterPersonRows({
             <table className="w-full max-w-lg text-xs">
               <thead>
                 <tr className="text-left text-slate-400">
-                  <th className="py-1 pr-4 font-medium">RTM</th>
+                  <th className="py-1 pr-4 font-medium">RTM/BU</th>
                   <th className="py-1 pr-4 font-medium">Start Date</th>
                   <th className="py-1 font-medium">End Date</th>
                 </tr>

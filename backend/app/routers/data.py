@@ -6,6 +6,7 @@ from datetime import date
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -13,6 +14,7 @@ from app.database import get_db
 from app.models import User
 from app.scoping import apply_date_filter, scope_quota_data
 from app.security import get_current_user
+from app.services import docs_service
 
 router = APIRouter()
 
@@ -49,3 +51,16 @@ def my_scope(user: Annotated[User, Depends(get_current_user)], db: Annotated[Ses
         "can_upload": user.role == "admin",
         "sees_all": user.role in ("admin", "ceo"),
     }
+
+
+@router.get("/help/manual")
+def download_user_manual(_user: Annotated[User, Depends(get_current_user)]):
+    try:
+        path = docs_service.user_manual_path()
+    except docs_service.DocsServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from None
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=docs_service.MANUAL_FILENAME,
+    )

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { QuotaData } from "../types";
 import { authHeaders, useAuth } from "../context/AuthContext";
 import { defaultDateRange, type DateRangeValue } from "../utils/fiscal";
-import { apiDetail } from "../utils/apiError";
+import { apiFetch, httpErrorMessage, isSessionExpiredStatus, looksLikeHtml } from "../utils/apiError";
 
 export function useQuotaData(dateRange?: DateRangeValue) {
   const { token, user, logout } = useAuth();
@@ -27,21 +27,20 @@ export function useQuotaData(dateRange?: DateRangeValue) {
     else setRefreshing(true);
     setError(null);
     const params = new URLSearchParams({ from: range.start, to: range.end });
-    fetch(`/api/quota?${params.toString()}`, { headers: authHeaders(token) })
-      .then(async (r) => {
-        if (r.status === 401 || r.status === 403) {
+    apiFetch(`/api/quota?${params.toString()}`, { headers: authHeaders(token) })
+      .then(({ res, json, raw }) => {
+        if (isSessionExpiredStatus(res.status, raw)) {
           logout();
           throw new Error("Session expired — please sign in again");
         }
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(apiDetail(body, `Failed to load data (${r.status})`));
+        if (!res.ok || looksLikeHtml(raw)) {
+          throw new Error(httpErrorMessage(res.status, json, raw, `Failed to load data (${res.status})`));
         }
-        return r.json();
+        return json;
       })
       .then((json) => {
         if (!cancelled) {
-          setData(json);
+          setData(json as QuotaData);
           setError(null);
         }
       })

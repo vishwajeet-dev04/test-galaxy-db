@@ -13,7 +13,8 @@ NO Excel files required at runtime.
 DevSpec v2 formula implementations:
   IC Q1 Actuals  = SUMIF(Pipeline Q1, "Led By" = name, Amount col O) / 1e7
   IC Q2 Actuals  = SUMIF(Pipeline Q2, "Led By" = name, Amount col O) / 1e7
-  GeoX exception = use "Actual Bottomline -" col instead of Amount
+  GeoX / Hrushikesh = Amount like everyone else (bottomline exception removed 2026-09-25)
+  Bottomline     = SUM("Actual Bottomline -") everywhere; Estimated Bottomline is never used
   H1 Actuals     = Q1 + Q2
   Division total = SUM(IC actuals per division)
   Category/Div   = SUMIFS(Amount, Category=cat, Division=div)
@@ -84,6 +85,12 @@ def _num(v: Any) -> float:
         return float(s)
     except ValueError:
         return 0.0
+
+
+def _actual_bottomline(row: Any) -> float:
+    # Bottomline is Actual Bottomline (cf_781) only. Estimated (cf_731) is a forecast and
+    # must never stand in for it, so deals without an Actual Bottomline count as 0.
+    return _num(row.get("Actual Bottomline -"))
 
 
 def _cr(inr: float) -> float:
@@ -178,6 +185,48 @@ def _canonical(name: str, aliases: dict[str, str]) -> str:
     return aliases.get(n, n)
 
 
+def _names_match(a: str | None, b: str | None) -> bool:
+    """Same first+last identity as scoping._names_match (Ishwari Santosh Kadam ≈ Ishwari Kadam)."""
+    na = re.sub(r"\s+", " ", (a or "").lower().replace("–", "-").replace("—", "-")).strip()
+    nb = re.sub(r"\s+", " ", (b or "").lower().replace("–", "-").replace("—", "-")).strip()
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    pa, pb = na.split(), nb.split()
+    if len(pa) >= 2 and len(pb) >= 2 and pa[0] == pb[0] and pa[-1] == pb[-1]:
+        return True
+    return False
+
+
+def _team_member_rows(leader_name: str, scope_divs: list, individuals: list[dict] | None) -> list[dict]:
+    """As-of-today ICs in rollup_divisions. Leader themselves is omitted."""
+    divs = {str(d) for d in (scope_divs or []) if d}
+    rows: list[dict] = []
+    for ic in individuals or []:
+        name = ic.get("name") or ""
+        if not name or _names_match(name, leader_name):
+            continue
+        if (ic.get("division") or "") not in divs:
+            continue
+        pipe = ic.get("pipeline") or {}
+        h1 = ic.get("h1") or {}
+        closed = pipe.get("closed_deals") or []
+        rows.append({
+            "name": name,
+            "division": ic.get("division"),
+            "persona": ic.get("persona"),
+            "h1_actuals": h1.get("actuals"),
+            "h1_quota": h1.get("quota"),
+            "h1_attainment_pct": h1.get("attainment_pct"),
+            "pipeline_topline_cr": pipe.get("total_revenue_cr") or pipe.get("topline_cr") or 0,
+            "pipeline_bottomline_cr": pipe.get("total_bottomline_cr") or pipe.get("bottomline_cr") or 0,
+            "deal_count": pipe.get("deal_count") or len(closed),
+        })
+    rows.sort(key=lambda x: float(x.get("h1_actuals") or 0), reverse=True)
+    return rows
+
+
 # ── pipeline loading ──────────────────────────────────────────────────────────
 
 def load_all_pipeline(
@@ -226,15 +275,12 @@ def load_all_pipeline(
 
 # ── IC actuals computation (DevSpec v2 formula) ───────────────────────────────
 
-GEOX_IC = "Hrushikesh Bagade"
-
-
 def compute_actuals_by_name(df: pd.DataFrame) -> dict[str, dict[str, dict]]:
     """
     Per DevSpec v2:
       IC Q1 Actuals = SUMIF(Pipeline Q1 col F, name, col O) / 1e7
       IC Q2 Actuals = SUMIF(Pipeline Q2 col F, name, col O) / 1e7
-      GeoX exception: use 'Actual Bottomline -' instead of Amount
+      Everyone (including GeoX / Hrushikesh) is measured on Amount (topline).
     Returns: {name → {q1: {amount_inr, deals}, q2: ..., q3: ..., q4: ...}}
     """
     if df.empty:
@@ -248,11 +294,7 @@ def compute_actuals_by_name(df: pd.DataFrame) -> dict[str, dict[str, dict]]:
             name = _clean(row.get("_canonical_led_by", "") or "")
             if not name:
                 continue
-            is_geox = "hrushikesh" in name.lower()
-            if is_geox:
-                amt = _num(row.get("Actual Bottomline -")) or _num(row.get("Estimated Bottomline"))
-            else:
-                amt = _num(row.get("Amount"))
+            amt = _num(row.get("Amount"))
 
             entry = result.setdefault(name, {})
             q = entry.setdefault(quarter, {"amount_inr": 0.0, "deals": 0})
@@ -278,7 +320,9 @@ def compute_actuals_by_cat_div(df: pd.DataFrame) -> dict[str, dict[str, dict]]:
         if not bu:
             continue
         div = _clean(row.get("Division", "") or "")
-        if not div:
+        # BU achievement counts RTM teams only (BU quotas are per RTM); DCG/Cloud heads and
+        # Self sellers stay out, matching header IC actuals.
+        if div not in RTM_DIVISIONS:
             continue
         quarter = row.get("_quarter", "")
         amt = _num(row.get("Amount"))
@@ -363,9 +407,6 @@ def build_individuals(
 # ── RTM division subtotals ────────────────────────────────────────────────────
 
 def _deal_ic_cr(deal: dict) -> float:
-    name = str(deal.get("employee") or "")
-    if "hrushikesh" in name.lower():
-        return float(deal.get("bottomline_cr") or 0)
     return float(deal.get("amount_cr") or deal.get("topline_cr") or 0)
 
 
@@ -460,6 +501,8 @@ def build_bu_level(cat_div_actuals: dict, deals: list[dict] | None = None) -> li
     # Count deals per BU per quarter
     bu_deals: dict[str, dict[str, int]] = {}
     for d in (deals or []):
+        if (d.get("rtm_division") or "") not in RTM_DIVISIONS:
+            continue
         bu = d.get("bu") or "Other"
         q = d.get("quarter") or "q1"
         bu_deals.setdefault(bu, {})[q] = bu_deals.get(bu, {}).get(q, 0) + 1
@@ -620,7 +663,7 @@ def build_deal_records(df: pd.DataFrame, individuals: list[dict]) -> list[dict]:
         sub_cat = _clean(row.get("Sub Category", "") or "")
         bu = CAT_TO_BU.get(cat, cat)
         amount_inr = _num(row.get("Amount"))
-        bl_inr = _num(row.get("Actual Bottomline -")) or _num(row.get("Estimated Bottomline"))
+        bl_inr = _actual_bottomline(row)
         close_raw = row.get("Expected Close Date", "")
         assigns = ic_assign_map.get(name) or []
         fallback = ic_div_map.get(name, "") or _clean(row.get("Division", "") or "")
@@ -834,7 +877,7 @@ def build_brands(deals: list[dict], ic_h1_quota_cr: float = 0, pipeline_topline_
     return sorted(result, key=lambda x: x["revenue_inr"], reverse=True)
 
 
-def build_leaders_dashboard(deals: list[dict]) -> list[dict]:
+def build_leaders_dashboard(deals: list[dict], individuals: list[dict] | None = None) -> list[dict]:
     """Build leaders_dashboard matching LeaderDashboardRecord type."""
     leader_roster = _load_json(LEADER_ROSTER_PATH)
     if not leader_roster:
@@ -868,9 +911,8 @@ def build_leaders_dashboard(deals: list[dict]) -> list[dict]:
         qc_cr = _cr(ld["quota_credit_inr"])
         gp = round(ld["bottomline_inr"] / ld["topline_inr"] * 100, 2) if ld["topline_inr"] else 0.0
         dc = ld["deal_count"]
-
-        # Build team_members from scope_depts if available
-        scope_divs = leader.get("rollup_divisions", [leader.get("division", "")])
+        scope_divs = leader.get("rollup_divisions") or leader.get("fallback_divisions") or []
+        members = _team_member_rows(name, scope_divs, individuals)
 
         # Top deals — must include all fields used by LeaderDetail (opportunity_number, employee, crm, gp_pct)
         top_deals = []
@@ -905,7 +947,7 @@ def build_leaders_dashboard(deals: list[dict]) -> list[dict]:
             "bu": leader.get("bu", ""),
             "role": "Head",
             "reports_to": "CEO",
-            "team_size": dc,
+            "team_size": len(members),
             "status": _status_flag(None),
             "q1": {"quota": 0, "actuals": tl_cr, "attainment_pct": None},
             "q2": {"quota": 0, "actuals": 0.0, "attainment_pct": None},
@@ -921,7 +963,7 @@ def build_leaders_dashboard(deals: list[dict]) -> list[dict]:
                 "total_revenue_cr": tl_cr,
                 "total_bottomline_cr": bl_cr,
             },
-            "team_members": [],
+            "team_members": members,
             "top_deals": top_deals,
         })
     return result
@@ -1112,7 +1154,7 @@ def build(output_path: Path = OUTPUT_PATH) -> dict:
     pl_bl = pipeline_summary["total_bottomline_cr"] if pipeline_summary else 0
     accounts = build_accounts(deals, ic_h1_quota_cr=h1_quota_cr, pipeline_topline_cr=pl_tl, pipeline_bottomline_cr=pl_bl)
     brands = build_brands(deals, ic_h1_quota_cr=h1_quota_cr, pipeline_topline_cr=pl_tl, pipeline_bottomline_cr=pl_bl)
-    leaders_dashboard = build_leaders_dashboard(deals)
+    leaders_dashboard = build_leaders_dashboard(deals, individuals)
     rtm_by_bu = build_rtm_by_bu(cat_div_actuals)
     top_attainers = build_top_attainers(individuals)
     at_risk_ics = build_at_risk(individuals)

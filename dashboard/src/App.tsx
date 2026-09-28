@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, lazy, Suspense } from "react";
 import { RefreshCw, Menu } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
 import { Breadcrumbs } from "./components/Breadcrumbs";
@@ -22,6 +22,8 @@ import { VIEW_META } from "./theme";
 import { formatCr, formatPctCard } from "./utils/format";
 import { defaultDateRange, type DateRangeValue } from "./utils/fiscal";
 
+const HelpView = lazy(() => import("./views/HelpView").then((m) => ({ default: m.HelpView })));
+
 const DEFAULT_DRILL: DrillState = { view: "overview" };
 const VIEW_IDS: ViewId[] = [
   "overview",
@@ -32,6 +34,7 @@ const VIEW_IDS: ViewId[] = [
   "leaders",
   "accounts",
   "brands",
+  "help",
   "admin",
 ];
 const DRILL_VIEW_KEY = "galaxy.drill.view";
@@ -229,6 +232,11 @@ function DashboardApp() {
             {drill.view === "leaders" && <LeadersView data={data} />}
             {drill.view === "employees" && <EmployeesView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "leaderboard" && <LeaderboardView data={data} onDrill={onDrill} />}
+            {drill.view === "help" && (
+              <Suspense fallback={<p className="text-sm text-galaxy-muted">Loading Help…</p>}>
+                <HelpView />
+              </Suspense>
+            )}
             {drill.view === "admin" && isAdmin && <AdminUploadsView onDataRefresh={refresh} />}
           </div>
         </main>

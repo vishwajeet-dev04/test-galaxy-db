@@ -431,6 +431,7 @@ export type ViewId =
   | "leaders"
   | "accounts"
   | "brands"
+  | "help"
   | "admin";
 
 export type PeriodKey = "q1" | "q2" | "h1" | "q3" | "q4" | "h2" | "annual";

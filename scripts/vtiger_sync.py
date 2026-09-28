@@ -28,9 +28,44 @@ import os
 import sys
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
+
+# Public hostname/IP of this CRM VM. Calling that URL from Galaxy on the same box
+# hairpins through Azure and times out. Apache on :80 is the real CRM.
+_PUBLIC_CRM_HOSTS = frozenset({
+    "20.219.14.83",
+    "crmgoaplpoc.centralindia.cloudapp.azure.com",
+})
+_ON_CRM_VM = Path("/home/crmuser/galaxy_db").is_dir()
+
+
+def resolve_vtiger_target(url: str) -> tuple[str, str | None]:
+    """Return (connect_url, Host header).
+
+    On the CRM VM, connect to Apache on loopback. The public hostname hairpins
+    through Azure. Apache is name-based, so keep the original Host header.
+    """
+    raw = (url or "").strip().rstrip("/")
+    if not raw:
+        return raw, None
+    parsed = urlparse(raw if "://" in raw else f"http://{raw}")
+    host = (parsed.hostname or "").lower()
+    if not _ON_CRM_VM:
+        return raw, None
+    if host in _PUBLIC_CRM_HOSTS or host in {"127.0.0.1", "localhost"}:
+        header = parsed.hostname or "20.219.14.83"
+        if header.lower() in {"127.0.0.1", "localhost"}:
+            header = "20.219.14.83"
+        print(f"[vtiger] Using http://127.0.0.1 Host={header}")
+        return "http://127.0.0.1", header
+    return raw, None
+
+
+def resolve_vtiger_url(url: str) -> str:
+    return resolve_vtiger_target(url)[0]
 
 
 # ----------------------------------------------------------------- FY config
@@ -101,12 +136,14 @@ def sync(
     from vtiger_client import VtigerSession  # type: ignore
     import deal_store  # type: ignore
 
+    base_url, host_header = resolve_vtiger_target(vtiger_url)
+
     if quarters is None:
         quarters = ["q1", "q2", "q3", "q4"]
 
     counts: dict[str, int] = {}
 
-    with VtigerSession(vtiger_url, username, access_key) as vtiger:
+    with VtigerSession(base_url, username, access_key, host_header=host_header) as vtiger:
         for q in quarters:
             if job_id:
                 job = deal_store.get_job(job_id)
@@ -157,7 +194,7 @@ def main() -> None:
 
     # Resolve credentials: CLI > env/file
     env = load_env_credentials()
-    url        = args.url       or env.get("VTIGER_URL")
+    url        = resolve_vtiger_url(args.url or env.get("VTIGER_URL") or "")
     username   = args.username  or env.get("VTIGER_USERNAME")
     access_key = args.accesskey or env.get("VTIGER_ACCESS_KEY")
 

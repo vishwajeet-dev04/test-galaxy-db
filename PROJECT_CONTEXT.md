@@ -1,6 +1,6 @@
 # Galaxy Performance Tracker — Project Context
 
-**Last updated:** 2026-09-10  
+**Last updated:** 2026-09-25  
 **Branch:** `feature/vtiger`  
 **Purpose:** Hand-off document. Read this first. Do not re-derive architecture from scratch.
 
@@ -30,7 +30,7 @@ The dashboard is **Galaxy Sales Intelligence — Individual Contributor's Perfor
 | CRM | Vtiger REST v1, VQL, MySQL-style `LIMIT offset, count` (100 rows/page). Do **not** switch pagination back to `OFFSET`. |
 | Auth | JWT Bearer. Default demo password `Galaxy@123!` (change in production). |
 | Local ports | Backend **8080**, frontend **5173** (Vite proxies `/api` → `127.0.0.1:8080`). If 5173 is busy, Vite may use 5174. |
-| Production | Nginx port **80** → static `dashboard/dist`; `/api/` → Gunicorn/Uvicorn **8000** on the VM. HTTP only today. |
+| Production | Nginx port **8081** → static `dashboard/dist`; `location ^~ /api/` → Gunicorn **8000** on localhost. Apache on **80** is Vtiger CRM — do not stop it or put Galaxy there. HTTP only today. |
 
 ---
 
@@ -52,7 +52,7 @@ galaxy_db/
 │   │   ├── rate_limit.py        # In-process limiter for login/token/health
 │   │   ├── scoping.py          # Role scope + date-range actuals rebuild
 │   │   ├── quota_template.py     # T1 Excel parse
-│   │   ├── services/           # Business logic (user_service, …)
+│   │   ├── services/           # Business logic (user_service, docs_service, …)
 │   │   ├── repositories/        # DB access (user_repo)
 │   │   └── routers/
 │   │       ├── admin.py         # Sync, quotas, T1 import, users
@@ -67,7 +67,8 @@ galaxy_db/
 │   ├── src/
 │   │   ├── App.tsx              # View switcher (no router)
 │   │   ├── views/              # Overview, RTMs, BU, Accounts, Brands,
-│   │   │                      # Leaders, Employees, Leaderboard, Admin, Login
+│   │   │                      # Leaders, Employees, Leaderboard, Help, Admin, Login
+│   │   ├── content/           # Static Help FAQ copy
 │   │   ├── components/        # Sidebar, DateRangeFilter, charts, …
 │   │   ├── context/            # AuthContext, DashboardContext
 │   │   ├── hooks/useQuotaData.ts
@@ -91,7 +92,7 @@ galaxy_db/
 │   ├── pipeline_aliases.json
 │   ├── leader_roster.json
 │   └── dept_to_rtm.json        # Legacy; builder uses ic_quotas division
-├── files/                      # Excel archives (not live path)
+├── files/                      # Excel archives + docs/ user manual PDF
 └── PROJECT_CONTEXT.md         # ← You are here
 ```
 
@@ -238,19 +239,20 @@ All JSON. JWT: `Authorization: Bearer <token>` except login and health.
 | GET | `/api/auth/me` | user | Current user |
 | GET | `/api/quota?from=&to=` | user | Scoped dashboard JSON. Dates recompute **actuals** only. Default UI = This Year (FY). |
 | GET | `/api/users/me/scope` | user | `{ username, role, employee_name, can_upload, sees_all }` |
-| GET | `/api/admin/status` | admin | Deal counts + quota file exists |
+| GET | `/api/help/manual` | user | Download `files/docs/Galaxy_Sales_Performance_User_Manual_v5.pdf` (any logged-in role) |
+| GET | `/api/admin/status` | admin | Deal counts + quota file exists + latest sync job. Alias kept; Chrome can 403 paths containing `status`. UI uses `GET /quotas` instead. |
 | GET | `/api/admin/uploads/status` | admin | Alias of `/status` |
-| GET | `/api/admin/quotas` | admin | Roster + synthesized `assignments` |
-| PUT | `/api/admin/quotas` | admin | Full-replace `ic_quotas.json`. RTM change requires `transfer_start`. Then rebuild + `seed_users`. **409** if a sync job is running. |
+| GET | `/api/admin/quotas` | admin | Roster + `bu_annual_quotas` + `accounts` (login list, up to 100) + `crm` (deal counts + latest sync job). Chrome is not asked for `/users`/`/logins`/`/directory`/`status`. |
+| PUT | `/api/admin/quotas` | admin | Full-replace `ic_quotas.json` when `people` is sent. `{ account: { op: create\|update\|delete } }` does login CRUD. `{ sync: true }` starts a full-FY Vtiger job (same as POST `/vtiger-sync`). RTM change requires `transfer_start`. Then rebuild + `seed_users`. **409** if a sync job is running (roster save only). |
 | GET | `/api/admin/templates/data` | admin | Download `files/Galaxy_Data_Templates.xlsx` |
 | POST | `/api/admin/quotas/import` | admin | T1 sheet → roster. Missing names are **dropped**. RTM diff → transfer dated today. |
 | POST | `/api/admin/reparse` | admin | Rebuild JSON from SQLite + config. **409** if a sync job is running. |
 | POST | `/api/admin/vtiger-sync?quarter=all` | admin | Starts a SQLite-backed job (daemon thread) then rebuild. Default `all` = Q1–Q4. Scripts may pass `q1`/`q2`/`q3`/`q4`/`h1`/`h2`. Returns `{ ok, job_id, quarters }`. 409 if already running. |
 | GET | `/api/admin/vtiger-sync/status?job_id=` | admin | `{ job_id, status, running, last_run, last_result, last_error, deals, configured }`. Omit `job_id` for latest. |
-| GET | `/api/admin/users?page=&page_size=&q=` | admin | Paginated logins `{ items, total, page, page_size }` |
-| POST | `/api/admin/users` | admin | Create login (password required, bcrypt cost 12) |
-| PATCH | `/api/admin/users/{id}` | admin | Update name/email/role/`employee_name`/`is_active`; optional password |
-| DELETE | `/api/admin/users/{id}` | admin | Hard-delete login. Cannot delete self, last active admin, or privileged seed usernames. |
+| GET | `/api/admin/directory?page=&page_size=&q=` | admin | Paginated logins `{ items, total, page, page_size }` (aliases `/logins` and `/users`) |
+| POST | `/api/admin/directory` | admin | Create login (password required, bcrypt cost 12) |
+| PATCH | `/api/admin/directory/{id}` | admin | Update name/email/role/`employee_name`/`is_active`; optional password |
+| DELETE | `/api/admin/directory/{id}` | admin | Hard-delete login. Cannot delete self, last active admin, or privileged seed usernames. |
 
 Login, token, and health are rate-limited in-process (per worker). OpenAPI `/docs` is off unless `GALAXY_DOCS=1`.
 
@@ -305,7 +307,9 @@ IC Q2 Actuals = SUMIF(Pipeline Q2, Led By = name, Amount) / 1e7
 H1 Actuals    = Q1 + Q2
 ```
 
-**GeoX exception:** **Hrushikesh Bagade** only — use `Actual Bottomline -` (fallback Estimated Bottomline), **not** Amount.
+**No GeoX exception (removed 2026-09-25, client decision):** Hrushikesh Bagade is measured on **Amount (topline)** like every other IC, in both `build_quota_data._deal_ic_cr` / `compute_actuals_by_name` and `scoping._deal_ic_cr`. His deals are still left out of the pipeline header totals (`build_pipeline_summary`, reference-only). That is a separate rule and was not changed.
+
+**Bottomline (all screens):** bottomline = SUM(`Actual Bottomline -`, Vtiger `cf_781`) only. `Estimated Bottomline` (`cf_731`) is **never** used, not even as a fallback; a deal with no Actual Bottomline counts as 0 (GP 0%). Single source: `build_quota_data._actual_bottomline`, which feeds deal `bottomline_inr`/`bottomline_cr`, Leaders Bottomline, Accounts/Brands BL, pipeline BL and GP%. Client decision 2026-09-25.
 
 Only people in `ic_quotas.json` whose **as-of-today** `division` is S1/S2/CB/GB/South/GeoX roll into RTM **quota** totals.
 
@@ -352,9 +356,9 @@ python scripts/vtiger_sync.py
 python scripts/vtiger_sync.py --quarter q1   # scripts only; Admin always uses all
 ```
 
-Admin **Sync** is one button: `POST /api/admin/vtiger-sync?quarter=all` (Q1–Q4 Closed Won). It writes a `crm_sync_jobs` row **before** returning, then runs `vtiger_sync` on a **daemon thread**. The UI polls `GET /api/admin/vtiger-sync/status?job_id=` until **that** job is `done` or `error`. Do not treat another worker’s idle memory as complete. API/CLI still accept `?quarter=` / `--quarter` for scripts.
+Admin **Sync** is one button: `PUT /api/admin/quotas` with `{ "sync": true }` (Q1–Q4 Closed Won). Alias: `POST /api/admin/vtiger-sync?quarter=all`. It writes a `crm_sync_jobs` row **before** returning, then runs `vtiger_sync` on a **daemon thread**. The UI polls `GET /api/admin/quotas` (`crm` object) until **that** job is `done` or `error` — Chrome HTML-403s any path with `status` in it. Do not treat another worker’s idle memory as complete. API/CLI still accept `?quarter=` / `--quarter` for scripts.
 
-Client: 60s timeout, 3 retries on network/timeout. Fetch Closed Won potentials first; `retrieve` **accounts only** (Accounts page needs names). Skip contacts and Assigned-To users — quota uses Organization Led By (`cf_825`) on the Potential. Unresolved accounts are counted, not printed per ID. Logout permission-denied is ignored. VQL pagination stays `LIMIT offset, count` (100/page).
+On the CRM VM (`/home/crmuser/galaxy_db`), the client connects to `http://127.0.0.1` and sends `Host` of the public CRM name so Apache’s vhost still matches. Calling the public URL from the same box hairpins through Azure. Client: 180s timeout, 5 retries on network/timeout. Fetch Closed Won potentials first; `retrieve` **accounts only** (Accounts page needs names). Skip contacts and Assigned-To users — quota uses Organization Led By (`cf_825`) on the Potential. Unresolved accounts are counted, not printed per ID. Logout permission-denied is ignored. VQL pagination stays `LIMIT offset, count` (100/page).
 
 `migrate_from_excel_if_empty` is **off** unless `GALAXY_MIGRATE_EXCEL=1`. Leftover Pipeline xlsx under `files/` is archive-only.
 
@@ -409,11 +413,12 @@ FY 26-27: Q1 2026-04-01→06-30, Q2 07-01→09-30, Q3 10-01→12-31, Q4 2027-01-
 |---|---|---|
 | Overview | `kpis`, `period_metrics`, `rtm_divisions`, `top_attainers`, `at_risk_ics`, `pipeline.summary` | |
 | RTMs | `rtm_divisions` / `division_aggregates` | S1 → S2 → CB → GB → South (GeoX extra) |
-| Business Units | `bu_level` | Annual from Admin; H1/Q1 derived from IC mix |
+| Business Units | `bu_level`, `rtm_by_bu` | Annual from Admin; H1/Q1 derived from IC mix. **Actuals = RTM-team deals only** (`rtm_division` in the six RTMs). Deals led by non-RTM people (Ajay/DCG, Jitesh/Cloud, Self) are left out, so the BU total = RTM total = header IC actuals. Filter lives in `build_quota_data.compute_actuals_by_cat_div` + `build_bu_level` and `scoping._rebuild_bu` / `_rebuild_rtm_by_bu` (`_is_rtm_deal`). |
 | Accounts / Brands | nested `deals`, `by_bu`, `gp_pct` | |
-| Leaders | `leaders_dashboard` | Personal Led-By deals; `team_members` is `[]`; **not** rebuilt on date filter |
-| Employees | `individuals` + `pipeline.closed_deals` + `assignments` | Grouped by as-of-today division |
+| Leaders | `leaders_dashboard` | Header + top deals = personal Led-By (alias match). Team Roster = as-of-today ICs in `leader_roster.json` `rollup_divisions` (Ishwari → S1, Ajay → South). `team_size` is member count. |
+| Employees | `individuals` + `pipeline.closed_deals` + `assignments` + `rtm_divisions` | Grouped by as-of-today division. ICs **and TLs** listed (TL badge); AVP / BU Head / Topline / Bottomline hidden (Leaders page). Team header totals = the RTM card for that division (not a re-sum of the list). Plus a **Self** group (`NON_RTM_GROUPS` in `EmployeesView.tsx`) shown after the RTMs with a "Not an RTM" badge. It shows everyone with `division: "Self"` whatever their persona (today Yusufali Petiwala, Topline), and its totals are the sum of its members. Self is **not** an RTM: not in `rtm_divisions`, RTM cards or header IC actuals. |
 | Leaderboard | `individuals` period attainment | |
+| Help | none (static) | Sidebar for **every** role. Download user manual via `GET /api/help/manual`. FAQ is static copy from the v5 PDF. |
 | Admin | live API | Sync + roster + T1 + **Users** (add/edit role & password) |
 
 Blank page is usually a **missing nested field**, not empty CRM data.
@@ -463,9 +468,9 @@ Update this list when you fix or add defects. Ordered by severity.
 ### Product / ops (open by design of this handover)
 
 1. **T1 import full-replaces the roster.** Names missing from the sheet (and their history) are deleted. An RTM mismatch is treated as a transfer dated **today** (cannot distinguish a data correction from a move).
-2. **After a transfer, RTM attainment mixes two clocks.** Quotas = as-of-today members; actuals = deal close-date RTM. A Sep S1→GB move leaves Q1 deals on S1 but removes that IC’s quota from S1. Employees groups by today and still sums the person’s **full** IC actuals — Employees GB ≠ RTM GB cards.
-3. **Production is HTTP-only** (Nginx 80). Login and JWT in cleartext. TLS is an ops change, not in this code drop.
-4. **Leaders page is personal deals, not a team rollup.** `team_members` is always `[]`. Date filter now rebuilds that person’s Led-By actuals; it still does not invent a team.
+2. **After a transfer, RTM attainment mixes two clocks.** Quotas = as-of-today members; actuals = deal close-date RTM. A Sep S1→GB move leaves Q1 deals on S1 but removes that IC’s quota from S1. Employees groups people by today; each person row shows their **full** IC actuals, while the team header uses the RTM card (close-date RTM), so after a transfer the rows under a team need not add up to its header.
+3. **Production is HTTP-only** (Galaxy Nginx **8081**; Apache **80** is Vtiger). Login and JWT in cleartext. TLS is an ops change, not in this code drop. Open Galaxy at `:8081` only — HTML 403s are Apache, not FastAPI.
+4. **Leaders header is personal Led-By, not a team rollup of actuals.** Top deals stay that person’s Closed Won. **Team Roster** is as-of-today ICs in `rollup_divisions` (not `division` when that is a BU, e.g. Ajay/DCG). Cloud/CSN heads may have an empty roster because those codes are not RTM divisions. Date-filter `_rebuild_leaders` alias-matches Led By (Ishwari Santosh Kadam → Ishwari Kadam).
 
 ### P1
 
@@ -485,6 +490,8 @@ Update this list when you fix or add defects. Ordered by severity.
 15. STLY / SAM / TAM still have no source data.
 
 **Fixed in code (2026-09-10 handover):** public `quota_data.json` moved to `backend/data/` (API-only); JWT requires `SECRET_KEY` and expires in 30 minutes; login rate-limited; at-risk list uses `quota_rules.json` 30%; date filter rebuilds Accounts/Brands `by_bu`/`gp`/`rtm_by_bu` and Leaders personal actuals; seed no longer reactivates deactivated privileged users; deleted roster logins stay gone via `seed_exclusions`; empty CRM fetch cannot wipe a non-empty quarter; stale sync jobs reclaim on GET status.
+
+**Fixed in code (2026-09-10 403 logout):** dashboard signs out only on JSON **401**. HTML block pages keep the session. Admin Users list/create/update/delete use `GET`/`PUT /api/admin/quotas` (same URL Chrome already allows). `/directory`, `/logins`, and `/users` remain as aliases for API clients. API fetches retry once on HTML.
 
 If an **old** `dashboard/dist` is still on the server, Nginx may still serve leftover `dist/data/quota_data.json` until the next frontend deploy. Deny `/data/` in Nginx until then.
 
@@ -541,6 +548,8 @@ Independent recompute from SQLite + `ic_quotas.json`. **0 IC mismatches, 0 RTM m
 
 Server env file: `/home/crmuser/galaxy_db/backend/.env`  
 Nginx: `/etc/nginx/sites-available/galaxy` — static dist, `/api/` → `127.0.0.1:8000`. Until the next frontend deploy, add `location /data/ { deny all; }` so an old `dist/data/quota_data.json` is not world-readable.
+
+**Chrome device mode:** emulating a phone (Pixel / Android User-Agent) against `:8081` can return a ~35 KB HTML **403**, even in Incognito. Test as desktop (turn off the device toolbar, Ctrl+Shift+M). That is not Apache port 80 and not a missing `/logins` route.
 
 Required env (values **only** on the server, never in git):
 
@@ -606,10 +615,100 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 
 ## 20. Session log
 
+### 2026-09-25 — BU page counts RTM teams only
+
+- The BU cards, the "RTM by Division" tables and the Overview BU donut used to sum every Closed Won deal in the category, which brought in DCG (Ajay 9.69 + 0.50), Cloud (Jitesh 0.0015) and Self (Yusufali 0.50 CSN + 0.58 CSG) rows, 11.27 Cr in total. They now count only deals whose close-date RTM is S1/S2/CB/GB/South/GeoX.
+- "This Year" annual BU actuals: DCG 103.51 → **93.82**, CSN 33.20 → **32.70**, PS 10.68 → **10.18**, CSG 28.31 → **27.74**, Cloud 2.89 (unchanged). BU sum 178.60 → **167.33**, which equals the RTM sum and header IC actuals. The pipeline header "IC actuals including others" (174.73) is unchanged.
+- Production: copy `scripts/build_quota_data.py` + `backend/app/scoping.py`, rebuild, then restart Gunicorn.
+
+### 2026-09-25 — Employees page: Self section (not an RTM)
+
+- Added a "Self" group to Employees for roster `division: "Self"` (only Yusufali Petiwala: Topline, 13 deals / 9 accounts, H1 1.08 Cr, quota n/a). The Topline persona hide is bypassed for Self only. The group has a "Not an RTM" badge, member-sum totals, and a Division filter option. Frontend only; `rtm_divisions` is still the six RTMs and the RTM group totals are unchanged (checked in the browser). Production: copy the new `dashboard/dist`.
+
+### 2026-09-25 — Hrushikesh measured on topline (GeoX bottomline exception removed)
+
+- Client: Hrushikesh's Q/H1/Annual cards must show **topline**, not bottomline. Removed the hardcoded `"hrushikesh"` branch from `build_quota_data.compute_actuals_by_name`, `build_quota_data._deal_ic_cr` (GeoX team sum) and `scoping._deal_ic_cr` (date-filter path; the `employee_name` arg was dropped). Removed the unused `GEOX_IC` constant.
+- API "This Year": Hrushikesh Q1 0.29 → **3.81** (152.5%), Q2 0.02 → **0.06** (1.1%), H1 0.31 → **3.87** (51.6% of 7.5). GeoX team H1 2.56 → **6.11**. Header IC actuals 163.78 → **167.33**. Pipeline header unchanged (174.73 / BL 5.73) because his deals stay reference-only there.
+- Production: copy `scripts/build_quota_data.py` and `backend/app/scoping.py`, rebuild, then restart Gunicorn.
+
+### 2026-09-25 — Bottomline = Actual Bottomline only
+
+- Client: bottomline must be the **total of Actual Bottomline** for the person. Removed the `or Estimated Bottomline` fallback from `build_quota_data.py`. Both the Hrushikesh IC actual and the deal `bottomline_inr` now go through `_actual_bottomline(row)`. Scoping needed no change because it only re-sums deal `bottomline_inr`/`bottomline_cr`.
+- Rebuild (474 deals): Hrushikesh Q1 0.4935 → **0.2938**, Q2 0.0231 → **0.0207**, H1 0.5166 → **0.3145** (matches the Excel Actual Bottomline sum). GeoX RTM H1 2.7594 → 2.5573. Header IC actuals 163.98 → 163.78. Pipeline bottomline 14.17 → **5.73 Cr**; 111 of 474 deals now show BL 0 (no Actual Bottomline in Vtiger yet). Leaders BL: Ishwari 0.44 → 0.0207, Ajay 0.6549 → 0.5509, Sanjeev 0.022 → 0.002, Yogesh Bhatia 0.0025 → 0.
+- The date-filtered API shows Hrushikesh 0.3143 because it re-sums per-deal `bottomline_cr` (rounded to 4 dp). That rounding already applied to all date-filtered actuals.
+- `scripts/parse_excel.py` (legacy, not on the live path) still has the old fallback.
+- Production: copy `scripts/build_quota_data.py`, then rebuild (Admin → Reparse or `python scripts/build_quota_data.py`).
+
+### 2026-09-25 — Client: Sales Team rows 48-56 under GB
+
+- Client (Mitashree) confirmed: row 48 **Jitesh Rajput** heads PS + Cloud, no RTM (stays `division: Cloud`, Leaders card only). Rows 49-52 (Ashish Singh, Pushkaraj Sohoni, Ayushman Singh, Shubhangi Srinivasan) report directly to Sanjay Patodia and **count under GB**. ISR rows 53-56 (Sana Bhatkar TL + Bhumi, Rizwana, Suvesh) already GB.
+- Only gap was **Pushkaraj Sohoni** → added to `ic_quotas.json` as GB, `IC, Cyber security`, quota 0, `reporting_manager: Sanjay Patodia`. 0 Closed Won in CRM today. Seed login `pushkarajs` (role `user`, own-only scope).
+- Rebuild: 49 individuals; GB = 13 people, GB annual quota unchanged at 86.4 Cr. Jitesh Leaders card unchanged (3 deals).
+- Not changed: `leader_roster.json` still lists Rocky Braganza (CSN) and Yogesh Bhatia (GB head); neither is on the new Sales Team sheet. Client portal closes 30 Sep — deploy roster to `:8081` before then.
+- Admin later saved Pushkaraj with `annual_quota: 2.0` (H1/H2 still 0) → GB annual quota 88.4 Cr.
+- Tally (all 60 active logins via `/api/quota`, This Year dates): every IC/TL/leader row matches Admin exactly (quota, actuals, deal count); RTM quota = sum of members; RTM H1 actuals sum = header 163.98 Cr.
+- Login `ishitag` (Ishita Gutt) had no `employee_name` → empty view. Client confirmed it is **Dipti Karpe's** login: set `employee_name: Dipti Karpe`, role `leader` (same scope as `diptik`, 7 S2 people). Local users DB only — repeat in Admin → Users on `:8081`.
+- Full-name logins `ayushmans`, `shubhangis`, `sankeerthb` saw an empty view: login scoping (`_allowed_names_for_user` / `_names_match`) does **not** use `pipeline_aliases.json`, and roster keys were the old tracker names `Ayushaman` / `Shubhangi` / `Sankeerth`. Fixed by **renaming those 3 roster keys to the Vtiger Led-By names** (`Ayushman Singh`, `Shubhangi Srinivasan`, `Sankeerth Bhargav`) — quotas, type and `assignments` kept — and removing their 3 aliases. This overrides the 09-21 "canonical keys not renamed" choice for these three only (user decision). Duplicate short logins `ayushaman`, `shubhangi`, `sankeerth` **deactivated** (not deleted). Re-tally: 4 / 16 / 6 deals visible on the full-name logins; RTM and header totals unchanged; only `rockyb` empty (CSN is not an RTM — known).
+- Added the last 2 Sales Team rows missing from the roster: **Yogesh Awate** (AI BU Head, `IC, AI`) and **Akshat Jhariya** (GCC, `IC, GCC`), both **GB**, quota 0, `reporting_manager: Anoop Paidunghat` (same GB rule the client gave for CSN/Cloud). No CRM deals yet. Seed logins `yogesha`, `akshatj` (role `user`, own-only). Rebuild: 51 individuals, GB = 15 people; GB quota/actuals and header 163.98 unchanged. Every Sales Team row is now on the roster except Anoop/Sanjay (admin/CEO logins) and Dipti/Vineet (Leaders page + logins, no IC row).
+- **Employees page:** team header totals disagreed with RTM cards for S1/CB/GB/GeoX (re-summed only `persona === "IC"`, so `IC, Cloud` etc. were listed but not added; TLs/Topline hidden; GeoX Hrushikesh special-case was dead code because Topline is hidden). `EmployeesView.tsx` now takes each team header from `rtm_divisions[division][period]` and lists TLs with a TL badge (`ui.pill`). Verified in browser (admin, H1): S1 62.44/307.35, S2 51.26/141.25, CB 17.74/33.00, GB 16.46/28.90, South 13.32/22.00, GeoX 2.76/15.00 — identical to RTMs page; Prashant, Jimesh, Sana, Ramakrishna shown as TL. Needs a new `dashboard/dist` on deploy.
+- Production `:8081` needs the same `ic_quotas.json` + `pipeline_aliases.json` edits and the same Admin → Users changes (ishitag mapping, 3 deactivations) on next deploy.
+
+### 2026-09-21 — Sales Team FY 26-27 roster update
+
+- Client `Sales Team - FY 26-27.xlsx` + `Closed Potentials- sales tracker 21sep.csv` (474 Closed Won) archived under `files/`.
+- **Kept** all existing `ic_quotas.json` people (GB / TBH / Yusufali / Darshana, etc.). **Added** at quota 0: Ramakrishna Koparapu (South TL), Ketan Dalmia (S2), Asmit Joshi / Ajay Jajodia / Meeta Sharma / Anupam Deshmukh (CB), Ipshita Banerjee / Samarth Kakade (GeoX).
+- Aliases: Shaikh Khader→Shaik Khadhar, Sagar T R→Sagar TR, Sana Bhatkar→Sana Rashid Bhatkar, Rima Ingle→Rima Kamalakar Ingle, plus spacing variants. Canonical roster keys **not** renamed.
+- `dept_to_rtm.json` labels for Strategic 1/2, DCG - South Sale, GEO Expansion, Commmercial Business. Ajay `scope_depts` includes `DCG - South Sale`.
+- Rebuild: 48 individuals; Closed Potentials Led By → roster coverage 100%; Ajay H1 ~₹10.19 Cr / 31 deals + South roster includes Ramakrishna; Ishwari ~₹6.27 Cr / 4 deals. Live actuals still Vtiger→SQLite (CSV not imported).
+
+### 2026-09-16 — Leaders Team Roster
+
+- `team_members` was hardcoded `[]` in `build_quota_data.py` and `_rebuild_leaders`, so Admin and leader logins both showed an empty Team Roster. The “N cumulative team members” badge was deal count.
+- Roster now = as-of-today ICs whose division is in `leader_roster.json` `rollup_divisions` (Ishwari → S1, Ajay → South). Leader themselves omitted. `team_size` is that count. Header actuals / top deals stay personal Led-By.
+- Empty RTM (Cloud/CSN heads) shows “No team members in this leader’s RTM”.
+
+### 2026-09-16 — Leaders alias match (Ishwari)
+
+- UI always sends This Year dates, so `apply_date_filter` always runs `_rebuild_leaders`. Exact-key lookup on `leaders_dashboard.name` dropped Ishwari’s deals (roster **Ishwari Santosh Kadam**, CRM **Ishwari Kadam**).
+- Rebuild now loads `config/pipeline_aliases.json` and collects deals by roster name, canonical alias, or `_names_match`. Deduped by opportunity number.
+- Verified vs Employees: H1 ~₹6.27 Cr, 4 deals (Godrej nutanix / rental / Lenovo AMC / Hyper-V AMC). Ajay Patodia still 31 deals. Quota math / RTM / Overview unchanged.
+
+### 2026-09-15 — Help: user manual + FAQ
+
+- Sidebar **Help** (all roles, before Admin). Download `GET /api/help/manual` → `files/docs/Galaxy_Sales_Performance_User_Manual_v5.pdf`. FAQ accordion is static from manual §6.
+- PDF is JWT-only (not in `dashboard/public/`). Existing views and Admin APIs unchanged.
+
+### 2026-09-10 — Chrome device mode HTML 403
+
+- DevTools device toolbar (Pixel 9 UA) against `:8081` returns ~35 KB `text/html` 403 (`Connection: Close`). Desktop UA gets nginx JSON. Incognito does not help while the toolbar is on. Turn it off with Ctrl+Shift+M.
+
+### 2026-09-10 — HTML block pages on :8081
+
+- Curl and a clean browser to `:8081` get nginx JSON. Chrome can still get ~25 KB HTML on `/api/admin/users` while `/api/admin/quotas` and `/status` succeed.
+- HTML 401 on `/api/auth/me` was signing people out on first load. Logout now requires JSON 401.
+- UI lists and mutates logins via `GET`/`PUT /api/admin/quotas` (`accounts` / `account`). `/directory`, `/logins`, and `/users` stay as aliases for API clients; Chrome can intercept those paths with HTML 403 even in Guest.
+
+### 2026-09-10 — Logout only on JWT 401
+
+- Apache on port 80 can answer `/api/*` with HTML 403. That is not a Galaxy JWT failure.
+- `useQuotaData` and boot `GET /api/auth/me` clear the session **only** on 401. HTML 403 stays signed in and shows a stay-on-8081 message.
+- Login 429 shows “too many requests”. Admin Users/Uploads parse JSON safely and never dump HTML into banners.
+
+### 2026-09-10 — Users list on GET /quotas
+
+- Chrome (including Guest / a new browser) still returned HTML 403 on `/api/admin/users`, `/logins`, and `/directory` while `GET /api/admin/quotas` was 200 JSON.
+- Admin Users no longer fires a second URL. The Users table is `accounts` on the quotas GET. Create / edit / delete send `{ account: { op } }` on `PUT /api/admin/quotas`.
+- After deploy: `sudo systemctl restart galaxy-backend`, then hard-refresh `:8081`. Network tab should show `quotas` only — no `users` / `logins` / `directory`.
+
+### 2026-09-10 — Vtiger sync timeout + status 403
+
+- Admin showed “Vtiger CRM timed out” then “Could not reach Vtiger CRM”. Galaxy on the VM must use `http://127.0.0.1` **with** `Host` of the public CRM name (Apache vhost). Public hostname hairpins; loopback without Host gets Apache 403.
+- Chrome HTML-403s any path containing `status` (`/vtiger-sync/status` and `/api/admin/status`, 35 KB). UI starts sync with `PUT /api/admin/quotas` `{ sync: true }` and polls `GET /api/admin/quotas` (`crm` job payload). Timeout 180s, 5 retries.
+
 ### 2026-09-10 — Handover bugfix + security
 
 - Status chips map `on_track` / `at_risk` / `critical` / `unknown`. Leaderboard and Employees Q3/Q4 use real period objects. Overview donuts use `q3`/`q4` on RTM and BU payloads. At-risk list uses `quota_rules.json` 30%.
-- Date filter rebuilds Accounts/Brands (`gp_pct`, `by_bu`, quota credit) and `rtm_by_bu`. Leaders actuals rebuild from the filtered deal list (still personal Led-By; `team_members` stays `[]`).
+- Date filter rebuilds Accounts/Brands (`gp_pct`, `by_bu`, quota credit) and `rtm_by_bu`. Leaders actuals rebuild from the filtered deal list (personal Led-By). Team Roster rebuilds from as-of-today ICs in `rollup_divisions`.
 - `quota_data.json` lives at `backend/data/quota_data.json`. Startup copies then deletes any leftover `dashboard/public/data/` copy. Frontend stays on `GET /api/quota` only.
 - Auth: `SECRET_KEY` required (no placeholder). Access JWT 30 minutes. Rate-limit login/token/health. CORS includes 5174. `/docs` off unless `GALAXY_DOCS=1`. Boot calls `GET /api/auth/me`.
 - Seed no longer forces privileged `is_active`. Deleted usernames go to `seed_exclusions`.
@@ -636,13 +735,13 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 
 - Shared `crm_sync_jobs` in SQLite (WAL, 30s busy timeout) so Gunicorn workers share status; POST returns `job_id` before the work starts.
 - Daemon thread instead of FastAPI `BackgroundTasks`; errors stored as safe UI strings; no re-raise.
-- CRM client: 60s timeout, 3 retries; fetch deals first and retrieve only referenced IDs.
+- CRM client: 180s timeout, 5 retries; on the CRM VM uses `http://127.0.0.1`; fetch deals first and retrieve only referenced IDs.
 - Admin UI polls that `job_id` until `done`/`error` (no false complete from another worker).
 - Excel auto-migrate disabled unless `GALAXY_MIGRATE_EXCEL=1`.
 
 ### 2026-09-08 — Admin user management
 
-- Admin → Users: list/create/update logins, role, employee name, password (`GET/POST/PATCH /api/admin/users`).
+- Admin → Users: list/create/update logins, role, employee name, password (`GET`/`PUT /api/admin/quotas`; `/directory` aliases remain).
 - Layers: `user_service` + `user_repo`. Last-admin and self-lockout guards. bcrypt cost 12.
 - `seed.py` never overwrites password hashes; roster is insert-only so Admin role edits survive quota save.
 

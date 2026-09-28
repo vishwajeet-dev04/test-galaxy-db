@@ -81,9 +81,24 @@ class IcQuotaPerson(BaseModel):
     transfer_start: Optional[str] = None
 
 
+class QuotaAccountOp(BaseModel):
+    # Piggyback login CRUD on PUT /quotas — Chrome blocks /directory, /logins, /users.
+    op: str
+    id: Optional[int] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+    employee_name: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class QuotaSaveRequest(BaseModel):
-    people: list[IcQuotaPerson]
+    people: Optional[list[IcQuotaPerson]] = None
     bu_annual_quotas: Optional[dict[str, dict[str, float]]] = None
+    account: Optional[QuotaAccountOp] = None
+    sync: Optional[bool] = None
 
 
 def _atomic_write_json(path: Path, data: Any) -> None:
@@ -128,6 +143,77 @@ def _deal_counts() -> dict[str, int]:
     return deal_store.counts_by_quarter()
 
 
+def _sync_status_payload(job_id: Optional[str] = None) -> dict[str, Any]:
+    _scripts_path()
+    import deal_store  # type: ignore
+
+    try:
+        deals = _deal_counts()
+    except Exception:
+        _log.exception("vtiger_sync_deal_counts_failed")
+        deals = None
+
+    job = deal_store.get_job(job_id) if job_id else deal_store.get_latest_job()
+    payload: dict[str, Any] = {
+        "configured": bool(settings.vtiger_url and settings.vtiger_access_key),
+        "deals": deals,
+        "job_id": None,
+        "status": None,
+        "running": False,
+        "last_run": None,
+        "last_result": None,
+        "last_error": None,
+        "quarters": [],
+    }
+    if job:
+        payload.update(job)
+    return payload
+
+
+def _start_vtiger_sync(quarter: str = "all") -> dict[str, Any]:
+    if not settings.vtiger_url or not settings.vtiger_access_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Vtiger credentials not configured. Set VTIGER_URL, VTIGER_USERNAME, VTIGER_ACCESS_KEY in backend/.env",
+        )
+
+    quarter_map = {
+        "q1": ["q1"], "q2": ["q2"], "q3": ["q3"], "q4": ["q4"],
+        "h1": ["q1", "q2"], "h2": ["q3", "q4"],
+        "all": ["q1", "q2", "q3", "q4"],
+    }
+    quarters = quarter_map.get(quarter)
+    if not quarters:
+        raise HTTPException(status_code=400, detail=f"Invalid quarter '{quarter}'")
+
+    _scripts_path()
+    import deal_store  # type: ignore
+
+    job_id = deal_store.try_start_job(quarters)
+    if not job_id:
+        raise HTTPException(status_code=409, detail="A sync is already in progress")
+
+    thread = threading.Thread(
+        target=_run_vtiger_sync,
+        args=(job_id, quarters),
+        daemon=True,
+        name=f"vtiger-sync-{job_id[:8]}",
+    )
+    try:
+        thread.start()
+    except Exception:
+        _log.exception("vtiger_sync_thread_start_failed job_id=%s", job_id)
+        deal_store.finish_job(job_id, error="Sync failed")
+        raise HTTPException(status_code=500, detail="Could not start sync") from None
+
+    return {
+        "ok": True,
+        "job_id": job_id,
+        "quarters": quarters,
+        "message": f"Vtiger sync started for {quarter.upper()}",
+    }
+
+
 @router.get("/status")
 @router.get("/uploads/status")
 def admin_status(user: Annotated[User, Depends(require_admin)]):
@@ -138,7 +224,8 @@ def admin_status(user: Annotated[User, Depends(require_admin)]):
     except Exception:
         _log.exception("admin_status_deal_counts_failed")
         deals = {"q1": 0, "q2": 0, "q3": 0, "q4": 0, "total": 0}
-    return {
+    payload = _sync_status_payload()
+    payload.update({
         "deals": deals,
         "quota_count": len(ic),
         "rtm_count": rtm,
@@ -146,11 +233,18 @@ def admin_status(user: Annotated[User, Depends(require_admin)]):
             "exists": settings.quota_json.exists(),
         },
         "source": "sqlite+config",
-    }
+    })
+    return payload
 
 
 @router.get("/quotas")
-def get_quotas(user: Annotated[User, Depends(require_admin)]):
+def get_quotas(
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    ap: Optional[int] = Query(None, ge=1),
+    aps: int = Query(100, ge=1, le=100),
+    aq: Optional[str] = Query(None),
+):
     ah = _assignment_history()
     raw = _load_json(IC_QUOTAS_PATH)
     people = []
@@ -176,15 +270,69 @@ def get_quotas(user: Annotated[User, Depends(require_admin)]):
     people.sort(key=lambda p: (p["division"] or "zzz", p["name"]))
     rules = _load_json(QUOTA_RULES_PATH)
     bu = {k: v for k, v in (rules.get("bu_annual_quotas") or {}).items() if not str(k).startswith("_")}
-    return {"people": people, "bu_annual_quotas": bu}
+    out: dict[str, Any] = {"people": people, "bu_annual_quotas": bu}
+    # Always attach logins on this GET — Chrome already allows /api/admin/quotas.
+    # A second URL (/users, /logins, /directory) returns HTML 403 in their browser.
+    page = ap or 1
+    try:
+        items, total = user_service.list_users(db, page=page, page_size=aps, q=aq)
+        out["accounts"] = {
+            "items": [user_out(u) for u in items],
+            "total": total,
+            "page": page,
+            "page_size": aps,
+        }
+    except UserServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from None
+    out["crm"] = _sync_status_payload()
+    return out
+
+
+def _apply_quota_account(request: Request, op: QuotaAccountOp, user: User, db: Session) -> dict[str, Any]:
+    kind = (op.op or "").strip().lower()
+    if kind == "create":
+        body = AdminUserCreate(
+            username=op.username or "",
+            email=op.email or "",
+            full_name=op.full_name or "",
+            role=op.role or "user",
+            password=op.password or "",
+            employee_name=op.employee_name,
+        )
+        created = _create_user_impl(request, body, user, db)
+        return {"ok": True, "account": created}
+    if kind == "update":
+        if op.id is None:
+            raise HTTPException(status_code=400, detail="User id is required")
+        body = AdminUserUpdate(
+            email=op.email,
+            full_name=op.full_name,
+            role=op.role,
+            employee_name=op.employee_name,
+            is_active=op.is_active,
+            password=op.password,
+        )
+        updated = _update_user_impl(request, op.id, body, user, db)
+        return {"ok": True, "account": updated}
+    if kind == "delete":
+        if op.id is None:
+            raise HTTPException(status_code=400, detail="User id is required")
+        _delete_user_impl(request, op.id, user, db)
+        return {"ok": True, "deleted_id": op.id}
+    raise HTTPException(status_code=400, detail="Unknown account operation")
 
 
 @router.put("/quotas")
 def save_quotas(
+    request: Request,
     body: QuotaSaveRequest,
     user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    if body.sync and not body.people and body.account is None:
+        return _start_vtiger_sync("all")
+    if body.account is not None and not body.people:
+        return _apply_quota_account(request, body.account, user, db)
     if not body.people:
         raise HTTPException(status_code=400, detail="At least one IC quota row is required")
     _reject_if_syncing()
@@ -407,30 +555,7 @@ def vtiger_sync_status(
     user: Annotated[User, Depends(require_admin)],
     job_id: Optional[str] = Query(None),
 ):
-    _scripts_path()
-    import deal_store  # type: ignore
-
-    try:
-        deals = _deal_counts()
-    except Exception:
-        _log.exception("vtiger_sync_deal_counts_failed")
-        deals = None
-
-    job = deal_store.get_job(job_id) if job_id else deal_store.get_latest_job()
-    payload: dict[str, Any] = {
-        "configured": bool(settings.vtiger_url and settings.vtiger_access_key),
-        "deals": deals,
-        "job_id": None,
-        "status": None,
-        "running": False,
-        "last_run": None,
-        "last_result": None,
-        "last_error": None,
-        "quarters": [],
-    }
-    if job:
-        payload.update(job)
-    return payload
+    return _sync_status_payload(job_id)
 
 
 @router.post("/vtiger-sync")
@@ -438,57 +563,16 @@ def vtiger_sync_trigger(
     user: Annotated[User, Depends(require_admin)],
     quarter: str = "all",
 ):
-    if not settings.vtiger_url or not settings.vtiger_access_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Vtiger credentials not configured. Set VTIGER_URL, VTIGER_USERNAME, VTIGER_ACCESS_KEY in backend/.env",
-        )
-
-    quarter_map = {
-        "q1": ["q1"], "q2": ["q2"], "q3": ["q3"], "q4": ["q4"],
-        "h1": ["q1", "q2"], "h2": ["q3", "q4"],
-        "all": ["q1", "q2", "q3", "q4"],
-    }
-    quarters = quarter_map.get(quarter)
-    if not quarters:
-        raise HTTPException(status_code=400, detail=f"Invalid quarter '{quarter}'")
-
-    _scripts_path()
-    import deal_store  # type: ignore
-
-    job_id = deal_store.try_start_job(quarters)
-    if not job_id:
-        raise HTTPException(status_code=409, detail="A sync is already in progress")
-
-    thread = threading.Thread(
-        target=_run_vtiger_sync,
-        args=(job_id, quarters),
-        daemon=True,
-        name=f"vtiger-sync-{job_id[:8]}",
-    )
-    try:
-        thread.start()
-    except Exception:
-        _log.exception("vtiger_sync_thread_start_failed job_id=%s", job_id)
-        deal_store.finish_job(job_id, error="Sync failed")
-        raise HTTPException(status_code=500, detail="Could not start sync") from None
-
-    return {
-        "ok": True,
-        "job_id": job_id,
-        "message": f"Vtiger sync started for {quarter.upper()}",
-        "quarters": quarters,
-    }
+    return _start_vtiger_sync(quarter)
 
 
-@router.get("/users", response_model=AdminUserList)
-def list_users(
+def _list_users_impl(
     request: Request,
-    user: Annotated[User, Depends(require_admin)],
-    db: Annotated[Session, Depends(get_db)],
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    q: Optional[str] = Query(None),
+    user: User,
+    db: Session,
+    page: int,
+    page_size: int,
+    q: Optional[str],
 ):
     try:
         items, total = user_service.list_users(db, page=page, page_size=page_size, q=q)
@@ -510,13 +594,43 @@ def list_users(
         raise HTTPException(status_code=500, detail="Could not load users") from None
 
 
-@router.post("/users", response_model=UserOut)
-def create_user(
+@router.get("/directory", response_model=AdminUserList)
+def list_directory(
     request: Request,
-    body: AdminUserCreate,
     user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    q: Optional[str] = Query(None),
 ):
+    return _list_users_impl(request, user, db, page, page_size, q)
+
+
+@router.get("/logins", response_model=AdminUserList, include_in_schema=False)
+def list_logins(
+    request: Request,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    q: Optional[str] = Query(None),
+):
+    return _list_users_impl(request, user, db, page, page_size, q)
+
+
+@router.get("/users", response_model=AdminUserList, include_in_schema=False)
+def list_users(
+    request: Request,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    q: Optional[str] = Query(None),
+):
+    return _list_users_impl(request, user, db, page, page_size, q)
+
+
+def _create_user_impl(request: Request, body: AdminUserCreate, user: User, db: Session):
     try:
         created = user_service.create_user(
             db,
@@ -533,14 +647,37 @@ def create_user(
     return user_out(created)
 
 
-@router.patch("/users/{user_id}", response_model=UserOut)
-def update_user(
+@router.post("/directory", response_model=UserOut)
+def create_directory_login(
     request: Request,
-    user_id: int,
-    body: AdminUserUpdate,
+    body: AdminUserCreate,
     user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    return _create_user_impl(request, body, user, db)
+
+
+@router.post("/logins", response_model=UserOut, include_in_schema=False)
+def create_login(
+    request: Request,
+    body: AdminUserCreate,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return _create_user_impl(request, body, user, db)
+
+
+@router.post("/users", response_model=UserOut, include_in_schema=False)
+def create_user(
+    request: Request,
+    body: AdminUserCreate,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return _create_user_impl(request, body, user, db)
+
+
+def _update_user_impl(request: Request, user_id: int, body: AdminUserUpdate, user: User, db: Session):
     try:
         updated = user_service.update_user(
             db,
@@ -558,15 +695,72 @@ def update_user(
     return user_out(updated)
 
 
-@router.delete("/users/{user_id}")
+@router.patch("/directory/{user_id}", response_model=UserOut)
+def update_directory_login(
+    request: Request,
+    user_id: int,
+    body: AdminUserUpdate,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return _update_user_impl(request, user_id, body, user, db)
+
+
+@router.patch("/logins/{user_id}", response_model=UserOut, include_in_schema=False)
+def update_login(
+    request: Request,
+    user_id: int,
+    body: AdminUserUpdate,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return _update_user_impl(request, user_id, body, user, db)
+
+
+@router.patch("/users/{user_id}", response_model=UserOut, include_in_schema=False)
+def update_user(
+    request: Request,
+    user_id: int,
+    body: AdminUserUpdate,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return _update_user_impl(request, user_id, body, user, db)
+
+
+def _delete_user_impl(request: Request, user_id: int, user: User, db: Session):
+    try:
+        user_service.delete_user(db, actor=user, user_id=user_id)
+    except UserServiceError as exc:
+        raise _user_error(request, user, exc) from None
+    return {"ok": True}
+
+
+@router.delete("/directory/{user_id}")
+def delete_directory_login(
+    request: Request,
+    user_id: int,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return _delete_user_impl(request, user_id, user, db)
+
+
+@router.delete("/logins/{user_id}", include_in_schema=False)
+def delete_login(
+    request: Request,
+    user_id: int,
+    user: Annotated[User, Depends(require_admin)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    return _delete_user_impl(request, user_id, user, db)
+
+
+@router.delete("/users/{user_id}", include_in_schema=False)
 def delete_user(
     request: Request,
     user_id: int,
     user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    try:
-        user_service.delete_user(db, actor=user, user_id=user_id)
-    except UserServiceError as exc:
-        raise _user_error(request, user, exc) from None
-    return {"ok": True}
+    return _delete_user_impl(request, user_id, user, db)

@@ -6,7 +6,7 @@
     "dept": "DCG BU HEAD",
     "division": "DCG",
     "bu": "DCG",
-    "scope_depts": ["DCG BU HEAD", "South sales", "South sales- Team Lead"],
+    "scope_depts": ["DCG BU HEAD", "South sales", "South sales- Team Lead", "DCG - South Sale"],
     "fallback_divisions": ["South"],
     "rollup_divisions": ["South"]
   },
