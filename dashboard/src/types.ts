@@ -262,6 +262,8 @@ export interface Individual {
   reference_only?: boolean;
   exclude_from_pipeline_totals?: boolean;
   assignments?: AssignmentHistoryRow[];
+  /** False for BU Heads/AVPs: their own deals and quota are left out of RTM, BU and header IC totals. */
+  counts_for_rtm?: boolean;
 }
 
 export interface AssignmentHistoryRow {

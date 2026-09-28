@@ -15,9 +15,12 @@ DevSpec v2 formula implementations:
   IC Q2 Actuals  = SUMIF(Pipeline Q2, "Led By" = name, Amount col O) / 1e7
   GeoX / Hrushikesh = Amount like everyone else (bottomline exception removed 2026-09-25)
   Bottomline     = SUM("Actual Bottomline -") everywhere; Estimated Bottomline is never used
+  Including Others = SUM(Amount) of every Closed Won deal with a Led By (RTM + DCG/Cloud + Self;
+                     Hrushikesh no longer excluded since 2026-09-28)
   H1 Actuals     = Q1 + Q2
-  Division total = SUM(IC actuals per division)
-  Category/Div   = SUMIFS(Amount, Category=cat, Division=div)
+  Division total = SUM(IC/TL actuals per division); BU Heads/AVPs (RTM_HEAD_TYPES) excluded,
+                   deals and quota alike (2026-09-28)
+  Category/Div   = SUMIFS(Amount, Category=cat, Division=div), same head exclusion
 """
 from __future__ import annotations
 
@@ -48,6 +51,12 @@ LEADER_ROSTER_PATH = ROOT / "config" / "leader_roster.json"
 
 RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"]
 BU_CARD_ORDER = ["DCG", "CSN", "PS", "CSG", "Cloud"]
+
+# Roster types that head a team rather than sell in it. Their own Closed Won deals and quota
+# stay on their personal record (Leaders page, own drill-down) but never count toward RTM,
+# BU or header IC actuals, so an RTM total equals the sum of its ICs and TLs.
+# Topline/Bottomline are legacy Excel labels kept so old rosters behave the same.
+RTM_HEAD_TYPES = frozenset({"AVP", "BU Head", "BU Head / TL", "Topline", "Bottomline"})
 
 COMPANY_ANNUAL_QUOTA_CR = 1250.0
 
@@ -128,6 +137,17 @@ def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _is_rtm_head(cfg: dict) -> bool:
+    return _clean(cfg.get("type", "IC")) in RTM_HEAD_TYPES
+
+
+def _rtm_head_names(ic_quotas: dict) -> set[str]:
+    return {
+        name for name, cfg in ic_quotas.items()
+        if not str(name).startswith("_") and isinstance(cfg, dict) and _is_rtm_head(cfg)
+    }
+
+
 def _category_annual_quotas() -> dict[str, dict[str, float]]:
     rules = _load_json(QUOTA_RULES_PATH)
     raw = rules.get("bu_annual_quotas") or {}
@@ -151,7 +171,7 @@ def _ic_period_shares() -> dict[str, float]:
     for name, cfg in ic_quotas.items():
         if str(name).startswith("_") or not isinstance(cfg, dict):
             continue
-        if cfg.get("division") not in RTM_DIVISIONS:
+        if cfg.get("division") not in RTM_DIVISIONS or _is_rtm_head(cfg):
             continue
         q1 += float(cfg.get("q1_quota") or 0)
         h1 += float(cfg.get("h1_quota") or 0)
@@ -304,7 +324,7 @@ def compute_actuals_by_name(df: pd.DataFrame) -> dict[str, dict[str, dict]]:
     return result
 
 
-def compute_actuals_by_cat_div(df: pd.DataFrame) -> dict[str, dict[str, dict]]:
+def compute_actuals_by_cat_div(df: pd.DataFrame, head_names: set[str] | None = None) -> dict[str, dict[str, dict]]:
     """
     Per DevSpec v2 V5–V9:
       SUMIFS(Amount, Category=cat, Division=div) per quarter
@@ -313,6 +333,7 @@ def compute_actuals_by_cat_div(df: pd.DataFrame) -> dict[str, dict[str, dict]]:
     if df.empty or "Division" not in df.columns:
         return {}
 
+    head_names = head_names or set()
     result: dict[tuple, float] = {}
     for _, row in df.iterrows():
         cat = _clean(row.get("Category", "") or "")
@@ -320,9 +341,11 @@ def compute_actuals_by_cat_div(df: pd.DataFrame) -> dict[str, dict[str, dict]]:
         if not bu:
             continue
         div = _clean(row.get("Division", "") or "")
-        # BU achievement counts RTM teams only (BU quotas are per RTM); DCG/Cloud heads and
-        # Self sellers stay out, matching header IC actuals.
+        # BU achievement counts RTM team ICs/TLs only (BU quotas are per RTM); DCG/Cloud heads,
+        # Self sellers and RTM heads' own deals stay out, matching header IC actuals.
         if div not in RTM_DIVISIONS:
+            continue
+        if _clean(row.get("_canonical_led_by", "") or "") in head_names:
             continue
         quarter = row.get("_quarter", "")
         amt = _num(row.get("Amount"))
@@ -399,6 +422,7 @@ def build_individuals(
             "pipeline_deals": [],
             "h1_attainment_pct": _att(h1_act, h1_q),
             "assignments": assignment_history.serialize_assignments(assigns),
+            "counts_for_rtm": ic_type not in RTM_HEAD_TYPES,
         })
 
     return individuals
@@ -407,6 +431,10 @@ def build_individuals(
 # ── RTM division subtotals ────────────────────────────────────────────────────
 
 def _deal_ic_cr(deal: dict) -> float:
+    # Prefer exact INR: summing per-deal 4-dp Cr drifts away from the Excel Amount total.
+    inr = deal.get("amount_inr")
+    if inr is not None:
+        return float(inr) / 1e7
     return float(deal.get("amount_cr") or deal.get("topline_cr") or 0)
 
 
@@ -422,6 +450,8 @@ def build_rtm_divisions(individuals: list[dict], deals: list[dict] | None = None
             div,
             {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")},
         )
+        if ic.get("counts_for_rtm") is False:
+            continue
         for p in ("q1", "q2", "q3", "q4", "h1", "h2", "annual"):
             d[p]["quota"] += (ic[p].get("quota") or 0)
         if not deals:
@@ -432,7 +462,7 @@ def build_rtm_divisions(individuals: list[dict], deals: list[dict] | None = None
     if deals:
         for deal in deals:
             div = deal.get("rtm_division") or ""
-            if div not in RTM_DIVISIONS:
+            if div not in RTM_DIVISIONS or deal.get("counts_for_rtm") is False:
                 continue
             q = str(deal.get("quarter") or "").lower()
             d = div_data.setdefault(
@@ -501,7 +531,7 @@ def build_bu_level(cat_div_actuals: dict, deals: list[dict] | None = None) -> li
     # Count deals per BU per quarter
     bu_deals: dict[str, dict[str, int]] = {}
     for d in (deals or []):
-        if (d.get("rtm_division") or "") not in RTM_DIVISIONS:
+        if (d.get("rtm_division") or "") not in RTM_DIVISIONS or d.get("counts_for_rtm") is False:
             continue
         bu = d.get("bu") or "Other"
         q = d.get("quarter") or "q1"
@@ -594,6 +624,7 @@ def build_period_metrics(
             for d in all_deals
             if (d.get("quarter") or "") in quarters
             and (d.get("rtm_division") or "") in RTM_DIVISIONS
+            and d.get("counts_for_rtm") is not False
         )
 
     def _snap(period_key: str, show_att: bool = True) -> dict:
@@ -655,6 +686,7 @@ def build_deal_records(df: pd.DataFrame, individuals: list[dict]) -> list[dict]:
 
     ic_div_map = {ic["name"]: ic.get("division") for ic in individuals}
     ic_assign_map = {ic["name"]: ic.get("assignments") or [] for ic in individuals}
+    head_names = {ic["name"] for ic in individuals if ic.get("counts_for_rtm") is False}
 
     deals = []
     for _, row in df.iterrows():
@@ -718,6 +750,9 @@ def build_deal_records(df: pd.DataFrame, individuals: list[dict]) -> list[dict]:
             "pipeline_led_by": name,
             "assigned_to": _clean(row.get("Assigned To", "") or ""),
             "rtm_division": div,
+            # Read by scoping.py so date-filtered views apply the same RTM rule without
+            # re-deriving roster types.
+            "counts_for_rtm": div in RTM_DIVISIONS and name not in head_names,
             "quarter": row.get("_quarter", ""),
             "opf_no": _clean(row.get("OPF No.", "") or ""),
             "crm": crm,
@@ -730,8 +765,11 @@ def build_deal_records(df: pd.DataFrame, individuals: list[dict]) -> list[dict]:
 
 
 def build_pipeline_summary(deals: list[dict]) -> dict:
-    """High-level pipeline summary for header."""
-    counted = [d for d in deals if d["employee"] and "hrushikesh" not in d["employee"].lower()]
+    """High-level pipeline summary for header ("IC Actuals Including Others").
+
+    Counts every deal with a Led By: RTM ICs, DCG/Cloud heads and Self sellers alike.
+    """
+    counted = [d for d in deals if d["employee"]]
     total_rev = sum(d["topline_inr"] for d in counted)
     total_bl = sum(d["bottomline_inr"] for d in counted)
     accounts = {d["account"] for d in counted if d["account"]}
@@ -1051,8 +1089,15 @@ def attach_deals_to_individuals(individuals: list[dict], deals: list[dict]) -> N
         }
 
 
+def _rtm_sellers(individuals: list[dict]) -> list[dict]:
+    return [
+        ic for ic in individuals
+        if ic.get("division") in RTM_DIVISIONS and ic.get("counts_for_rtm") is not False
+    ]
+
+
 def build_top_attainers(individuals: list[dict]) -> dict:
-    rtm_ics = [ic for ic in individuals if ic.get("division") in RTM_DIVISIONS]
+    rtm_ics = _rtm_sellers(individuals)
     by_pct = sorted(
         [ic for ic in rtm_ics if ic["h1"].get("attainment_pct") is not None],
         key=lambda x: x["h1"]["attainment_pct"],
@@ -1070,7 +1115,7 @@ def build_top_attainers(individuals: list[dict]) -> dict:
 
 
 def build_at_risk(individuals: list[dict]) -> list[dict]:
-    rtm_ics = [ic for ic in individuals if ic.get("division") in RTM_DIVISIONS]
+    rtm_ics = _rtm_sellers(individuals)
     rules = _load_json(QUOTA_RULES_PATH)
     at_risk_threshold = rules.get("status_thresholds", {}).get("at_risk", 30)
     return [
@@ -1128,7 +1173,7 @@ def build(output_path: Path = OUTPUT_PATH) -> dict:
     actuals_by_name = compute_actuals_by_name(full_df)
 
     print("[build] Computing category/division actuals...")
-    cat_div_actuals = compute_actuals_by_cat_div(full_df)
+    cat_div_actuals = compute_actuals_by_cat_div(full_df, head_names=_rtm_head_names(ic_quotas))
 
     print("[build] Building IC metrics...")
     individuals = build_individuals(ic_quotas, actuals_by_name)

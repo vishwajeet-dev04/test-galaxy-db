@@ -16,7 +16,7 @@ export const HELP_FAQ: HelpFaqSection[] = [
       {
         question: "Why are there three different revenue totals on the Overview page?",
         answer:
-          "Each total measures something different. IC Actuals = RTM ICs only. Including Others = IC Actuals plus BU Heads and AVPs. BU Donut = all deals by category. See the User Manual (section 2.1) for a full explanation.",
+          "Each total measures something different. IC Actuals = RTM ICs only. Including Others = IC Actuals plus BU Heads, AVPs and Self sellers (every Closed Won deal). BU Donut = RTM-team deals by category. See the User Manual (section 2.1) for a full explanation.",
       },
       {
         question: "My deal closed in Vtiger but it is not showing on the dashboard.",

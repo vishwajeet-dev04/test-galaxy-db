@@ -159,10 +159,30 @@
       }
     ]
   },
+  "Vineet Gadia": {
+    "_tracker_name": "Vineet Gadia",
+    "division": "CB",
+    "type": "BU Head",
+    "reporting_manager": "Sanjay Patodia",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "q3_quota": 0.0,
+    "q4_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0,
+    "assignments": [
+      {
+        "division": "CB",
+        "start_date": null,
+        "end_date": null
+      }
+    ]
+  },
   "Jitesh Rajput": {
     "_tracker_name": "Jitesh Rajput",
     "division": "Cloud",
-    "type": "Bottomline",
+    "type": "BU Head",
     "reporting_manager": null,
     "q1_quota": 0.0,
     "q2_quota": 0.0,
@@ -182,7 +202,7 @@
   "Ajay Patodia": {
     "_tracker_name": "Ajay Patodia",
     "division": "DCG",
-    "type": "Topline",
+    "type": "BU Head",
     "reporting_manager": null,
     "q1_quota": 0.0,
     "q2_quota": 0.0,
@@ -562,7 +582,7 @@
   "Sanjeev Kohli": {
     "_tracker_name": "Sanjeev Kohli",
     "division": "GeoX",
-    "type": "Topline",
+    "type": "BU Head",
     "reporting_manager": null,
     "q1_quota": 2.5,
     "q2_quota": 5.0,
@@ -622,7 +642,7 @@
   "Ishwari Kadam": {
     "_tracker_name": "Ishwari Kadam",
     "division": "S1",
-    "type": "Topline",
+    "type": "BU Head",
     "reporting_manager": null,
     "q1_quota": 0.0,
     "q2_quota": 0.0,
@@ -754,6 +774,26 @@
     "assignments": [
       {
         "division": "S1",
+        "start_date": null,
+        "end_date": null
+      }
+    ]
+  },
+  "Dipti Karpe": {
+    "_tracker_name": "Dipti Karpe",
+    "division": "S2",
+    "type": "BU Head",
+    "reporting_manager": "Sanjay Patodia",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "q3_quota": 0.0,
+    "q4_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0,
+    "assignments": [
+      {
+        "division": "S2",
         "start_date": null,
         "end_date": null
       }
@@ -902,7 +942,7 @@
   "Yusufali Petiwala": {
     "_tracker_name": "Yusufali Petiwala",
     "division": "Self",
-    "type": "Topline",
+    "type": "Self",
     "reporting_manager": null,
     "q1_quota": 0.0,
     "q2_quota": 0.0,

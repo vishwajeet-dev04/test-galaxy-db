@@ -50,17 +50,17 @@ function loadSavedView(): ViewId {
 }
 
 function DashboardApp() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canSeeLeaders } = useAuth();
   const [dateRange, setDateRange] = useState<DateRangeValue>(defaultDateRange);
   const { data, loading, error, refresh, refreshing } = useQuotaData(dateRange);
   const [drill, setDrill] = useState<DrillState>({ view: loadSavedView() });
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
-    if (drill.view === "admin" && !isAdmin) {
+    if ((drill.view === "admin" && !isAdmin) || (drill.view === "leaders" && !canSeeLeaders)) {
       setDrill(DEFAULT_DRILL);
     }
-  }, [drill.view, isAdmin]);
+  }, [drill.view, isAdmin, canSeeLeaders]);
 
   useEffect(() => {
     try {
@@ -174,7 +174,7 @@ function DashboardApp() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals</p>
                   <p className="font-mono text-sm font-bold text-galaxy-navy">{formatCr(data.kpis.header_ic_actuals)}</p>
                 </div>
-                {data.kpis.header_pipeline_cr != null && (
+                {canSeeLeaders && data.kpis.header_pipeline_cr != null && (
                   <div className="rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">IC Actuals Including Others</p>
                     <p className="font-mono text-sm font-bold text-emerald-700">
@@ -229,7 +229,7 @@ function DashboardApp() {
             {drill.view === "bu" && <BUView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "accounts" && <AccountsView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "brands" && <BrandsView data={data} drill={drill} onDrill={onDrill} />}
-            {drill.view === "leaders" && <LeadersView data={data} />}
+            {drill.view === "leaders" && canSeeLeaders && <LeadersView data={data} />}
             {drill.view === "employees" && <EmployeesView data={data} drill={drill} onDrill={onDrill} />}
             {drill.view === "leaderboard" && <LeaderboardView data={data} onDrill={onDrill} />}
             {drill.view === "help" && (

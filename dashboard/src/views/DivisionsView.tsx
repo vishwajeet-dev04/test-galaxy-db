@@ -188,7 +188,12 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
                                     <Avatar name={emp.name} size="sm" />
                                     <div className="min-w-0 flex-1">
                                       <p className="font-medium text-galaxy-navy">{emp.name}</p>
-                                      <p className="text-xs text-galaxy-muted">{emp.persona}</p>
+                                      <p className="text-xs text-galaxy-muted">
+                                        {emp.persona}
+                                        {emp.counts_for_rtm === false && (
+                                          <span className="text-slate-400"> · Not counted in RTM total</span>
+                                        )}
+                                      </p>
                                     </div>
                                     <p className="font-mono text-sm text-galaxy-muted">{formatCr(emp[rtmPeriod]?.actuals)}</p>
                                     <p className={`font-mono text-sm ${attainmentColor(att)}`}>{formatPct(att)}</p>

@@ -48,12 +48,11 @@ export function LeadersView({ data }: LeadersViewProps) {
   const totals = useMemo(() => {
     return leaders.reduce(
       (acc, l) => ({
-        h1Actuals: acc.h1Actuals + (l.h1.actuals || 0),
         bottomline: acc.bottomline + (l.pipeline.bottomline_cr || 0),
         topline: acc.topline + (l.pipeline.topline_cr || 0),
         deals: acc.deals + l.pipeline.deal_count,
       }),
-      { h1Actuals: 0, bottomline: 0, topline: 0, deals: 0 }
+      { bottomline: 0, topline: 0, deals: 0 }
     );
   }, [leaders]);
 
@@ -85,7 +84,7 @@ export function LeadersView({ data }: LeadersViewProps) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <HeroStat label="Leaders" value={String(leaders.length)} />
-            <HeroStat label="H1 Actuals" value={formatCr(data.kpis.header_pipeline_cr ?? totals.h1Actuals)} />
+            <HeroStat label="H1 Actuals" value={formatCr(data.kpis.header_ic_actuals)} />
             <HeroStat label="Topline" value={formatCr(totals.topline)} />
             <HeroStat label="Team Bottomline" value={formatCr(totals.bottomline)} accent />
           </div>

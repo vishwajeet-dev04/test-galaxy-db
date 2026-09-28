@@ -96,7 +96,7 @@ function formatSyncComplete(st: SyncStatus): string {
 }
 
 const DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"];
-const TYPES = ["IC", "TL", "AVP", "BU Head", "BU Head / TL", "Topline", "Bottomline", "Other"];
+const TYPES = ["IC", "TL", "AVP", "BU Head", "BU Head / TL", "Self", "Other"];
 const QUOTA_KEYS = ["q1_quota", "q2_quota", "h1_quota", "q3_quota", "q4_quota", "h2_quota", "annual_quota"] as const;
 const FIXED_HALF_KEYS = new Set(["h1_quota", "h2_quota", "annual_quota"]);
 

@@ -210,6 +210,10 @@ def _deal_quarter(deal: dict[str, Any]) -> str:
 
 
 def _deal_ic_cr(deal: dict[str, Any]) -> float:
+    # Prefer exact INR: summing per-deal 4-dp Cr drifts from the Excel Amount total.
+    inr = deal.get("amount_inr")
+    if inr is not None:
+        return float(inr) / 1e7
     return float(deal.get("amount_cr") or deal.get("topline_cr") or 0)
 
 
@@ -337,6 +341,8 @@ def _rebuild_rtm(individuals: list[dict], deals: list[dict] | None = None) -> li
             div,
             {p: {"actuals": 0.0, "quota": 0.0, "deals": 0} for p in ("q1", "q2", "h1", "h2", "annual", "q3", "q4")},
         )
+        if ic.get("counts_for_rtm") is False:
+            continue
         for p in ("q1", "q2", "q3", "q4", "h1", "h2", "annual"):
             d[p]["quota"] += float((ic.get(p) or {}).get("quota") or 0)
         if not deals:
@@ -346,9 +352,9 @@ def _rebuild_rtm(individuals: list[dict], deals: list[dict] | None = None) -> li
 
     if deals:
         for deal in deals:
-            div = deal.get("rtm_division") or ""
-            if div not in RTM_DIVISIONS:
+            if not _is_rtm_deal(deal):
                 continue
+            div = deal.get("rtm_division") or ""
             q = _deal_quarter(deal)
             d = div_data.setdefault(
                 div,
@@ -386,7 +392,9 @@ def _rebuild_rtm(individuals: list[dict], deals: list[dict] | None = None) -> li
 
 
 def _is_rtm_deal(deal: dict[str, Any]) -> bool:
-    return (deal.get("rtm_division") or "") in RTM_DIVISIONS
+    # counts_for_rtm is stamped by build_quota_data: False for deals led by a BU Head/AVP,
+    # whose own deals never count toward RTM/BU/header IC actuals.
+    return (deal.get("rtm_division") or "") in RTM_DIVISIONS and deal.get("counts_for_rtm") is not False
 
 
 def _rebuild_bu(deals: list[dict], original: list[dict] | None) -> list[dict]:
@@ -399,7 +407,7 @@ def _rebuild_bu(deals: list[dict], original: list[dict] | None) -> list[dict]:
             continue
         bu = d.get("bu") or "Other"
         q = _deal_quarter(d)
-        cr = float(d.get("amount_cr") or d.get("topline_cr") or 0)
+        cr = _deal_ic_cr(d)
         by_bu.setdefault(bu, {"q1": 0.0, "q2": 0.0, "q3": 0.0, "q4": 0.0})
         if q in by_bu[bu]:
             by_bu[bu][q] += cr
@@ -460,7 +468,7 @@ def _rebuild_period_metrics(rtm: list[dict], deals: list[dict]) -> dict[str, Any
         return sum(
             1
             for d in deals
-            if _deal_quarter(d) in quarters and (d.get("rtm_division") or "") in RTM_DIVISIONS
+            if _deal_quarter(d) in quarters and _is_rtm_deal(d)
         )
 
     def _snap(period_key: str, show_att: bool = True) -> dict:
@@ -489,7 +497,9 @@ def _rebuild_period_metrics(rtm: list[dict], deals: list[dict]) -> dict[str, Any
 
 
 def _header_pipeline_cr(deals: list[dict]) -> float:
-    counted = [d for d in deals if d.get("employee") and "hrushikesh" not in _norm(d.get("employee"))]
+    # "IC Actuals Including Others": every deal with a Led By (RTM + DCG/Cloud + Self);
+    # must match build_quota_data.build_pipeline_summary.
+    counted = [d for d in deals if d.get("employee")]
     return round(sum(float(d.get("topline_cr") or 0) for d in counted), 2)
 
 
@@ -633,7 +643,7 @@ def _rebuild_rtm_by_bu(deals: list[dict], original: dict[str, list] | None) -> d
         bu = d.get("bu") or "Other"
         div = d["rtm_division"]
         q = _deal_quarter(d)
-        cr = float(d.get("amount_cr") or d.get("topline_cr") or 0)
+        cr = _deal_ic_cr(d)
         cell = grouped.setdefault(bu, {}).setdefault(div, {"q1": 0.0, "q2": 0.0, "q3": 0.0, "q4": 0.0})
         if q in cell:
             cell[q] += cr
@@ -932,7 +942,33 @@ def _allowed_names_for_user(data: dict[str, Any], user: User) -> set[str] | None
             if ic.get("division") in my_divs:
                 allowed.add(ic["name"])
 
+    if role == "tl":
+        allowed = _drop_leaders_for_tl(allowed, self_names, individuals, leaders, roster)
+
     return allowed or self_names
+
+
+def _drop_leaders_for_tl(
+    allowed: set[str],
+    self_names: set[str],
+    individuals: list[dict[str, Any]],
+    leaders: list[dict[str, Any]],
+    roster: list[dict[str, Any]],
+) -> set[str]:
+    """A TL sees their RTM team only, never the people above them.
+
+    Division expansion pulls in the division's BU Head / AVP (``counts_for_rtm`` False
+    at build time) and leaders; their deals would otherwise leak into the TL's
+    Including Others, deal lists and Employees page. The TL's own name is always kept.
+    """
+    above = {p["name"] for p in individuals if p.get("counts_for_rtm") is False}
+    leader_names = [l.get("name") for l in leaders] + [r.get("name") for r in roster]
+    return {
+        name
+        for name in allowed
+        if name in self_names
+        or (name not in above and not any(_names_match(name, ln) for ln in leader_names))
+    }
 
 
 def apply_date_filter(data: dict[str, Any], start: date | None, end: date | None) -> dict[str, Any]:

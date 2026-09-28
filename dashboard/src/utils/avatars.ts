@@ -114,13 +114,8 @@ export function getAvatarUrl(name: string | null | undefined): string | null {
     }
   }
 
-  // Unique first-name match
-  if (parts.length >= 1) {
-    const first = parts[0];
-    const cands = AVATAR_FILES.filter((f) => f.startsWith(`${first}-`) || f === first);
-    if (cands.length === 1) return `/avatars/${cands[0]}.jpg?v=2`;
-  }
-
+  // Never match on first name alone: people share first names (Ajay Patodia / Ajay Jajodia)
+  // and a wrong face is worse than initials. Add an ALIASES entry for real name variants.
   return null;
 }
 

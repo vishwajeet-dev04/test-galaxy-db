@@ -178,9 +178,9 @@ These three must **not** be flattened into one number:
 
 | Label on screen | Meaning |
 |-----------------|--------|
-| **IC Actuals** | RTM ICs only, DevSpec formula (topline for everyone, including GeoX). |
-| **IC Actuals Including Others** | All Closed Won Amount **except Hrushikesh**. |
-| **BU mix / donut** | Amount by category from **RTM-team deals only** (S1, S2, CB, GB, South, GeoX, including Hrushikesh). Deals led by BU heads or Self sellers outside the RTMs are left out, so BU totals match the RTM total. |
+| **IC Actuals** | RTM ICs and Team Leads only, DevSpec formula (topline for everyone, including GeoX). BU Heads and AVPs are left out, both their own deals and their quota, so each RTM total equals the sum of its sellers. |
+| **IC Actuals Including Others** | All Closed Won Amount: RTM ICs plus BU heads (DCG, Cloud) and Self sellers. Hrushikesh is included since 28 Sep 2026. |
+| **BU mix / donut** | Amount by category from **RTM-team deals only** (S1, S2, CB, GB, South, GeoX, including Hrushikesh). Deals led by BU heads (inside or outside the RTMs) or Self sellers are left out, so BU totals match the RTM total. |
 
 A full Vtiger Amount total (every Closed Won, every person) will be higher than **IC Actuals**. Example from the August 2026 audit: Q1 CRM Amount **₹117.51 Cr** vs Q1 RTM IC actuals **₹103.72 Cr**. Both are correct; they answer different questions.
 
@@ -249,7 +249,7 @@ Independent recompute from CRM-synced deals + Finance quotas. **No IC mismatches
 | H1 RTM IC actuals | ₹163.98 Cr |
 | H1 IC quota | ₹547.5 Cr |
 | H1 IC attainment | **29.95%** (At Risk vs the 50% On Track bar — as expected mid-year) |
-| IC Actuals Including Others | ₹174.73 Cr |
+| IC Actuals Including Others | ₹178.60 Cr (was ₹174.73 Cr before Hrushikesh was included on 28 Sep 2026) |
 | RTM ICs on roster | 37 people, all matched |
 
 These figures will move after each Vtiger sync. They prove the **engine** matches Finance rules, not that FY 26–27 is finished.
@@ -265,7 +265,7 @@ These are product / data gaps, not engineering leftovers:
 3. **Rima Ingle** has a small amount of Closed Won in CRM but is not on the IC roster, so she is outside RTM totals until Finance adds her.
 4. **Q3 / Q4** have no Closed Won yet; those period views are placeholders until H2 trading starts.
 5. **Same Time Last Year (STLY), SAM, and TAM** are not shown — no source file has been provided.
-6. Leaders page is labelled **Bottomline**; one hero tile still uses the “Including Others” topline. Confirm with product if that tile should switch to team bottomline.
+6. ~~Leaders page hero “H1 Actuals” used the “Including Others” topline.~~ Resolved 28 Sep 2026: it now shows **IC Actuals** for the login’s scope, the same number as the header IC Actuals tile.
 
 ---
 

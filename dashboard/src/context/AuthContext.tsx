@@ -20,6 +20,11 @@ interface AuthState {
   isAdmin: boolean;
   isLeader: boolean;
   seesAll: boolean;
+  /**
+   * Leaders page and "Including Others" card are for leaders and above. IC and TL scopes
+   * contain no BU Heads/leaders, so Including Others would just repeat IC Actuals.
+   */
+  canSeeLeaders: boolean;
 }
 
 const TOKEN_KEY = "galaxy_token";
@@ -131,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: user?.role === "admin",
       isLeader: user?.role === "leader" || user?.role === "tl",
       seesAll: user?.role === "admin" || user?.role === "ceo",
+      canSeeLeaders: !!user && user.role !== "user" && user.role !== "tl",
     }),
     [user, token, loading, login, logout],
   );

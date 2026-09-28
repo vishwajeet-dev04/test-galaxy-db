@@ -22,13 +22,19 @@ interface SidebarProps {
   onMobileClose?: () => void;
 }
 
-const ALL_NAV: { id: ViewId; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean }[] = [
+const ALL_NAV: {
+  id: ViewId;
+  label: string;
+  icon: typeof LayoutDashboard;
+  adminOnly?: boolean;
+  leadersOnly?: boolean;
+}[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "divisions", label: "RTMs", icon: Building2 },
   { id: "bu", label: "Business Units", icon: Layers },
   { id: "accounts", label: "Accounts", icon: Briefcase },
   { id: "brands", label: "Brands", icon: Tag },
-  { id: "leaders", label: "Leaders", icon: Crown },
+  { id: "leaders", label: "Leaders", icon: Crown, leadersOnly: true },
   { id: "employees", label: "Employees", icon: Users },
   { id: "leaderboard", label: "Leaderboard", icon: Trophy },
   { id: "help", label: "Help", icon: HelpCircle },
@@ -36,8 +42,10 @@ const ALL_NAV: { id: ViewId; label: string; icon: typeof LayoutDashboard; adminO
 ];
 
 export function Sidebar({ active, onChange, fy, mobileOpen, onMobileClose }: SidebarProps) {
-  const { isAdmin } = useAuth();
-  const nav = ALL_NAV.filter((item) => !item.adminOnly || isAdmin);
+  const { isAdmin, canSeeLeaders } = useAuth();
+  const nav = ALL_NAV.filter(
+    (item) => (!item.adminOnly || isAdmin) && (!item.leadersOnly || canSeeLeaders),
+  );
 
   const handleNav = (view: ViewId) => {
     onChange(view);
