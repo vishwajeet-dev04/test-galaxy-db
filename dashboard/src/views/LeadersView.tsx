@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { Users, Wallet, Target, Crown, Sparkles, TrendingUp } from "lucide-react";
+import { Users, Wallet, Target, Crown, Sparkles, TrendingUp, Info } from "lucide-react";
 import { StatusFlag } from "../components/StatusFlag";
 import { DealStatusIndicators } from "../components/DealStatusIndicators";
 
@@ -9,6 +9,16 @@ import type { QuotaData, LeaderDashboardRecord } from "../types";
 import { formatCr, formatPct, attainmentColor } from "../utils/format";
 import { getAvatarUrl } from "../utils/avatars";
 import { ui } from "../theme";
+
+// Leader tiles are personal Led-By deals only (not a team rollup), so a head who
+// closed nothing personally shows zeros; callers explain that instead.
+function hasOwnDeals(leader: LeaderDashboardRecord): boolean {
+  return (leader.pipeline?.deal_count ?? 0) > 0;
+}
+
+function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] ?? name;
+}
 
 const DIVISION_GRADIENT: Record<string, string> = {
   S1: "from-galaxy-navy to-indigo-700",
@@ -161,7 +171,11 @@ function LeaderCard({
           <span className="flex items-center gap-1 text-slate-500">
             <Users className="h-3.5 w-3.5" /> {leader.team_size} team
           </span>
-          <span className="font-mono text-slate-500">GP {formatPct(leader.pipeline.gp_pct)}</span>
+          {hasOwnDeals(leader) ? (
+            <span className="font-mono text-slate-500">GP {formatPct(leader.pipeline.gp_pct)}</span>
+          ) : (
+            <span className="text-slate-400">No own deals</span>
+          )}
         </div>
       </div>
     </button>
@@ -170,6 +184,8 @@ function LeaderCard({
 
 function LeaderDetail({ leader }: { leader: LeaderDashboardRecord }) {
   const grad = DIVISION_GRADIENT[leader.division] ?? DIVISION_GRADIENT.S1;
+  const ownDeals = hasOwnDeals(leader);
+  const first = firstName(leader.name);
 
   return (
     <div className="space-y-6">
@@ -191,6 +207,17 @@ function LeaderDetail({ leader }: { leader: LeaderDashboardRecord }) {
           </div>
         </div>
       </div>
+
+      {!ownDeals && (
+        <div role="status" className={`${ui.cardInner} flex items-start gap-3 px-4 py-3`}>
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-galaxy-blue" />
+          <p className="text-sm text-slate-600">
+            <span className="font-semibold text-galaxy-navy">{first} has no Closed Won deals of their own</span> in
+            Vtiger for this period. The tiles below count only deals the leader led personally.
+            {leader.team_size > 0 && " Team performance is in the Team Roster below."}
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricTile
@@ -262,7 +289,7 @@ function LeaderDetail({ leader }: { leader: LeaderDashboardRecord }) {
             </div>
           ))}
           {leader.top_deals.length === 0 && (
-            <p className="col-span-2 py-6 text-center text-sm text-slate-400">No pipeline deals for this team.</p>
+            <p className="col-span-2 py-6 text-center text-sm text-slate-400">No deals led by {first} in this period.</p>
           )}
         </div>
       </div>

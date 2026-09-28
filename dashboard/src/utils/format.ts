@@ -1,12 +1,24 @@
+// Amounts are in Cr with 4-dp precision from the API (Rs 1,000). Keep the normal
+// 2 decimals, but never let a non-zero amount collapse to "0.00": widen to 3-4 dp.
+const MAX_CR_DECIMALS = 4;
+
+function crNumber(value: number, decimals: number): string {
+  const collapsesToZero = value !== 0 && Number(Math.abs(value).toFixed(decimals)) === 0;
+  return value.toLocaleString("en-IN", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: collapsesToZero ? Math.max(decimals, MAX_CR_DECIMALS) : decimals,
+  });
+}
+
 export function formatCr(value: number | null | undefined, decimals = 2): string {
   if (value == null || Number.isNaN(value)) return "—";
-  return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} Cr`;
+  return `₹${crNumber(value, decimals)} Cr`;
 }
 
 /** Card display — spaced rupee symbol per design reference */
 export function formatCrDisplay(value: number | null | undefined, decimals = 2): string {
   if (value == null || Number.isNaN(value)) return "—";
-  return `₹ ${value.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })} Cr`;
+  return `₹ ${crNumber(value, decimals)} Cr`;
 }
 
 export function formatPctCard(value: number | null | undefined): string {

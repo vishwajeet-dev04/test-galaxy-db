@@ -9,7 +9,7 @@ import {
   Legend,
   Cell,
 } from "recharts";
-import { attainmentBarColor, formatPct } from "../../utils/format";
+import { attainmentBarColor, formatCr, formatPct } from "../../utils/format";
 
 interface QuotaVsActualChartProps {
   data: { name: string; quota: number; actuals: number; attainment: number }[];
@@ -42,7 +42,7 @@ function CustomTooltip({
               <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
               {p.name}
             </span>
-            <span className="font-mono font-medium text-galaxy-navy">₹{p.value?.toFixed(2)} Cr</span>
+            <span className="font-mono font-medium text-galaxy-navy">{formatCr(p.value)}</span>
           </div>
         ))}
       </div>

@@ -263,13 +263,14 @@ CEO (`sanjayp`) sees all quota data but **not** Admin APIs (`require_admin` is r
 ## 7. Conventions
 
 - **Units:** ₹ Crore = INR / 10,000,000. Never mix Cr and INR in the same field without both keys (`*_cr` / `*_inr`).
+- **Cr display:** `formatCr` / `formatCrDisplay` (`dashboard/src/utils/format.ts`) show 2 decimals. A non-zero amount that would round to `0.00` widens to up to 4 decimals (e.g. ₹15,000 → ₹0.0015 Cr) to match the API's 4-dp precision. Real zeros stay ₹0.00 Cr. Always use these helpers, never `toFixed(2) + " Cr"`.
 - **Fiscal year:** Indian FY, 1 Apr → 31 Mar. Q1 Apr–Jun, Q2 Jul–Sep, Q3 Oct–Dec, Q4 Jan–Mar. Header date filter default = This Year. Dates in **IST**.
 - **Canonical names:** Vtiger “Opportunity Led By” → `pipeline_aliases.json` → key in `ic_quotas.json`. Join on alias, not raw CRM string.
 - **H1 / H2 / Annual are independent of Q1–Q4.** Finance-owned. Save and builder must not auto-sum them.
 - **Three header revenue numbers on purpose** — do not flatten:
-  1. **IC Actuals** — RTM ICs (GeoX/Hrushikesh = bottomline).
+  1. **IC Actuals** — RTM ICs, topline for everyone (Hrushikesh on topline since 2026-09-25).
   2. **Including Others** — all Amount except Hrushikesh.
-  3. **BU donut** — all Amount by category **including** Hrushikesh CSG topline.
+  3. **BU donut** — Amount by category from **RTM-team deals only** (including Hrushikesh/GeoX). Since 2026-09-25 it equals IC Actuals in total.
 - **Multipliers** apply to deal `quota_credit` only, never IC actuals.
 - **RTM codes:** only `S1`, `S2`, `CB`, `GB`, `South`, `GeoX`. `Geo X` normalizes to `GeoX`.
 - **BU order:** DCG, CSN, PS, CSG, Cloud.
@@ -470,7 +471,7 @@ Update this list when you fix or add defects. Ordered by severity.
 1. **T1 import full-replaces the roster.** Names missing from the sheet (and their history) are deleted. An RTM mismatch is treated as a transfer dated **today** (cannot distinguish a data correction from a move).
 2. **After a transfer, RTM attainment mixes two clocks.** Quotas = as-of-today members; actuals = deal close-date RTM. A Sep S1→GB move leaves Q1 deals on S1 but removes that IC’s quota from S1. Employees groups people by today; each person row shows their **full** IC actuals, while the team header uses the RTM card (close-date RTM), so after a transfer the rows under a team need not add up to its header.
 3. **Production is HTTP-only** (Galaxy Nginx **8081**; Apache **80** is Vtiger). Login and JWT in cleartext. TLS is an ops change, not in this code drop. Open Galaxy at `:8081` only — HTML 403s are Apache, not FastAPI.
-4. **Leaders header is personal Led-By, not a team rollup of actuals.** Top deals stay that person’s Closed Won. **Team Roster** is as-of-today ICs in `rollup_divisions` (not `division` when that is a BU, e.g. Ajay/DCG). Cloud/CSN heads may have an empty roster because those codes are not RTM divisions. Date-filter `_rebuild_leaders` alias-matches Led By (Ishwari Santosh Kadam → Ishwari Kadam).
+4. **Leaders header is personal Led-By, not a team rollup of actuals.** Top deals stay that person’s Closed Won. **Team Roster** is as-of-today ICs in `rollup_divisions` (not `division` when that is a BU, e.g. Ajay/DCG). Cloud/CSN heads may have an empty roster because those codes are not RTM divisions. Date-filter `_rebuild_leaders` alias-matches Led By (Ishwari Santosh Kadam → Ishwari Kadam). Leaders with no own deals (currently Dipti Karpe, Vineet Gadia, Rocky Braganza, all with 0 Led-By deals in Vtiger) show a "no Closed Won deals of their own" banner on the detail page and "No own deals" on the card instead of bare zeros (client decision 2026-09-28: keep personal figures).
 
 ### P1
 
@@ -614,6 +615,13 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-09-28 — Friday work restored + small Cr decimals + Leaders "no own deals"
+
+- **Restore:** 8 working files had gone back to pre-Friday versions on disk (likely an editor/checkpoint restore). They were restored from commit `d0201f4` (pushed to Bitbucket; it holds all 2026-09-25 work): `BUSINESS_SUMMARY.md`, `PROJECT_CONTEXT.md`, `scoping.py`, `build_quota_data.py`, `ic_quotas.json`, `pipeline_aliases.json`, `EmployeesView.tsx`, `AdminUploadsView.tsx`. The reverted copies are backed up under `%TEMP%\galaxy_backup_20260928`.
+- **Cr decimals:** `formatCr` / `formatCrDisplay` share a `crNumber` helper. A non-zero value that would show `0.00` widens to up to 4 decimals (Jitesh ₹0.0015 Cr topline / ₹0.0008 Cr BL). The `QuotaVsActualChart` tooltip now uses `formatCr`.
+- **Leaders no own deals:** Dipti Karpe showed zeros because Vtiger has no deals led by her (all 474 deals checked; the 12 "Karpe" deals are Atharva Karpe, CB). Same for Vineet Gadia and Rocky Braganza. The tiles stay personal, as the client chose. `LeadersView` shows an info banner, "No deals led by {name} in this period" in Top Team Deals, and "No own deals" on the card when `pipeline.deal_count === 0`.
+- Production: copy the new `dashboard/dist`. Commit soon so the working tree matches the repo.
 
 ### 2026-09-25 — BU page counts RTM teams only
 
