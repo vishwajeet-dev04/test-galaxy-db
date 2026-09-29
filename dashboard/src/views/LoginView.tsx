@@ -1,11 +1,12 @@
 import { FormEvent, useState } from "react";
-import { Lock, User } from "lucide-react";
+import { Eye, EyeOff, Lock, User } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function LoginView() {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -17,6 +18,7 @@ export function LoginView() {
       await login(username, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
+      setShowPassword(false);
     } finally {
       setBusy(false);
     }
@@ -61,14 +63,23 @@ export function LoginView() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   required
-                  className="w-full rounded-xl border border-galaxy-border bg-white py-2.5 pl-10 pr-4 text-sm text-galaxy-text shadow-sm placeholder:text-slate-400 focus:border-galaxy-navy/40 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                  className="w-full rounded-xl border border-galaxy-border bg-white py-2.5 pl-10 pr-11 text-sm text-galaxy-text shadow-sm placeholder:text-slate-400 focus:border-galaxy-navy/40 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
                   placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-galaxy-navy focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 motion-reduce:transition-none"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
