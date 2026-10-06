@@ -616,6 +616,12 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 
 ## 20. Session log
 
+### 2026-10-06 — Leader BU table is their RTM only; Ajay Patodia is South
+
+- **BU "RTM by Division":** `_rebuild_rtm_by_bu` used to copy every RTM from the full-org template, so a scoped login (Ishwari, S1) saw S2/CB/South/GB/GeoX as ₹0.00 rows plus those teams' annual quotas. It now keeps only RTM divisions of the people already on the view. The leader's own row still shows when that BU is ₹0 for them. Admin and CEO still have all six because their people list does. BU cards are unchanged (company BU quota on the card).
+- **Ajay Patodia:** roster `division` was `DCG` (a BU, not an RTM) with one open assignment, null dates. Admin treated a change to South as a transfer and asked for an effective date. Corrected in place to `South` in `ic_quotas.json` (division + that assignment) and `leader_roster.json` (`division` only). Quotas stay 0, type stays BU Head, dates stay null. `rollup_divisions` was already `["South"]`. He stays `counts_for_rtm` false, so South IC actuals do not change. Do not save a 2026-10-06 transfer for him.
+- Production: pull, rebuild (`python scripts/build_quota_data.py`), restart the backend. No frontend change.
+
 ### 2026-09-30 — Session length 2.5 h + auto sign-out on expiry
 
 - **Token lifetime:** `access_token_expire_minutes` default 30 → **150** (client asked for 2.5 hours; users were signed out mid-work). Still no refresh token: after 150 minutes the user must sign in again. Refresh tokens (hashed, server-side) remain the proper follow-up per the rules.

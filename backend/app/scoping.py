@@ -627,7 +627,16 @@ def _rebuild_accounts_brands(
     return out
 
 
-def _rebuild_rtm_by_bu(deals: list[dict], original: dict[str, list] | None) -> dict[str, list]:
+def _rebuild_rtm_by_bu(
+    deals: list[dict],
+    original: dict[str, list] | None,
+    only_divisions: set[str] | None = None,
+) -> dict[str, list]:
+    """Per-BU RTM rows. ``only_divisions`` is the RTMs of people already on this view.
+
+    None keeps every RTM (full-org build). A scoped login passes their team's RTMs so
+    a leader does not see other teams' zero rows or annual quotas.
+    """
     orig = original or {}
     quota_lookup: dict[tuple[str, str], dict] = {}
     for bu, rows in orig.items():
@@ -656,6 +665,9 @@ def _rebuild_rtm_by_bu(deals: list[dict], original: dict[str, list] | None) -> d
                if (r.get("division") or r.get("name")) in RTM_DIVISIONS),
              *grouped.get(bu, {}).keys()]
         ))
+        if only_divisions is not None:
+            # Keep the leader's own RTM even when this BU has no deals for them.
+            divs = [d for d in RTM_DIVISIONS if d in only_divisions]
         rows = []
         for div in divs:
             src = quota_lookup.get((bu, div)) or {}
@@ -875,7 +887,13 @@ def _apply_deals_to_view(data: dict[str, Any], deals: list[dict]) -> dict[str, A
     data["accounts"] = _rebuild_accounts_brands(deals, "account", ic_h1_q, pipe_cr, pipe_bl)
     data["brands"] = _rebuild_accounts_brands(deals, "brand", ic_h1_q, pipe_cr, pipe_bl)
     orig_rtm_by_bu = data.get("rtm_by_bu") if isinstance(data.get("rtm_by_bu"), dict) else {}
-    data["rtm_by_bu"] = _rebuild_rtm_by_bu(deals, orig_rtm_by_bu)
+    # People on this view decide which RTM rows appear. Admin/CEO still have all six.
+    view_rtms = {
+        ic.get("division")
+        for ic in individuals
+        if ic.get("division") in RTM_DIVISIONS
+    }
+    data["rtm_by_bu"] = _rebuild_rtm_by_bu(deals, orig_rtm_by_bu, view_rtms)
     data["leaders_dashboard"] = _rebuild_leaders(
         data.get("leaders_dashboard") or [], deals, individuals
     )

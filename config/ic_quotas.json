@@ -201,7 +201,7 @@
   },
   "Ajay Patodia": {
     "_tracker_name": "Ajay Patodia",
-    "division": "DCG",
+    "division": "South",
     "type": "BU Head",
     "reporting_manager": null,
     "q1_quota": 0.0,
@@ -213,7 +213,7 @@
     "annual_quota": 0.0,
     "assignments": [
       {
-        "division": "DCG",
+        "division": "South",
         "start_date": null,
         "end_date": null
       }

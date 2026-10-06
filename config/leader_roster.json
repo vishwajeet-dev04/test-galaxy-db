@@ -4,7 +4,7 @@
     "initial": "AP",
     "name": "Ajay Patodia",
     "dept": "DCG BU HEAD",
-    "division": "DCG",
+    "division": "South",
     "bu": "DCG",
     "scope_depts": ["DCG BU HEAD", "South sales", "South sales- Team Lead", "DCG - South Sale"],
     "fallback_divisions": ["South"],
