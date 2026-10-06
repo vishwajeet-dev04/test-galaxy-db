@@ -1,5 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { apiFetch, httpErrorMessage, isSessionExpiredStatus } from "../utils/apiError";
+import {
+  SESSION_EXPIRED_EVENT,
+  apiFetch,
+  httpErrorMessage,
+  isSessionExpiredStatus,
+} from "../utils/apiError";
 
 export interface AuthUser {
   id: number;
@@ -17,6 +22,8 @@ interface AuthState {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  /** Why the user was signed out without clicking Sign out (shown on the login page). */
+  sessionNotice: string | null;
   isAdmin: boolean;
   isLeader: boolean;
   seesAll: boolean;
@@ -29,6 +36,22 @@ interface AuthState {
 
 const TOKEN_KEY = "galaxy_token";
 const USER_KEY = "galaxy_user";
+const SESSION_EXPIRED_NOTICE = "Your session expired. Please sign in again.";
+/** setTimeout overflows above 2^31-1 ms (~24.8 days). */
+const MAX_TIMER_MS = 2_147_483_647;
+
+/** JWT `exp` in epoch ms, or null if the token cannot be read (then only a server 401 signs out). */
+function tokenExpiryMs(token: string): number | null {
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch (err) {
+    console.error("jwt_decode_failed", err);
+    return null;
+  }
+}
 
 const AuthContext = createContext<AuthState | null>(null);
 
@@ -48,13 +71,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
 
-  const logout = useCallback(() => {
+  const clearSession = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setToken(null);
     setUser(null);
   }, []);
+
+  const logout = useCallback(() => {
+    setSessionNotice(null);
+    clearSession();
+  }, [clearSession]);
+
+  const expireSession = useCallback(() => {
+    if (!localStorage.getItem(TOKEN_KEY)) return;
+    setSessionNotice(SESSION_EXPIRED_NOTICE);
+    clearSession();
+  }, [clearSession]);
+
+  useEffect(() => {
+    window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
+  }, [expireSession]);
+
+  // Sign out at the token's own expiry instead of waiting for the next API call; the
+  // focus/visibility checks cover laptops that slept past the timer.
+  useEffect(() => {
+    if (!token) return;
+    const exp = tokenExpiryMs(token);
+    if (exp == null) return;
+    const check = () => {
+      if (Date.now() >= exp) expireSession();
+    };
+    const timer = window.setTimeout(expireSession, Math.min(Math.max(0, exp - Date.now()), MAX_TIMER_MS));
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [token, expireSession]);
 
   useEffect(() => {
     const t = localStorage.getItem(TOKEN_KEY);
@@ -69,10 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         // HTML block pages are not JWT failures — keep the stored session.
         if (isSessionExpiredStatus(res.status, raw)) {
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(USER_KEY);
-          setToken(null);
-          setUser(null);
+          expireSession();
           return;
         }
         if (res.ok && json && typeof json === "object") {
@@ -116,12 +172,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [expireSession]);
 
   const login = useCallback(async (username: string, password: string) => {
     const data = await apiLogin(username.trim().toLowerCase(), password);
     localStorage.setItem(TOKEN_KEY, data.access_token);
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    setSessionNotice(null);
     setToken(data.access_token);
     setUser(data.user);
   }, []);
@@ -133,12 +190,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       login,
       logout,
+      sessionNotice,
       isAdmin: user?.role === "admin",
       isLeader: user?.role === "leader" || user?.role === "tl",
       seesAll: user?.role === "admin" || user?.role === "ceo",
       canSeeLeaders: !!user && user.role !== "user" && user.role !== "tl",
     }),
-    [user, token, loading, login, logout],
+    [user, token, loading, login, logout, sessionNotice],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

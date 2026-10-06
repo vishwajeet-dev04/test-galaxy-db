@@ -23,6 +23,18 @@ export function isSessionExpiredStatus(status: number, raw = ""): boolean {
   return status === 401 && !looksLikeHtml(raw);
 }
 
+/** Window event AuthContext listens for; any authenticated call that gets a JWT 401 fires it. */
+export const SESSION_EXPIRED_EVENT = "galaxy:session-expired";
+
+export function notifySessionExpired(): void {
+  window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+}
+
+function hasAuthHeader(init?: RequestInit): boolean {
+  if (!init?.headers) return false;
+  return new Headers(init.headers).has("Authorization");
+}
+
 export async function readApiBody(res: Response): Promise<{ json: unknown; raw: string }> {
   const raw = await res.text();
   if (!raw) return { json: {}, raw: "" };
@@ -42,8 +54,12 @@ export async function apiFetch(
     const res = await fetch(input, init);
     const parsed = await readApiBody(res);
     last = { res, json: parsed.json, raw: parsed.raw };
-    if (!looksLikeHtml(parsed.raw)) return last;
+    if (!looksLikeHtml(parsed.raw)) break;
     if (attempt === 0) await new Promise((r) => setTimeout(r, 250));
+  }
+  // Only calls that sent a token can mean "session expired"; a login 401 is a wrong password.
+  if (hasAuthHeader(init) && isSessionExpiredStatus(last!.res.status, last!.raw)) {
+    notifySessionExpired();
   }
   return last!;
 }

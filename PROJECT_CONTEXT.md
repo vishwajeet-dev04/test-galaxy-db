@@ -23,7 +23,7 @@ The dashboard is **Galaxy Sales Intelligence — Individual Contributor's Perfor
 | Layer | Tech |
 |---|---|
 | Frontend | React 19, Vite 6, TypeScript, Tailwind 4, Recharts, lucide-react. **No React Router** — views switch on `drill.view` in `App.tsx`. |
-| Backend | FastAPI, Pydantic Settings, SQLAlchemy 2, python-jose (JWT HS256, **30 min** access), bcrypt |
+| Backend | FastAPI, Pydantic Settings, SQLAlchemy 2, python-jose (JWT HS256, **150 min** access, no refresh token yet), bcrypt |
 | Users DB | SQLAlchemy. SQLite locally (`backend/galaxy.db`). Postgres on the Azure VM when `DATABASE_URL` is set. |
 | Deals DB | **Always** stdlib sqlite3 via `scripts/deal_store.py` (`backend/galaxy.db` table `crm_deals`). Not Postgres. |
 | ETL | Python (`pandas`, `openpyxl`) in `scripts/` |
@@ -558,7 +558,7 @@ Required env (values **only** on the server, never in git):
 |---|---|
 | `DATABASE_URL` | Postgres users DB (URL-encode `@` `%40`, `!` `%21`) |
 | `SECRET_KEY` | JWT signing — **required**. Backend will not start if missing or still the example placeholder. |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access JWT lifetime (default **30**) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access JWT lifetime (default **150** = 2.5 h, client decision 2026-09-30). An explicit value in the server `.env` overrides the default. |
 | `CORS_ORIGINS` | JSON array of frontend origins |
 | `GALAXY_DOCS` | Set `1` only to expose `/docs` and OpenAPI |
 | `VTIGER_URL` | CRM base URL |
@@ -615,6 +615,13 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-09-30 — Session length 2.5 h + auto sign-out on expiry
+
+- **Token lifetime:** `access_token_expire_minutes` default 30 → **150** (client asked for 2.5 hours; users were signed out mid-work). Still no refresh token: after 150 minutes the user must sign in again. Refresh tokens (hashed, server-side) remain the proper follow-up per the rules.
+- **Auto sign-out:** previously only `useQuotaData` logged out on a JWT 401, and page switches reuse loaded data, so an expired session left the dashboard on screen until the next date change. Now `AuthContext` reads the JWT `exp` and signs out at that moment (plus a check on window focus / tab visibility for laptops that slept). `apiFetch` fires `galaxy:session-expired` for any call that sent a token and got a JSON 401 (a login 401 is a wrong password, not an expiry); the two blob downloads (Help manual, Admin template) call `notifySessionExpired` themselves. The login page shows "Your session expired. Please sign in again." Manual Sign out shows no notice.
+- **Login page:** show/hide password toggle (eye button) on the password field.
+- Production: set `ACCESS_TOKEN_EXPIRE_MINUTES=150` in the server `backend/.env` if that file sets it (it overrides the code default), pull, restart `galaxy-backend`, deploy the new `dashboard/dist`.
 
 ### 2026-09-28 — Friday work restored + small Cr decimals + Leaders "no own deals"
 

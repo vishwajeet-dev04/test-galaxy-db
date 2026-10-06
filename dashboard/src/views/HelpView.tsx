@@ -3,7 +3,7 @@ import { AlertCircle, ChevronDown, Download } from "lucide-react";
 import { HELP_FAQ } from "../content/helpFaq";
 import { SectionHeader } from "../components/SectionHeader";
 import { authHeaders, useAuth } from "../context/AuthContext";
-import { httpErrorMessage } from "../utils/apiError";
+import { httpErrorMessage, isSessionExpiredStatus, notifySessionExpired } from "../utils/apiError";
 import { ui } from "../theme";
 
 export function HelpView() {
@@ -21,6 +21,7 @@ export function HelpView() {
       const res = await fetch("/api/help/manual", { headers: authHeaders(token) });
       if (!res.ok) {
         const raw = await res.text();
+        if (isSessionExpiredStatus(res.status, raw)) notifySessionExpired();
         let json: unknown = null;
         try {
           json = raw ? JSON.parse(raw) : {};

@@ -3,7 +3,7 @@ import { Eye, EyeOff, Lock, User } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function LoginView() {
-  const { login } = useAuth();
+  const { login, sessionNotice } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -40,6 +40,14 @@ export function LoginView() {
           </div>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
+            {sessionNotice && !error && (
+              <p
+                role="status"
+                className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-100"
+              >
+                {sessionNotice}
+              </p>
+            )}
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Username

@@ -31,7 +31,7 @@ def _find_quota_tracker(files_dir: Path) -> Path:
 class Settings(BaseSettings):
     app_name: str = "Galaxy Sales Performance Tracker"
     secret_key: str = Field(default="")
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 150
     algorithm: str = "HS256"
     database_url: str = f"sqlite:///{ROOT / 'backend' / 'galaxy.db'}"
     cors_origins: list[str] = [

@@ -5,7 +5,7 @@ import { defaultDateRange, type DateRangeValue } from "../utils/fiscal";
 import { apiFetch, httpErrorMessage, isSessionExpiredStatus, looksLikeHtml } from "../utils/apiError";
 
 export function useQuotaData(dateRange?: DateRangeValue) {
-  const { token, user, logout } = useAuth();
+  const { token, user } = useAuth();
   const [data, setData] = useState<QuotaData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -30,7 +30,6 @@ export function useQuotaData(dateRange?: DateRangeValue) {
     apiFetch(`/api/quota?${params.toString()}`, { headers: authHeaders(token) })
       .then(({ res, json, raw }) => {
         if (isSessionExpiredStatus(res.status, raw)) {
-          logout();
           throw new Error("Session expired — please sign in again");
         }
         if (!res.ok || looksLikeHtml(raw)) {
@@ -56,7 +55,7 @@ export function useQuotaData(dateRange?: DateRangeValue) {
     return () => {
       cancelled = true;
     };
-  }, [token, user, reloadKey, logout, range.start, range.end]);
+  }, [token, user, reloadKey, range.start, range.end]);
 
   return { data, loading, error, refresh, refreshing };
 }

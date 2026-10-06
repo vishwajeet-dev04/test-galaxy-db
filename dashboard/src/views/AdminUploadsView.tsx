@@ -20,7 +20,7 @@ import { authHeaders, useAuth } from "../context/AuthContext";
 import { SectionHeader } from "../components/SectionHeader";
 import { ui } from "../theme";
 import { formatDisplayDate, toISODate } from "../utils/fiscal";
-import { apiFetch, httpErrorMessage } from "../utils/apiError";
+import { apiFetch, httpErrorMessage, isSessionExpiredStatus, notifySessionExpired } from "../utils/apiError";
 
 interface SyncStatus {
   configured: boolean;
@@ -415,6 +415,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
       const res = await fetch("/api/admin/templates/data", { headers: authHeaders(token) });
       if (!res.ok) {
         const raw = await res.text();
+        if (isSessionExpiredStatus(res.status, raw)) notifySessionExpired();
         let json: unknown = null;
         try {
           json = raw ? JSON.parse(raw) : {};
