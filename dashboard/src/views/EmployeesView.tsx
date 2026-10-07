@@ -284,7 +284,7 @@ function nestByManager(employees: Individual[]): { lead: Individual; reports: In
 function teamPeriod(reports: Individual[], period: PeriodKey): PeriodMetrics {
   const actuals = reports.reduce((sum, emp) => sum + (periodData(emp, period).actuals ?? 0), 0);
   const quotas = reports.map((emp) => periodData(emp, period).quota);
-  const quota = quotas.every((value) => value == null) ? null : quotas.reduce((sum, value) => sum + (value ?? 0), 0);
+  const quota = quotas.every((value) => value == null) ? null : quotas.reduce<number>((sum, value) => sum + (value ?? 0), 0);
   return {
     actuals,
     quota,

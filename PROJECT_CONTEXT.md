@@ -617,6 +617,19 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 
 ## 20. Session log
 
+### 2026-10-07 — Reporting lines written on the roster
+
+Office Chrome blocks the Admin save (HTML block page), so `reporting_manager` was set in `ic_quotas.json` instead of through the roster screen. The client can still change a row later from Admin.
+
+- **CB:** Anupam Deshmukh and Meeta Sharma → Jimesh Shah. Everyone else in CB, including Jimesh Shah and Darshana Patil, → Vineet Gadia. Vineet → Sanjay Patodia. Darshana stays on the 1 Apr 2026 move from S1 to CB.
+- **Cloud:** Jitesh Rajput → Sanjay Patodia.
+- **GB:** every member → Yogesh Bhatia. Yogesh → Anoop Paidunghat.
+- **GeoX:** every member → Sanjeev Kohli. Sanjeev → Sanjay Patodia.
+- **S1:** Chirag Palande, Raj Matondkar, Richa Tiwari → Prashant Ddugu. Prashant, Pratik Kadam, Riya Bhatt, Tasneem K → Ishwari Kadam. Ishwari → Sanjay Patodia.
+- **S2:** every member → Dipti Karpe. Dipti → Sanjay Patodia.
+- **South:** every member → Ramakrishna Koparapu. Ramakrishna → Ajay Patodia. Ajay → Sanjay Patodia.
+- Yusufali Petiwala (Self) stays blank. Atharva Karpe is stored in CB, so he reports to Vineet.
+
 ### 2026-10-07 — Roster asks when they joined a new RTM
 
 - Changing RTM/BU no longer shows only an effective date. The row asks **When did they join {team}?** Nothing is pre-selected, so Save cannot invent today's date.

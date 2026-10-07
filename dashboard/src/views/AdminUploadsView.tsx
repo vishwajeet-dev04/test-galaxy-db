@@ -509,6 +509,18 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     });
   }, [people, divFilter, nameQuery]);
 
+  // Managers such as Sanjay Patodia are stored on rows but are not roster people.
+  const managerOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const person of people) {
+      const name = person.name.trim();
+      if (name) names.add(name);
+      const manager = (person.reporting_manager || "").trim();
+      if (manager) names.add(manager);
+    }
+    return [...names];
+  }, [people]);
+
   const isRunning = syncStatus?.running || syncBusy || syncStatus?.status === "running";
   const dealCounts = status?.deals || syncStatus?.deals || {};
   const buNames = Object.keys(buQuotas);
@@ -753,7 +765,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
                     }
                     onChangeTransferStart={(value) => updatePerson(idx, { transfer_start: value || null })}
                     onChangeType={(value) => updatePerson(idx, { type: value })}
-                    managerNames={people.map((row) => row.name).filter((name) => name && name !== p.name)}
+                    managerNames={managerOptions.filter((name) => name !== p.name)}
                     onChangeManager={(value) => updatePerson(idx, { reporting_manager: value || null })}
                     onChangeQuota={(key, value) => updatePerson(idx, { [key]: value })}
                     onRemove={() => removePerson(idx)}
