@@ -79,6 +79,7 @@ class IcQuotaPerson(BaseModel):
     annual_quota: Optional[float] = None
     assignments: Optional[list[AssignmentRow]] = None
     transfer_start: Optional[str] = None
+    rtm_correction: bool = False
 
 
 class QuotaAccountOp(BaseModel):
@@ -361,12 +362,15 @@ def save_quotas(
         current = ah.current_division(base, today)
         try:
             if requested and current and requested != current:
-                start = ah.parse_date(p.transfer_start)
-                if start is None:
-                    raise ah.AssignmentError(
-                        f"Effective date is required to move {name} from {current} to {requested}"
-                    )
-                assignments = ah.apply_transfer(base, requested, start)
+                if p.rtm_correction:
+                    assignments = ah.correct_current_division(base, requested, today)
+                else:
+                    start = ah.parse_date(p.transfer_start)
+                    if start is None:
+                        raise ah.AssignmentError(
+                            f"Say when {name} joined {requested}"
+                        )
+                    assignments = ah.apply_transfer(base, requested, start)
             elif p.assignments:
                 assignments = ah.serialize_assignments([r.model_dump() for r in p.assignments])
                 if not assignments:

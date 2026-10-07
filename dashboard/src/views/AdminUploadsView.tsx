@@ -9,6 +9,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  Search,
   Trash2,
   Wifi,
   WifiOff,
@@ -70,6 +71,7 @@ interface QuotaPerson {
   assignments: AssignmentRow[];
   baselineDivision: string;
   transfer_start: string | null;
+  joinChoice: "moved" | "wrong" | null;
 }
 
 function formatDbDeals(deals?: Record<string, number> | null): string {
@@ -115,6 +117,7 @@ const emptyPerson = (): QuotaPerson => ({
   assignments: [{ division: "S1", start_date: null, end_date: null }],
   baselineDivision: "S1",
   transfer_start: null,
+  joinChoice: null,
 });
 
 function hydratePerson(raw: Partial<QuotaPerson> & { name: string; division?: string }): QuotaPerson {
@@ -139,6 +142,7 @@ function hydratePerson(raw: Partial<QuotaPerson> & { name: string; division?: st
     assignments: assignments.length ? assignments : [{ division, start_date: null, end_date: null }],
     baselineDivision: division,
     transfer_start: null,
+    joinChoice: null,
   };
 }
 
@@ -160,6 +164,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
   const [loginSeedReady, setLoginSeedReady] = useState(false);
   const [buQuotas, setBuQuotas] = useState<Record<string, Record<string, number>>>({});
   const [divFilter, setDivFilter] = useState("all");
+  const [nameQuery, setNameQuery] = useState("");
 
   const [busy, setBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -352,9 +357,15 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     try {
       const cleaned = people.filter((p) => p.name.trim());
       if (!cleaned.length) throw new Error("Add at least one person");
-      const missingDate = cleaned.find((p) => p.division !== p.baselineDivision && !p.transfer_start);
+      const unanswered = cleaned.find((p) => p.division !== p.baselineDivision && !p.joinChoice);
+      if (unanswered) {
+        throw new Error(`Say when ${unanswered.name} joined ${unanswered.division}`);
+      }
+      const missingDate = cleaned.find(
+        (p) => p.division !== p.baselineDivision && p.joinChoice === "moved" && !p.transfer_start,
+      );
       if (missingDate) {
-        throw new Error(`Set an effective date to move ${missingDate.name} from ${missingDate.baselineDivision} to ${missingDate.division}`);
+        throw new Error(`Pick the date ${missingDate.name} joined ${missingDate.division}`);
       }
       const payload = cleaned.map((p) => ({
         name: p.name,
@@ -369,7 +380,8 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         h2_quota: p.h2_quota,
         annual_quota: p.annual_quota,
         assignments: p.assignments,
-        transfer_start: p.division !== p.baselineDivision ? p.transfer_start : null,
+        transfer_start: p.division !== p.baselineDivision && p.joinChoice === "moved" ? p.transfer_start : null,
+        rtm_correction: p.division !== p.baselineDivision && p.joinChoice === "wrong",
       }));
       const body = await getJson<Record<string, unknown>>(
         "/api/admin/quotas",
@@ -488,10 +500,14 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     setPeople((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const visible = useMemo(
-    () => (divFilter === "all" ? people : people.filter((p) => p.division === divFilter)),
-    [people, divFilter],
-  );
+  const visible = useMemo(() => {
+    const q = nameQuery.trim().toLowerCase().replace(/\s+/g, " ");
+    return people.filter((p) => {
+      if (divFilter !== "all" && p.division !== divFilter) return false;
+      if (!q) return true;
+      return p.name.toLowerCase().replace(/\s+/g, " ").includes(q);
+    });
+  }, [people, divFilter, nameQuery]);
 
   const isRunning = syncStatus?.running || syncBusy || syncStatus?.status === "running";
   const dealCounts = status?.deals || syncStatus?.deals || {};
@@ -615,9 +631,20 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         <div className="flex flex-wrap items-end justify-between gap-3">
           <SectionHeader
             label="Quota roster"
-            description="H1, H2 and Annual are independent Finance figures. Changing RTM keeps history — set an effective date; it does not overwrite the previous team."
+            description="H1, H2 and Annual are independent Finance figures. Changing a team asks when they joined it. A move keeps the old team until that date. A wrong label is corrected with no date."
           />
           <div className="flex items-center gap-3">
+            <div className="relative w-52">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={nameQuery}
+                onChange={(e) => setNameQuery(e.target.value)}
+                placeholder="Search name"
+                aria-label="Search roster by name"
+                className={`${ui.input} py-2`}
+              />
+            </div>
             <select
               value={divFilter}
               onChange={(e) => setDivFilter(e.target.value)}
@@ -668,6 +695,14 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           </div>
         </div>
 
+        {visible.length === 0 && (nameQuery.trim() || divFilter !== "all") && (
+          <p className="text-sm text-slate-500">
+            No one matches
+            {nameQuery.trim() ? ` “${nameQuery.trim()}”` : ""}
+            {divFilter !== "all" ? ` in ${divFilter}` : ""}.
+          </p>
+        )}
+
         <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
           <table className="min-w-full text-sm">
             <thead className={ui.tableHead}>
@@ -675,8 +710,9 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
                 <th className="px-3 py-2" />
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">RTM/BU</th>
-                <th className="px-3 py-2">Effective date</th>
+                <th className="px-3 py-2">Joined</th>
                 <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Reports to</th>
                 <th className="px-3 py-2 text-right">Q1</th>
                 <th className="px-3 py-2 text-right">Q2</th>
                 <th className="px-3 py-2 text-right">H1</th>
@@ -704,12 +740,21 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
                     onChangeDivision={(value) =>
                       updatePerson(idx, {
                         division: value,
+                        joinChoice: value === p.baselineDivision ? null : p.joinChoice,
                         transfer_start:
-                          value === p.baselineDivision ? null : p.transfer_start || toISODate(new Date()),
+                          value === p.baselineDivision || p.joinChoice !== "moved" ? null : p.transfer_start,
+                      })
+                    }
+                    onChangeJoin={(choice) =>
+                      updatePerson(idx, {
+                        joinChoice: choice,
+                        transfer_start: choice === "moved" ? p.transfer_start || toISODate(new Date()) : null,
                       })
                     }
                     onChangeTransferStart={(value) => updatePerson(idx, { transfer_start: value || null })}
                     onChangeType={(value) => updatePerson(idx, { type: value })}
+                    managerNames={people.map((row) => row.name).filter((name) => name && name !== p.name)}
+                    onChangeManager={(value) => updatePerson(idx, { reporting_manager: value || null })}
                     onChangeQuota={(key, value) => updatePerson(idx, { [key]: value })}
                     onRemove={() => removePerson(idx)}
                   />
@@ -838,8 +883,11 @@ function RosterPersonRows({
   historyOpen,
   onToggleHistory,
   onChangeDivision,
+  onChangeJoin,
   onChangeTransferStart,
   onChangeType,
+  managerNames,
+  onChangeManager,
   onChangeQuota,
   onRemove,
 }: {
@@ -848,8 +896,11 @@ function RosterPersonRows({
   historyOpen: boolean;
   onToggleHistory: () => void;
   onChangeDivision: (value: string) => void;
+  onChangeJoin: (choice: "moved" | "wrong") => void;
   onChangeTransferStart: (value: string) => void;
   onChangeType: (value: string) => void;
+  managerNames: string[];
+  onChangeManager: (value: string) => void;
   onChangeQuota: (key: (typeof QUOTA_KEYS)[number], value: number) => void;
   onRemove: () => void;
 }) {
@@ -883,13 +934,13 @@ function RosterPersonRows({
         </td>
         <td className="px-3 py-1.5">
           {rtmChanged ? (
-            <input
-              type="date"
-              value={p.transfer_start || ""}
-              onChange={(e) => onChangeTransferStart(e.target.value)}
-              className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs"
-              title="Previous RTM ends the day before this date"
-            />
+            <span className="text-xs font-medium text-galaxy-navy">
+              {p.joinChoice === "moved"
+                ? formatAssignmentDate(p.transfer_start)
+                : p.joinChoice === "wrong"
+                  ? "Corrected"
+                  : "Choose"}
+            </span>
           ) : (
             <span className="text-xs text-slate-400">—</span>
           )}
@@ -903,6 +954,24 @@ function RosterPersonRows({
             {TYPES.map((t) => (
               <option key={t} value={t}>
                 {t}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td className="px-3 py-1.5">
+          <select
+            value={p.reporting_manager || ""}
+            onChange={(e) => onChangeManager(e.target.value)}
+            aria-label={`Reporting manager for ${p.name}`}
+            className="max-w-[10rem] rounded-lg border border-galaxy-border bg-white px-2 py-1 text-xs focus:border-galaxy-navy/40 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+          >
+            <option value="">—</option>
+            {(p.reporting_manager && !managerNames.includes(p.reporting_manager)
+              ? [p.reporting_manager, ...managerNames]
+              : managerNames
+            ).map((name) => (
+              <option key={name} value={name}>
+                {name}
               </option>
             ))}
           </select>
@@ -927,9 +996,64 @@ function RosterPersonRows({
           </button>
         </td>
       </tr>
+      {rtmChanged && (
+        <tr className="border-b border-slate-100 bg-amber-50/70">
+          <td colSpan={14} className="px-6 py-3">
+            <fieldset>
+              <legend className="text-sm font-medium text-galaxy-navy">
+                When did they join {p.division}?
+              </legend>
+              <p className="mt-0.5 text-xs text-galaxy-muted">
+                {p.name} is on {p.baselineDivision} today.
+              </p>
+              <div className="mt-3 flex flex-col gap-2">
+                <label className="flex flex-wrap items-center gap-2 text-sm text-galaxy-text">
+                  <input
+                    type="radio"
+                    name={`join-${p.name}`}
+                    checked={p.joinChoice === "moved"}
+                    onChange={() => onChangeJoin("moved")}
+                    className="h-4 w-4 border-galaxy-border text-galaxy-navy focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                  />
+                  They moved
+                  {p.joinChoice === "moved" && (
+                    <input
+                      type="date"
+                      value={p.transfer_start || ""}
+                      onChange={(e) => onChangeTransferStart(e.target.value)}
+                      aria-label={`Date ${p.name} joined ${p.division}`}
+                      className="rounded-lg border border-galaxy-border bg-white px-2 py-1 text-xs focus:border-galaxy-navy/40 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                    />
+                  )}
+                </label>
+                {p.joinChoice === "moved" && (
+                  <p className="pl-6 text-xs text-galaxy-muted">
+                    Deals closed before this date stay on {p.baselineDivision}.
+                  </p>
+                )}
+                <label className="flex items-center gap-2 text-sm text-galaxy-text">
+                  <input
+                    type="radio"
+                    name={`join-${p.name}`}
+                    checked={p.joinChoice === "wrong"}
+                    onChange={() => onChangeJoin("wrong")}
+                    className="h-4 w-4 border-galaxy-border text-galaxy-navy focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                  />
+                  The old team was wrong
+                </label>
+                {p.joinChoice === "wrong" && (
+                  <p className="pl-6 text-xs text-galaxy-muted">
+                    This open stretch counts on {p.division}. Closed past teams stay as they are.
+                  </p>
+                )}
+              </div>
+            </fieldset>
+          </td>
+        </tr>
+      )}
       {historyOpen && (
         <tr className="border-b border-slate-100 bg-slate-50/80">
-          <td colSpan={13} className="px-6 py-3">
+          <td colSpan={14} className="px-6 py-3">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Assignment history
             </p>

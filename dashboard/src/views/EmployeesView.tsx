@@ -259,6 +259,39 @@ function periodData(emp: Individual, period: PeriodKey): PeriodMetrics {
   return emp[period];
 }
 
+function normPerson(name: string | null | undefined): string {
+  return (name || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** People whose team_lead is another visible row in this division sit under that row. */
+function nestByManager(employees: Individual[]): { lead: Individual; reports: Individual[] }[] {
+  const byName = new Map(employees.map((emp) => [normPerson(emp.name), emp]));
+  const childNames = new Set<string>();
+  const reportsOf = new Map<string, Individual[]>();
+  for (const emp of employees) {
+    const manager = byName.get(normPerson(emp.team_lead));
+    if (!manager || manager.name === emp.name) continue;
+    childNames.add(normPerson(emp.name));
+    const key = normPerson(manager.name);
+    reportsOf.set(key, [...(reportsOf.get(key) ?? []), emp]);
+  }
+  return employees
+    .filter((emp) => !childNames.has(normPerson(emp.name)))
+    .map((lead) => ({ lead, reports: reportsOf.get(normPerson(lead.name)) ?? [] }));
+}
+
+/** Closed Team Lead row is the sum of the people under them, not the TL's own zeros. */
+function teamPeriod(reports: Individual[], period: PeriodKey): PeriodMetrics {
+  const actuals = reports.reduce((sum, emp) => sum + (periodData(emp, period).actuals ?? 0), 0);
+  const quotas = reports.map((emp) => periodData(emp, period).quota);
+  const quota = quotas.every((value) => value == null) ? null : quotas.reduce((sum, value) => sum + (value ?? 0), 0);
+  return {
+    actuals,
+    quota,
+    attainment_pct: quota ? (actuals / quota) * 100 : null,
+  };
+}
+
 function periodLabel(period: PeriodKey): string {
   const labels: Record<PeriodKey, string> = {
     q1: "Q1",
@@ -279,6 +312,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
   const [personaFilter, setPersonaFilter] = useState(drill.persona ?? "");
   const [hasDealsOnly, setHasDealsOnly] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [openTeams, setOpenTeams] = useState<Record<string, boolean>>({});
 
   const selected = drill.employee;
   const selectedEmp = selected ? data.individuals.find((e) => e.name === selected) : null;
@@ -509,70 +543,103 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {group.employees.map((emp) => {
-                      const pd = periodData(emp, period);
-                      const att = pd.attainment_pct ?? 0;
-                      const isSelected = emp.name === selected;
-
-                      return (
-                        <tr
-                          key={emp.name}
-                          onClick={() => onDrill({ employee: emp.name })}
-                          className={`${ui.tableRow} ${isSelected ? ui.tableRowSelected : ""}`}
-                        >
-                          <td className="px-4 py-3 font-medium text-galaxy-navy">
-                            <span className="inline-flex flex-wrap items-center gap-2.5">
-                              <Avatar name={emp.name} size="sm" />
-                              <span>{emp.name}</span>
-                              {(emp.reference_only && pd.quota && pd.quota > 0) && (
-                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
-                                  Reference only
-                                </span>
-                              )}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={emp.persona === "TL" ? ui.pill : ui.badge}>{emp.persona}</span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {emp.pipeline?.closed_accounts?.length > 0 ? (
-                              <div className="flex flex-col items-center justify-center">
-                                <span className="font-medium text-galaxy-navy text-xs">
-                                  {emp.pipeline.closed_accounts[0].account} &times;{emp.pipeline.closed_accounts[0].deal_count}
-                                </span>
-                                {emp.pipeline.closed_accounts.length > 1 && (
-                                  <span className="mt-0.5 text-[10px] text-galaxy-muted">
-                                    +{emp.pipeline.closed_accounts.length - 1} more account{emp.pipeline.closed_accounts.length > 2 ? "s" : ""}
+                    {nestByManager(group.employees)
+                      .sort((a, b) => {
+                        const shown = (row: { lead: Individual; reports: Individual[] }) =>
+                          row.reports.length
+                            ? (teamPeriod(row.reports, period).actuals ?? 0)
+                            : (periodData(row.lead, period).actuals ?? 0);
+                        return shown(b) - shown(a);
+                      })
+                      .map(({ lead, reports }) => {
+                      const open = !!openTeams[lead.name];
+                      const pd = reports.length > 0 ? teamPeriod(reports, period) : periodData(lead, period);
+                      const rows = [{ emp: lead, nested: false as const }, ...(open ? reports.map((emp) => ({ emp, nested: true as const })) : [])];
+                      return rows.map(({ emp, nested }) => {
+                        const rowPd = nested || reports.length === 0 ? periodData(emp, period) : pd;
+                        const att = rowPd.attainment_pct ?? 0;
+                        const isSelected = emp.name === selected;
+                        return (
+                          <tr
+                            key={emp.name}
+                            onClick={() => onDrill({ employee: emp.name })}
+                            className={`${ui.tableRow} ${isSelected ? ui.tableRowSelected : ""}`}
+                          >
+                            <td className={`py-3 font-medium text-galaxy-navy ${nested ? "pl-10 pr-4" : "px-4"}`}>
+                              <span className="inline-flex flex-wrap items-center gap-2.5">
+                                {!nested && reports.length > 0 && (
+                                  <button
+                                    type="button"
+                                    aria-expanded={open}
+                                    aria-label={open ? `Hide ${emp.name}'s team` : `Show ${emp.name}'s team`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setOpenTeams((prev) => ({ ...prev, [emp.name]: !prev[emp.name] }));
+                                    }}
+                                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-galaxy-navy focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                                  >
+                                    {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                  </button>
+                                )}
+                                <Avatar name={emp.name} size="sm" />
+                                <span>{emp.name}</span>
+                                {!nested && reports.length > 0 && (
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                    Team total
                                   </span>
                                 )}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-galaxy-muted">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono font-medium text-galaxy-navy">
-                            {formatCr(pd.actuals)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono text-galaxy-muted">
-                            {pd.quota != null ? formatCr(pd.quota) : <span className="text-xs text-galaxy-muted">—</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {pd.quota != null ? (
-                              <div className="flex items-center justify-end gap-2">
-                                <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
-                                  <div
-                                    className={`h-full ${attainmentBg(att)}`}
-                                    style={{ width: `${Math.min(att, 100)}%` }}
-                                  />
+                                {(emp.reference_only && rowPd.quota && rowPd.quota > 0) && (
+                                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                                    Reference only
+                                  </span>
+                                )}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={emp.persona === "TL" ? ui.pill : ui.badge}>{emp.persona}</span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {!nested && reports.length > 0 ? (
+                                <span className="text-xs text-galaxy-muted">{reports.length} people</span>
+                              ) : emp.pipeline?.closed_accounts?.length > 0 ? (
+                                <div className="flex flex-col items-center justify-center">
+                                  <span className="font-medium text-galaxy-navy text-xs">
+                                    {emp.pipeline.closed_accounts[0].account} &times;{emp.pipeline.closed_accounts[0].deal_count}
+                                  </span>
+                                  {emp.pipeline.closed_accounts.length > 1 && (
+                                    <span className="mt-0.5 text-[10px] text-galaxy-muted">
+                                      +{emp.pipeline.closed_accounts.length - 1} more account{emp.pipeline.closed_accounts.length > 2 ? "s" : ""}
+                                    </span>
+                                  )}
                                 </div>
-                                <span className={`font-mono text-xs ${attainmentColor(att)}`}>{formatPct(att)}</span>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-galaxy-muted">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
+                              ) : (
+                                <span className="text-xs text-galaxy-muted">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono font-medium text-galaxy-navy">
+                              {formatCr(rowPd.actuals)}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono text-galaxy-muted">
+                              {rowPd.quota != null ? formatCr(rowPd.quota) : <span className="text-xs text-galaxy-muted">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {rowPd.quota != null ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
+                                    <div
+                                      className={`h-full ${attainmentBg(att)}`}
+                                      style={{ width: `${Math.min(att, 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className={`font-mono text-xs ${attainmentColor(att)}`}>{formatPct(att)}</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-galaxy-muted">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
                     })}
                   </tbody>
                 </table>

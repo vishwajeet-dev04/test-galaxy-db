@@ -1,6 +1,6 @@
 # Galaxy Performance Tracker — Project Context
 
-**Last updated:** 2026-09-25  
+**Last updated:** 2026-10-07  
 **Branch:** `feature/vtiger`  
 **Purpose:** Hand-off document. Read this first. Do not re-derive architecture from scratch.
 
@@ -224,6 +224,7 @@ Same person / same login. `division` is **as-of-today IST** RTM.
 - Null `end_date` = Ongoing.
 - GET synthesizes `{division, start: null, end: null}` if history is missing; first Save writes it.
 - Transfer closes the previous row at `start_date - 1 day`. Same-day start replaces that day's division. Overlap → `AssignmentError` (HTTP 400).
+- Admin RTM change asks when they joined. **They moved** sends `transfer_start` and calls `apply_transfer`. **The old team was wrong** sends `rtm_correction: true` and calls `correct_current_division`, which relabels only the row that covers today (otherwise the latest open row). Dates and closed rows stay. T1 import still dates an RTM difference as a transfer today.
 
 ---
 
@@ -243,7 +244,7 @@ All JSON. JWT: `Authorization: Bearer <token>` except login and health.
 | GET | `/api/admin/status` | admin | Deal counts + quota file exists + latest sync job. Alias kept; Chrome can 403 paths containing `status`. UI uses `GET /quotas` instead. |
 | GET | `/api/admin/uploads/status` | admin | Alias of `/status` |
 | GET | `/api/admin/quotas` | admin | Roster + `bu_annual_quotas` + `accounts` (login list, up to 100) + `crm` (deal counts + latest sync job). Chrome is not asked for `/users`/`/logins`/`/directory`/`status`. |
-| PUT | `/api/admin/quotas` | admin | Full-replace `ic_quotas.json` when `people` is sent. `{ account: { op: create\|update\|delete } }` does login CRUD. `{ sync: true }` starts a full-FY Vtiger job (same as POST `/vtiger-sync`). RTM change requires `transfer_start`. Then rebuild + `seed_users`. **409** if a sync job is running (roster save only). |
+| PUT | `/api/admin/quotas` | admin | Full-replace `ic_quotas.json` when `people` is sent. `{ account: { op: create\|update\|delete } }` does login CRUD. `{ sync: true }` starts a full-FY Vtiger job (same as POST `/vtiger-sync`). An RTM change is either `transfer_start` (they moved) or `rtm_correction` (the old team was wrong). Then rebuild + `seed_users`. **409** if a sync job is running (roster save only). |
 | GET | `/api/admin/templates/data` | admin | Download `files/Galaxy_Data_Templates.xlsx` |
 | POST | `/api/admin/quotas/import` | admin | T1 sheet → roster. Missing names are **dropped**. RTM diff → transfer dated today. |
 | POST | `/api/admin/reparse` | admin | Rebuild JSON from SQLite + config. **409** if a sync job is running. |
@@ -615,6 +616,20 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-10-07 — Roster asks when they joined a new RTM
+
+- Changing RTM/BU no longer shows only an effective date. The row asks **When did they join {team}?** Nothing is pre-selected, so Save cannot invent today's date.
+- **They moved** still calls `apply_transfer`: the previous row ends the day before, and deals follow the close date.
+- **The old team was wrong** sends `rtm_correction` and `correct_current_division` relabels only the assignment that covers today (or the latest open row). Start and end dates stay, and closed past rows stay. This is the in-place fix used for a bad label such as Ajay's DCG.
+- T1 import is unchanged: an RTM difference on import is still a transfer dated today.
+
+### 2026-10-06 — Team Lead reporting line (Prashant, Jimesh)
+
+- **Roster:** `reporting_manager` was already on `ic_quotas.json` and copied to `individual.team_lead` at build. Other managers are unchanged. Set only: Prashant Ddugu → Ishwari Kadam; Chirag Palande, Raj Matondkar, Richa Tiwari → Prashant Ddugu; Jimesh Shah → Vineet Gadia; Meeta Sharma → Jimesh Shah (she was Vineet). Anupam Deshmukh already reports to Jimesh. Tasneem K, Riya Bhatt and Pratik stay blank, so they stay direct S1 rows.
+- **TL login:** in `_allowed_names_for_user`, a `tl` who has at least one person with `team_lead` matching them sees only self plus those people, then `_drop_leaders_for_tl`. The rest of the RTM is not added. A TL with nobody reporting to them still gets today's division scope (Sana, Ramakrishna). Ishwari (leader) still sees all of S1. Prashant: himself, Chirag, Raj, Richa. Jimesh: himself, Anupam, Meeta. Every existing screen uses this scope.
+- **Employees:** inside a division, a person whose `team_lead` is another visible row is nested under them. The closed row is the sum of those people (actuals, quota, attainment) for the selected period, not the TL's own numbers. Division headers stay the RTM card totals. Quota Roster has a Reports to dropdown (roster names); search still filters the table only.
+- Production: pull, rebuild (`python scripts/build_quota_data.py`), restart the backend, deploy `dashboard/dist`.
 
 ### 2026-10-06 — Leader BU table is their RTM only; Ajay Patodia is South
 

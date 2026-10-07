@@ -59,11 +59,31 @@
       }
     ]
   },
+  "Jay Rushi": {
+    "_tracker_name": "Jay Rushi",
+    "division": "CB",
+    "type": "IC",
+    "reporting_manager": "Vineet Gadia",
+    "q1_quota": 1.0,
+    "q2_quota": 2.0,
+    "q3_quota": 0.0,
+    "q4_quota": 0.0,
+    "h1_quota": 3.0,
+    "h2_quota": 5.0,
+    "annual_quota": 8.0,
+    "assignments": [
+      {
+        "division": "CB",
+        "start_date": null,
+        "end_date": null
+      }
+    ]
+  },
   "Jimesh Shah": {
     "_tracker_name": "Jimesh Shah",
     "division": "CB",
     "type": "TL",
-    "reporting_manager": null,
+    "reporting_manager": "Vineet Gadia",
     "q1_quota": 0.0,
     "q2_quota": 0.0,
     "q3_quota": 0.0,
@@ -83,7 +103,7 @@
     "_tracker_name": "Meeta Sharma",
     "division": "CB",
     "type": "IC",
-    "reporting_manager": "Vineet Gadia",
+    "reporting_manager": "Jimesh Shah",
     "q1_quota": 0.0,
     "q2_quota": 0.0,
     "q3_quota": 0.0,
@@ -103,7 +123,7 @@
     "_tracker_name": "Prachi Mayekar",
     "division": "CB",
     "type": "IC",
-    "reporting_manager": null,
+    "reporting_manager": "Vineet Gadia",
     "q1_quota": 7.5,
     "q2_quota": 7.5,
     "q3_quota": 0.0,
@@ -123,7 +143,7 @@
     "_tracker_name": "Shilpa Kavde",
     "division": "CB",
     "type": "IC",
-    "reporting_manager": null,
+    "reporting_manager": "Vineet Gadia",
     "q1_quota": 5.0,
     "q2_quota": 10.0,
     "q3_quota": 0.0,
@@ -199,26 +219,6 @@
       }
     ]
   },
-  "Ajay Patodia": {
-    "_tracker_name": "Ajay Patodia",
-    "division": "South",
-    "type": "BU Head",
-    "reporting_manager": null,
-    "q1_quota": 0.0,
-    "q2_quota": 0.0,
-    "q3_quota": 0.0,
-    "q4_quota": 0.0,
-    "h1_quota": 0.0,
-    "h2_quota": 0.0,
-    "annual_quota": 0.0,
-    "assignments": [
-      {
-        "division": "South",
-        "start_date": null,
-        "end_date": null
-      }
-    ]
-  },
   "Akshat Jhariya": {
     "_tracker_name": "Akshat Jhariya",
     "division": "GB",
@@ -261,9 +261,9 @@
   },
   "Atharva Karpe": {
     "_tracker_name": "Atharva Karpe",
-    "division": "GB",
+    "division": "CB",
     "type": "IC",
-    "reporting_manager": null,
+    "reporting_manager": "Vineet Gadia",
     "q1_quota": 3.0,
     "q2_quota": 1.0,
     "q3_quota": 0.0,
@@ -273,7 +273,7 @@
     "annual_quota": 8.0,
     "assignments": [
       {
-        "division": "GB",
+        "division": "CB",
         "start_date": null,
         "end_date": null
       }
@@ -311,26 +311,6 @@
     "h1_quota": 0.6,
     "h2_quota": 1.4,
     "annual_quota": 2.0,
-    "assignments": [
-      {
-        "division": "GB",
-        "start_date": null,
-        "end_date": null
-      }
-    ]
-  },
-  "Jay Rushi": {
-    "_tracker_name": "Jay Rushi",
-    "division": "GB",
-    "type": "IC",
-    "reporting_manager": null,
-    "q1_quota": 1.0,
-    "q2_quota": 2.0,
-    "q3_quota": 0.0,
-    "q4_quota": 0.0,
-    "h1_quota": 3.0,
-    "h2_quota": 5.0,
-    "annual_quota": 8.0,
     "assignments": [
       {
         "division": "GB",
@@ -603,7 +583,7 @@
     "_tracker_name": "Chirag Palande",
     "division": "S1",
     "type": "IC",
-    "reporting_manager": null,
+    "reporting_manager": "Prashant Ddugu",
     "q1_quota": 13.0,
     "q2_quota": 10.0,
     "q3_quota": 0.0,
@@ -663,7 +643,7 @@
     "_tracker_name": "Prashant Ddugu",
     "division": "S1",
     "type": "TL",
-    "reporting_manager": null,
+    "reporting_manager": "Ishwari Kadam",
     "q1_quota": 28.8,
     "q2_quota": 31.95,
     "q3_quota": 0.0,
@@ -683,7 +663,7 @@
     "_tracker_name": "Pratik Kadam",
     "division": "S1",
     "type": "IC",
-    "reporting_manager": null,
+    "reporting_manager": "Ishwari Kadam",
     "q1_quota": 3.0,
     "q2_quota": 2.0,
     "q3_quota": 0.0,
@@ -703,7 +683,7 @@
     "_tracker_name": "Raj Matondkar",
     "division": "S1",
     "type": "IC",
-    "reporting_manager": null,
+    "reporting_manager": "Prashant Ddugu",
     "q1_quota": 0.0,
     "q2_quota": 0.0,
     "q3_quota": 0.0,
@@ -723,7 +703,7 @@
     "_tracker_name": "Richa Tiwari",
     "division": "S1",
     "type": "IC",
-    "reporting_manager": null,
+    "reporting_manager": "Prashant Ddugu",
     "q1_quota": 8.3,
     "q2_quota": 16.95,
     "q3_quota": 0.0,
@@ -743,7 +723,7 @@
     "_tracker_name": "Riya Bhatt",
     "division": "S1",
     "type": "IC",
-    "reporting_manager": null,
+    "reporting_manager": "Ishwari Kadam",
     "q1_quota": 20.0,
     "q2_quota": 38.0,
     "q3_quota": 0.0,
@@ -763,7 +743,7 @@
     "_tracker_name": "Tasneem K",
     "division": "S1",
     "type": "IC",
-    "reporting_manager": null,
+    "reporting_manager": "Ishwari Kadam",
     "q1_quota": 35.075,
     "q2_quota": 95.275,
     "q3_quota": 0.0,
@@ -774,26 +754,6 @@
     "assignments": [
       {
         "division": "S1",
-        "start_date": null,
-        "end_date": null
-      }
-    ]
-  },
-  "Dipti Karpe": {
-    "_tracker_name": "Dipti Karpe",
-    "division": "S2",
-    "type": "BU Head",
-    "reporting_manager": "Sanjay Patodia",
-    "q1_quota": 0.0,
-    "q2_quota": 0.0,
-    "q3_quota": 0.0,
-    "q4_quota": 0.0,
-    "h1_quota": 0.0,
-    "h2_quota": 0.0,
-    "annual_quota": 0.0,
-    "assignments": [
-      {
-        "division": "S2",
         "start_date": null,
         "end_date": null
       }
@@ -811,6 +771,26 @@
     "h1_quota": 20.0,
     "h2_quota": 49.0,
     "annual_quota": 69.0,
+    "assignments": [
+      {
+        "division": "S2",
+        "start_date": null,
+        "end_date": null
+      }
+    ]
+  },
+  "Dipti Karpe": {
+    "_tracker_name": "Dipti Karpe",
+    "division": "S2",
+    "type": "BU Head",
+    "reporting_manager": "Sanjay Patodia",
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "q3_quota": 0.0,
+    "q4_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0,
     "assignments": [
       {
         "division": "S2",
@@ -971,6 +951,26 @@
     "h1_quota": 4.0,
     "h2_quota": 4.0,
     "annual_quota": 8.0,
+    "assignments": [
+      {
+        "division": "South",
+        "start_date": null,
+        "end_date": null
+      }
+    ]
+  },
+  "Ajay Patodia": {
+    "_tracker_name": "Ajay Patodia",
+    "division": "South",
+    "type": "BU Head",
+    "reporting_manager": null,
+    "q1_quota": 0.0,
+    "q2_quota": 0.0,
+    "q3_quota": 0.0,
+    "q4_quota": 0.0,
+    "h1_quota": 0.0,
+    "h2_quota": 0.0,
+    "annual_quota": 0.0,
     "assignments": [
       {
         "division": "South",

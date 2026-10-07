@@ -928,6 +928,20 @@ def _allowed_names_for_user(data: dict[str, Any], user: User) -> set[str] | None
     if not is_leader:
         return self_names
 
+    # A TL who has people reporting to them sees that team only, not the whole RTM.
+    # TLs with no reports keep the division scope below (Sana, Ramakrishna).
+    if role == "tl":
+        reports = {
+            ic["name"]
+            for ic in individuals
+            if ic.get("name")
+            and any(_names_match(ic.get("team_lead"), n) for n in self_names)
+        }
+        if reports:
+            return _drop_leaders_for_tl(
+                set(self_names) | reports, self_names, individuals, leaders, roster
+            )
+
     allowed = set(self_names)
     my_divs: set[str] = set()
 

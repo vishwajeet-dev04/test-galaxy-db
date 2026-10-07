@@ -168,6 +168,38 @@ def validate_assignments(assignments: list[dict[str, Any]]) -> None:
                 )
 
 
+def correct_current_division(
+    existing: list[dict[str, Any]],
+    new_division: str,
+    today: date | None = None,
+) -> list[dict[str, Any]]:
+    """Relabel the team that covers today. Dates and every other row stay.
+
+    Used when the stored RTM was wrong, not when the person moved.
+    """
+    new_division = normalize_division(new_division)
+    if not new_division:
+        raise AssignmentError("New RTM is required")
+    today = today or as_of_today()
+    rows = serialize_assignments(existing)
+    if not rows:
+        raise AssignmentError("No team assignment to correct")
+
+    target = assignment_on(rows, today)
+    if target is None:
+        open_rows = [row for row in rows if not parse_date(row.get("end_date"))]
+        if not open_rows:
+            raise AssignmentError("No open team to correct")
+        open_rows.sort(key=_start_sort_key)
+        target = open_rows[-1]
+    if normalize_division(target.get("division")) == new_division:
+        raise AssignmentError(f"Already assigned to {new_division}")
+
+    target["division"] = new_division
+    validate_assignments(rows)
+    return rows
+
+
 def apply_transfer(
     existing: list[dict[str, Any]],
     new_division: str,
