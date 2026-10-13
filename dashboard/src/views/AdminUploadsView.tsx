@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { AdminUsersPanel, type UserListResponse } from "./AdminUsersPanel";
 import { authHeaders, useAuth } from "../context/AuthContext";
+import { AssignmentHistoryEditor, type AssignmentRow } from "../components/AssignmentHistoryEditor";
 import { SectionHeader } from "../components/SectionHeader";
 import { ui } from "../theme";
 import { formatDisplayDate, toISODate } from "../utils/fiscal";
@@ -50,12 +51,6 @@ interface AdminStatus {
   quarters?: string[];
 }
 
-interface AssignmentRow {
-  division: string;
-  start_date: string | null;
-  end_date: string | null;
-}
-
 interface QuotaPerson {
   name: string;
   division: string;
@@ -72,6 +67,8 @@ interface QuotaPerson {
   baselineDivision: string;
   transfer_start: string | null;
   joinChoice: "moved" | "wrong" | null;
+  /** Added in this session and not yet saved — the server has no history to edit. */
+  isNew?: boolean;
 }
 
 function formatDbDeals(deals?: Record<string, number> | null): string {
@@ -402,6 +399,38 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     }
   };
 
+  /** Replaces one person's full team history server-side. Throws so the editor can show the error inline. */
+  const saveHistory = async (name: string, assignments: AssignmentRow[]) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const body = await getJson<{ message?: string; division?: string; assignments?: AssignmentRow[] }>(
+        "/api/admin/quotas",
+        {
+          method: "PUT",
+          headers: { ...authHeaders(token), "Content-Type": "application/json" },
+          body: JSON.stringify({ history: { name, assignments } }),
+        },
+        "Could not save history",
+      );
+      const saved = body.assignments ?? assignments;
+      const division = body.division || saved[saved.length - 1]?.division || "";
+      // Patch only this person so unsaved quota edits on other rows are not thrown away by a full reload.
+      setPeople((prev) =>
+        prev.map((p) =>
+          p.name === name
+            ? { ...p, assignments: saved, division, baselineDivision: division, joinChoice: null, transfer_start: null }
+            : p,
+        ),
+      );
+      setMessage(body.message || `Saved team history for ${name}`);
+      onDataRefresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const rebuild = async () => {
     setBusy(true);
     setError(null);
@@ -489,7 +518,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
       setError(`"${name}" is already on the roster`);
       return;
     }
-    setPeople((prev) => [...prev, hydratePerson({ ...newRow, name })]);
+    setPeople((prev) => [...prev, { ...hydratePerson({ ...newRow, name }), isNew: true }]);
     setNewRow(emptyPerson());
     setError(null);
   };
@@ -749,6 +778,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
                     onToggleHistory={() =>
                       setExpandedHistory((prev) => ({ ...prev, [p.name]: !prev[p.name] }))
                     }
+                    onSaveHistory={(rows) => saveHistory(p.name, rows)}
                     onChangeDivision={(value) =>
                       updatePerson(idx, {
                         division: value,
@@ -894,6 +924,7 @@ function RosterPersonRows({
   rtmChanged,
   historyOpen,
   onToggleHistory,
+  onSaveHistory,
   onChangeDivision,
   onChangeJoin,
   onChangeTransferStart,
@@ -907,6 +938,7 @@ function RosterPersonRows({
   rtmChanged: boolean;
   historyOpen: boolean;
   onToggleHistory: () => void;
+  onSaveHistory: (rows: AssignmentRow[]) => Promise<void>;
   onChangeDivision: (value: string) => void;
   onChangeJoin: (choice: "moved" | "wrong") => void;
   onChangeTransferStart: (value: string) => void;
@@ -1066,27 +1098,19 @@ function RosterPersonRows({
       {historyOpen && (
         <tr className="border-b border-slate-100 bg-slate-50/80">
           <td colSpan={14} className="px-6 py-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Assignment history
-            </p>
-            <table className="w-full max-w-lg text-xs">
-              <thead>
-                <tr className="text-left text-slate-400">
-                  <th className="py-1 pr-4 font-medium">RTM/BU</th>
-                  <th className="py-1 pr-4 font-medium">Start Date</th>
-                  <th className="py-1 font-medium">End Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {p.assignments.map((a, i) => (
-                  <tr key={`${a.division}-${a.start_date}-${i}`}>
-                    <td className="py-1 pr-4 font-medium text-galaxy-navy">{a.division}</td>
-                    <td className="py-1 pr-4 text-slate-600">{formatAssignmentDate(a.start_date)}</td>
-                    <td className="py-1 text-slate-600">{a.end_date ? formatAssignmentDate(a.end_date) : "Ongoing"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <AssignmentHistoryEditor
+              name={p.name}
+              assignments={p.assignments}
+              teamOptions={DIVISIONS}
+              lockedReason={
+                p.isNew
+                  ? "Save the roster first, then edit this person's history"
+                  : rtmChanged
+                    ? "Save or undo the team change first"
+                    : null
+              }
+              onSave={onSaveHistory}
+            />
           </td>
         </tr>
       )}

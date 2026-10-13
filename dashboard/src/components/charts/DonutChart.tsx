@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { CHART_COLORS, formatCr } from "../../utils/format";
+import { LegendPill } from "../LegendPill";
 
 interface DonutChartProps {
   data: { name: string; value: number }[];
@@ -77,23 +78,15 @@ export function DonutChart({
 
       {/* Custom legend pills */}
       <div className="mt-2 flex flex-wrap justify-center gap-2">
-        {filtered.map((d, i) => {
-          const pct = total ? ((d.value / total) * 100).toFixed(0) : "0";
-          // The status-color calculation logic is preserved here for potential future use:
-          // const hasStatus = statusMap && legendStatusColorFn && d.name in statusMap;
-          // const statusColor = hasStatus ? legendStatusColorFn!(statusMap![d.name]) : null;
-          return (
-            <button
-              key={d.name}
-              onClick={() => onSliceClick?.(d.name)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-100 transition hover:bg-white hover:ring-galaxy-navy/20"
-            >
-              <span className="h-2 w-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-              {d.name}
-              <span className="text-slate-400">{pct}%</span>
-            </button>
-          );
-        })}
+        {filtered.map((d, i) => (
+          <LegendPill
+            key={d.name}
+            color={CHART_COLORS[i % CHART_COLORS.length]}
+            label={d.name}
+            value={`${total ? ((d.value / total) * 100).toFixed(0) : "0"}%`}
+            onClick={onSliceClick ? () => onSliceClick(d.name) : undefined}
+          />
+        ))}
       </div>
     </div>
   );

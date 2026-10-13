@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { Users, Wallet, Target, Crown, Sparkles, TrendingUp, Info } from "lucide-react";
+import { Users, Wallet, Target, Crown, Sparkles, TrendingUp, Info, X } from "lucide-react";
 import { StatusFlag } from "../components/StatusFlag";
 import { DealStatusIndicators } from "../components/DealStatusIndicators";
 
@@ -38,10 +38,11 @@ interface LeadersViewProps {
 
 export function LeadersView({ data }: LeadersViewProps) {
   const leaders = data.leaders_dashboard ?? [];
-  const [selected, setSelected] = useState<string | null>(leaders[0]?.name ?? null);
+  // null = no leader picked: the banner shows totals across all leaders.
+  const [selected, setSelected] = useState<string | null>(null);
 
   const active = useMemo(
-    () => leaders.find((l) => l.name === selected) ?? leaders[0],
+    () => (selected ? leaders.find((l) => l.name === selected) : undefined),
     [leaders, selected]
   );
 
@@ -70,24 +71,46 @@ export function LeadersView({ data }: LeadersViewProps) {
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-galaxy-primary/20 blur-3xl" />
         <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 text-indigo-200">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-indigo-200">
               <Crown className="h-4 w-4" />
               <span className="text-xs font-bold uppercase tracking-[0.2em]">Leadership</span>
+              {active && (
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  className={`${ui.btnOnDark} ml-1`}
+                  aria-label="Clear selected leader and show all leaders"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Clear
+                </button>
+              )}
             </div>
             <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-              Leaders Dashboard – Bottomline
+              {active ? `${active.name} – Bottomline` : "Leaders Dashboard – Bottomline"}
             </h2>
             <p className="mt-2 max-w-xl text-sm text-indigo-100/90">
-              Cumulative team bottomline, quota & attainment across {leaders.length} business leaders.
+              {active
+                ? `${active.dept} · ${active.team_size} team members`
+                : `Cumulative team bottomline, quota & attainment across ${leaders.length} business leaders.`}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <HeroStat label="Leaders" value={String(leaders.length)} />
-            <HeroStat label="H1 Actuals" value={formatCr(data.kpis.header_ic_actuals)} />
-            <HeroStat label="Topline" value={formatCr(totals.topline)} />
-            <HeroStat label="Team Bottomline" value={formatCr(totals.bottomline)} accent />
-          </div>
+          {active ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <HeroStat label="Team" value={String(active.team_size)} />
+              <HeroStat label="H1 Actuals" value={formatCr(active.h1.actuals)} />
+              <HeroStat label="Topline" value={formatCr(active.pipeline.topline_cr)} />
+              <HeroStat label="Bottomline" value={formatCr(active.pipeline.bottomline_cr)} accent />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <HeroStat label="Leaders" value={String(leaders.length)} />
+              <HeroStat label="H1 Actuals" value={formatCr(data.kpis.header_ic_actuals)} />
+              <HeroStat label="Topline" value={formatCr(totals.topline)} />
+              <HeroStat label="Team Bottomline" value={formatCr(totals.bottomline)} accent />
+            </div>
+          )}
         </div>
       </div>
 
@@ -97,12 +120,19 @@ export function LeadersView({ data }: LeadersViewProps) {
             key={leader.name}
             leader={leader}
             isActive={active?.name === leader.name}
-            onSelect={() => setSelected(leader.name)}
+            onSelect={() => setSelected((prev) => (prev === leader.name ? null : leader.name))}
           />
         ))}
       </div>
 
-      {active && <LeaderDetail leader={active} />}
+      {active ? (
+        <LeaderDetail leader={active} />
+      ) : (
+        <div role="status" className={`${ui.cardInner} flex items-center gap-3 px-4 py-3`}>
+          <Info className="h-4 w-4 shrink-0 text-galaxy-blue" />
+          <p className="text-sm text-slate-600">Select a leader to see their deals and team.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -130,8 +160,10 @@ function LeaderCard({
 
   return (
     <button
+      type="button"
       onClick={onSelect}
-      className={`group relative overflow-hidden rounded-2xl border text-left transition-all duration-200 ${
+      aria-pressed={isActive}
+      className={`group relative overflow-hidden rounded-2xl border text-left transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 motion-reduce:transition-none ${
         isActive
           ? "border-galaxy-navy/30 shadow-lg ring-2 ring-galaxy-navy/20"
           : "border-galaxy-border/70 shadow-sm hover:border-galaxy-navy/20 hover:shadow-md"

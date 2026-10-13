@@ -168,6 +168,28 @@ def validate_assignments(assignments: list[dict[str, Any]]) -> None:
                 )
 
 
+def validate_history(assignments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Full history written by Admin: the base rules plus at most one ongoing (no end date) row.
+
+    Returns the serialized rows sorted by start date. Unlike `serialize_assignments`, a blank team
+    or an unreadable date is an error here — silently turning it into "unknown" would re-tag deals.
+    """
+    for raw in assignments or []:
+        if not isinstance(raw, dict) or not normalize_division(raw.get("division")):
+            raise AssignmentError("Each row needs a team")
+        for key in ("start_date", "end_date"):
+            value = raw.get(key)
+            if value not in (None, "") and parse_date(value) is None:
+                raise AssignmentError(f"Unreadable date: {value}")
+    rows = serialize_assignments(assignments)
+    open_rows = [row for row in rows if not parse_date(row.get("end_date"))]
+    if len(open_rows) > 1:
+        raise AssignmentError("Only one team can be ongoing — give the earlier team an end date")
+    validate_assignments(rows)
+    rows.sort(key=_start_sort_key)
+    return rows
+
+
 def correct_current_division(
     existing: list[dict[str, Any]],
     new_division: str,

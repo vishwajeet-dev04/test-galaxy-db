@@ -19,6 +19,7 @@ import { DealRow } from "../components/DealRow";
 import { BrandLogo } from "../components/BrandLogo";
 import { ChartCard } from "../components/ChartCard";
 import { DonutChart } from "../components/charts/DonutChart";
+import { useDealHighlight } from "../hooks/useDealHighlight";
 import type { BrandRecord, DrillState, QuotaData } from "../types";
 import { formatCr, formatPct, formatInr, BU_COLORS } from "../utils/format";
 import { ui } from "../theme";
@@ -34,14 +35,17 @@ type SortKey = "revenue" | "bottomline" | "deals" | "gp" | "quota_share" | "acco
 function BrandDetail({
   brand,
   icQuota,
+  highlightDeal,
   onSelectEmployee,
   onSelectAccount,
 }: {
   brand: BrandRecord;
   icQuota: number;
+  highlightDeal?: string;
   onSelectEmployee: (name: string) => void;
   onSelectAccount: (account: string) => void;
 }) {
+  const { containerRef, isHighlighted } = useDealHighlight(highlightDeal);
   const buShare = brand.by_bu.map((b) => ({ name: b.bu, value: b.revenue_cr }));
 
   return (
@@ -215,9 +219,14 @@ function BrandDetail({
 
       <div className={`${ui.card} p-5`}>
         <SectionHeader label="Closed deals" description={`${brand.deals.length} opportunities`} />
-        <div className="mt-4 space-y-2">
+        <div ref={containerRef} className="mt-4 space-y-2">
           {brand.deals.map((deal, i) => (
-            <DealRow key={`${deal.opportunity_number ?? i}-${i}`} deal={deal} showBottomline />
+            <DealRow
+              key={`${deal.opportunity_number ?? i}-${i}`}
+              deal={deal}
+              showBottomline
+              highlighted={isHighlighted(deal.opportunity_number)}
+            />
           ))}
         </div>
       </div>
@@ -304,7 +313,7 @@ export function BrandsView({ data, drill, onDrill }: BrandsViewProps) {
         <BrandDetail
           brand={selected}
           icQuota={icQuota ?? 0}
-
+          highlightDeal={drill.deal}
           onSelectEmployee={(name) => onDrill({ view: "employees", employee: name })}
           onSelectAccount={(account) => onDrill({ view: "accounts", account })}
         />

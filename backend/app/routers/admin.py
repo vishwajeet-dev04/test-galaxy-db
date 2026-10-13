@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
-import os
 import sys
-import tempfile
 import threading
 import urllib.error
 from datetime import datetime
-from pathlib import Path
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -23,8 +19,10 @@ from app.quota_template import parse_t1_workbook
 from app.schemas import AdminUserCreate, AdminUserList, AdminUserUpdate, UploadResult, UserOut, user_out
 from app.security import require_admin
 from app.seed import seed_users
+from app.repositories import roster_repo
+from app.services.roster_service import RosterServiceError
 from app.services.user_service import UserServiceError
-from app.services import user_service
+from app.services import roster_service, user_service
 
 router = APIRouter()
 _log = logging.getLogger("galaxy.admin")
@@ -48,14 +46,10 @@ def _scripts_path() -> str:
     return scripts
 
 
-def _assignment_history():
-    _scripts_path()
-    import assignment_history  # type: ignore
+_assignment_history = roster_service.assignment_history
 
-    return assignment_history
-
-IC_QUOTAS_PATH = settings.root / "config" / "ic_quotas.json"
-QUOTA_RULES_PATH = settings.root / "config" / "quota_rules.json"
+IC_QUOTAS_PATH = roster_repo.IC_QUOTAS_PATH
+QUOTA_RULES_PATH = roster_repo.QUOTA_RULES_PATH
 RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"]
 
 
@@ -95,47 +89,28 @@ class QuotaAccountOp(BaseModel):
     is_active: Optional[bool] = None
 
 
+class HistoryOp(BaseModel):
+    # Full replacement of one person's RTM history, past rows included.
+    name: str = Field(min_length=1, max_length=200)
+    assignments: list[AssignmentRow] = Field(max_length=50)
+
+
 class QuotaSaveRequest(BaseModel):
     people: Optional[list[IcQuotaPerson]] = None
     bu_annual_quotas: Optional[dict[str, dict[str, float]]] = None
     account: Optional[QuotaAccountOp] = None
+    history: Optional[HistoryOp] = None
     sync: Optional[bool] = None
 
 
-def _atomic_write_json(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        os.replace(tmp, path)
-    except Exception:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
-
-
-def _load_json(path: Path) -> Any:
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+_atomic_write_json = roster_repo.write_json_atomic
+_load_json = roster_repo.read_json
+_run_parse = roster_service.rebuild_dashboard
 
 
 def _reject_if_syncing() -> None:
-    _scripts_path()
-    import deal_store  # type: ignore
-
-    if deal_store.has_running_job():
+    if roster_service.is_syncing():
         raise HTTPException(status_code=409, detail="A Vtiger sync is running. Wait until it finishes.")
-
-
-def _run_parse() -> None:
-    _scripts_path()
-    import build_quota_data  # type: ignore
-    build_quota_data.build(output_path=settings.quota_json)
 
 
 def _deal_counts() -> dict[str, int]:
@@ -334,6 +309,25 @@ def save_quotas(
         return _start_vtiger_sync("all")
     if body.account is not None and not body.people:
         return _apply_quota_account(request, body.account, user, db)
+    if body.history is not None and not body.people:
+        try:
+            return roster_service.replace_history(
+                db,
+                body.history.name,
+                [row.model_dump() for row in body.history.assignments],
+                actor_id=user.id,
+            )
+        except RosterServiceError as exc:
+            _log.warning(
+                "history_replace_failed ts=%s user_id=%s method=%s path=%s status=%s detail=%s",
+                datetime.utcnow().isoformat(),
+                user.id,
+                request.method,
+                request.url.path,
+                exc.status_code,
+                exc.message,
+            )
+            raise HTTPException(status_code=exc.status_code, detail=exc.message) from None
     if not body.people:
         raise HTTPException(status_code=400, detail="At least one IC quota row is required")
     _reject_if_syncing()

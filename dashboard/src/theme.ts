@@ -24,6 +24,9 @@ export const ui = {
   link: "text-sm font-medium text-galaxy-blue transition hover:text-galaxy-navy",
   btnGhost: "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-galaxy-navy focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 disabled:cursor-not-allowed disabled:opacity-50",
   btnActive: "font-medium text-galaxy-navy",
+  /** Secondary button on a dark gradient (e.g. the Leaders banner). */
+  btnOnDark:
+    "inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/25 focus:outline-none focus:ring-4 focus:ring-white/30 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
   pill: "inline-flex items-center rounded-full bg-galaxy-navy/8 px-2.5 py-0.5 text-[11px] font-semibold text-galaxy-navy",
 };
 

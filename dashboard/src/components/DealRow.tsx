@@ -5,16 +5,22 @@ import { formatInr, formatPct } from "../utils/format";
 interface DealRowProps {
   deal: PipelineDeal;
   showBottomline?: boolean;
+  /** The deal the user arrived for from another page (see useDealHighlight). */
+  highlighted?: boolean;
 }
 
-export function DealRow({ deal, showBottomline = false }: DealRowProps) {
+export function DealRow({ deal, showBottomline = false, highlighted = false }: DealRowProps) {
   const excluded = deal.excluded_from_achievement;
+  const tone = highlighted
+    ? "border-galaxy-blue/40 bg-galaxy-blue/5 ring-2 ring-galaxy-blue/40"
+    : excluded
+      ? "border-red-100 bg-red-50/40 opacity-75"
+      : "border-galaxy-border/60 bg-white";
 
   return (
     <div
-      className={`rounded-lg border px-3 py-2.5 text-sm ${
-        excluded ? "border-red-100 bg-red-50/40 opacity-75" : "border-galaxy-border/60 bg-white"
-      }`}
+      data-deal={deal.opportunity_number ?? undefined}
+      className={`rounded-lg border px-3 py-2.5 text-sm transition-colors duration-500 motion-reduce:transition-none ${tone}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">

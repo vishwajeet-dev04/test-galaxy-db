@@ -1,6 +1,6 @@
 # Galaxy Performance Tracker — Project Context
 
-**Last updated:** 2026-10-07  
+**Last updated:** 2026-10-12  
 **Branch:** `feature/vtiger`  
 **Purpose:** Hand-off document. Read this first. Do not re-derive architecture from scratch.
 
@@ -52,8 +52,8 @@ galaxy_db/
 │   │   ├── rate_limit.py        # In-process limiter for login/token/health
 │   │   ├── scoping.py          # Role scope + date-range actuals rebuild
 │   │   ├── quota_template.py     # T1 Excel parse
-│   │   ├── services/           # Business logic (user_service, docs_service, …)
-│   │   ├── repositories/        # DB access (user_repo)
+│   │   ├── services/           # Business logic (user_service, roster_service, docs_service, …)
+│   │   ├── repositories/        # DB / JSON access (user_repo, roster_repo = ic_quotas.json)
 │   │   └── routers/
 │   │       ├── admin.py         # Sync, quotas, T1 import, users
 │   │       ├── auth.py          # Login
@@ -225,6 +225,7 @@ Same person / same login. `division` is **as-of-today IST** RTM.
 - GET synthesizes `{division, start: null, end: null}` if history is missing; first Save writes it.
 - Transfer closes the previous row at `start_date - 1 day`. Same-day start replaces that day's division. Overlap → `AssignmentError` (HTTP 400).
 - Admin RTM change asks when they joined. **They moved** sends `transfer_start` and calls `apply_transfer`. **The old team was wrong** sends `rtm_correction: true` and calls `correct_current_division`, which relabels only the row that covers today (otherwise the latest open row). Dates and closed rows stay. T1 import still dates an RTM difference as a transfer today.
+- **Editable past history (2026-10-13):** Admin can rewrite a person's whole history (past teams included) with `{ history: { name, assignments } }` → `roster_service.replace_history` → `assignment_history.validate_history`. Rules: at least one row, every row has a team, dates must parse (no silent "unknown"), end ≥ start, no overlap, **at most one ongoing row**. `division` is reset to the row covering today; quotas are not touched. The rebuild re-tags every deal by close date.
 
 ---
 
@@ -244,7 +245,7 @@ All JSON. JWT: `Authorization: Bearer <token>` except login and health.
 | GET | `/api/admin/status` | admin | Deal counts + quota file exists + latest sync job. Alias kept; Chrome can 403 paths containing `status`. UI uses `GET /quotas` instead. |
 | GET | `/api/admin/uploads/status` | admin | Alias of `/status` |
 | GET | `/api/admin/quotas` | admin | Roster + `bu_annual_quotas` + `accounts` (login list, up to 100) + `crm` (deal counts + latest sync job). Chrome is not asked for `/users`/`/logins`/`/directory`/`status`. |
-| PUT | `/api/admin/quotas` | admin | Full-replace `ic_quotas.json` when `people` is sent. `{ account: { op: create\|update\|delete } }` does login CRUD. `{ sync: true }` starts a full-FY Vtiger job (same as POST `/vtiger-sync`). An RTM change is either `transfer_start` (they moved) or `rtm_correction` (the old team was wrong). Then rebuild + `seed_users`. **409** if a sync job is running (roster save only). |
+| PUT | `/api/admin/quotas` | admin | Full-replace `ic_quotas.json` when `people` is sent. `{ account: { op: create\|update\|delete } }` does login CRUD. `{ sync: true }` starts a full-FY Vtiger job (same as POST `/vtiger-sync`). An RTM change is either `transfer_start` (they moved) or `rtm_correction` (the old team was wrong). `{ history: { name, assignments[] } }` (no `people`) replaces one person's full RTM history (400 invalid rows, 404 unknown name; returns `division` + `assignments`). Then rebuild + `seed_users`. **409** if a sync job is running (roster save and history). |
 | GET | `/api/admin/templates/data` | admin | Download `files/Galaxy_Data_Templates.xlsx` |
 | POST | `/api/admin/quotas/import` | admin | T1 sheet → roster. Missing names are **dropped**. RTM diff → transfer dated today. |
 | POST | `/api/admin/reparse` | admin | Rebuild JSON from SQLite + config. **409** if a sync job is running. |
@@ -269,7 +270,7 @@ CEO (`sanjayp`) sees all quota data but **not** Admin APIs (`require_admin` is r
 - **Canonical names:** Vtiger “Opportunity Led By” → `pipeline_aliases.json` → key in `ic_quotas.json`. Join on alias, not raw CRM string.
 - **H1 / H2 / Annual are independent of Q1–Q4.** Finance-owned. Save and builder must not auto-sum them.
 - **Three header revenue numbers on purpose** — do not flatten:
-  1. **IC Actuals** — RTM ICs and TLs, topline for everyone (Hrushikesh on topline since 2026-09-25). Since 2026-09-28 BU Heads/AVPs (`RTM_HEAD_TYPES` in `build_quota_data.py`) are excluded, deals and quota alike, via the `counts_for_rtm` flag stamped on individuals and deals; `scoping._is_rtm_deal` reads the same flag.
+  1. **IC Actuals** — RTM ICs and TLs, topline for everyone (Hrushikesh on topline since 2026-09-25). Since 2026-09-28 BU Heads/AVPs (`RTM_HEAD_TYPES` in `build_quota_data.py`) are excluded, deals and quota alike, via the `counts_for_rtm` flag stamped on individuals and deals; `scoping._is_rtm_deal` reads the same flag. (The RTMs and Business Units **pages** add BU Heads back on top, frontend only, since 2026-10-12; this header number does not.)
   2. **Including Others** — all Closed Won Amount (IC Actuals + DCG/Cloud heads + Self). Hrushikesh included since 2026-09-28 (`build_pipeline_summary` / `scoping._header_pipeline_cr` must stay in sync).
   3. **BU donut** — Amount by category from **RTM-team IC/TL deals only** (including Hrushikesh/GeoX; BU Heads' own deals out). Equals IC Actuals in total.
 - **Multipliers** apply to deal `quota_credit` only, never IC actuals.
@@ -400,8 +401,9 @@ FY 26-27: Q1 2026-04-01→06-30, Q2 07-01→09-30, Q3 10-01→12-31, Q4 2027-01-
 
 ### 10.3 Assignment history (shipped 2026-09-08)
 
-- Module: `scripts/assignment_history.py` — `covers`, `current_division`, `division_on`, `apply_transfer`, `validate_assignments`.
-- Admin UI: effective date when RTM changes; expandable history; no silent overwrite.
+- Module: `scripts/assignment_history.py` — `covers`, `current_division`, `division_on`, `apply_transfer`, `validate_assignments`, `validate_history` (Admin full rewrite; one ongoing row).
+- Admin UI: effective date when RTM changes; expandable history row is an editor (`components/AssignmentHistoryEditor.tsx`): add/remove teams, start/end dates, inline errors, Save history / Cancel. Locked while that person has an unsaved RTM change or is not saved yet. Saving patches only that row in the roster state, so unsaved quota edits on other rows survive.
+- Backend: `services/roster_service.py` (history replace, sync check, `rebuild_dashboard`) + `repositories/roster_repo.py` (atomic JSON read/write). `routers/admin.py` delegates its old `_load_json` / `_atomic_write_json` / `_run_parse` to them.
 - Employees detail: Current RTM + history table.
 - Team lists: as-of today. Deal RTM: close date.
 
@@ -413,12 +415,13 @@ FY 26-27: Q1 2026-04-01→06-30, Q2 07-01→09-30, Q3 10-01→12-31, Q4 2027-01-
 
 | Page | JSON | Notes |
 |---|---|---|
-| Overview | `kpis`, `period_metrics`, `rtm_divisions`, `top_attainers`, `at_risk_ics`, `pipeline.summary` | |
-| RTMs | `rtm_divisions` / `division_aggregates` | S1 → S2 → CB → GB → South (GeoX extra) |
-| Business Units | `bu_level`, `rtm_by_bu` | Annual from Admin; H1/Q1 derived from IC mix. **Actuals = RTM-team deals only** (`rtm_division` in the six RTMs). Deals led by non-RTM people (Ajay/DCG, Jitesh/Cloud, Self) are left out, so the BU total = RTM total = header IC actuals. Filter lives in `build_quota_data.compute_actuals_by_cat_div` + `build_bu_level` and `scoping._rebuild_bu` / `_rebuild_rtm_by_bu` (`_is_rtm_deal`). |
+| Overview | `kpis`, `period_metrics`, `rtm_divisions`, `top_attainers`, `at_risk_ics`, `pipeline.summary` | Period cards: Q1, Q2, H1 / Q3, Q4, H2 in a 1/2/3-column grid; the Annual card is full width below on every screen size. |
+| RTMs | `rtm_divisions` / `division_aggregates` + `pipeline.all_deals` | S1 → S2 → CB → GB → South (GeoX extra). Cards and the RTM table **include BU Heads** (deals + quota, see the row below). Card closed-deal count follows H1/H2 from `all_deals`. Status flag is recomputed from the combined H1 attainment (`statusFor`, same 30/50 thresholds as `_status_flag`). |
+| Business Units | `bu_level`, `rtm_by_bu` + `pipeline.all_deals` | Annual from Admin; H1/Q1 derived from IC mix. **Actuals = RTM-team deals only** (`rtm_division` in the six RTMs). Deals led by non-RTM people (Jitesh/Cloud, Self) are left out. In the API the BU total = RTM total = header IC actuals (BU Heads out); filter lives in `build_quota_data.compute_actuals_by_cat_div` + `build_bu_level` and `scoping._rebuild_bu` / `_rebuild_rtm_by_bu` (`_is_rtm_deal`). The page then adds BU Head deals on top (see below). Clicking a card opens `BUDetailView` (lazy, `drill.bu`): Total Value card (= the BU card) + Total Deals card with per-RTM **deal-count chips** (`LegendPill`, fixed colour per RTM; clicking one filters the deals table, again clears it; built from the API-scoped deals, so non-admins only see their own RTM), a "{BU} — RTM by Division" distribution table (Q1, Q2, H1, Q3, Q4, H2, Annual Quota, Annual Actuals, Total row; always full year, from counted deals via `rtmQuarterBreakdown` + `rtm_by_bu` annual quota), and a deals table (team + BU Head deals) with search, RTM filter, sort and 25-row paging. In the deals table the Opportunity name opens that deal's **Account** page and the Brand cell opens the **Brand** page (`drill.deal` = opportunity number; `useDealHighlight` scrolls to that `DealRow` under "Closed deals" and highlights it ~3 s, reduced-motion aware). Account/Brand keys use the same `"Unknown"` / `"Other"` fallbacks as `build_accounts` / `build_brands` (all 474 local deals resolve). Led by is plain text. Period buttons share `DashboardContext.period`. |
+| BU Heads on RTM/BU pages | `pipeline.all_deals` + `individuals` | Client 2026-10-12: BU Heads' values go **into** the team figures on the RTMs and Business Units pages only. `utils/deals.ts`: `rtmTeamTotal` = API row + BU Head deals (`counts_for_rtm === false`, by `rtm_division`) + BU Head period quota (individuals with `counts_for_rtm === false`, as-of-today `division`); `buTeamTotal` = `bu_level` + BU Head deals by `bu`, quota unchanged (BU quotas are per BU/RTM from Admin). **Header IC Actuals, Overview, Employees team headers, Leaderboard and the backend stay excluding BU Heads**, so they still match the client Excel; the RTM card therefore no longer equals the Employees team header (by choice). H1 local: S1 62.44, South 23.51, GeoX 6.11 / quota 15.0, GB 8.22; header stays 158.78. TL/user scopes contain no heads, so nothing is added for them. |
 | Accounts / Brands | nested `deals`, `by_bu`, `gp_pct` | |
-| Leaders | `leaders_dashboard` | Header + top deals = personal Led-By (alias match). Team Roster = as-of-today ICs in `leader_roster.json` `rollup_divisions` (Ishwari → S1, Ajay → South). `team_size` is member count. |
-| Employees | `individuals` + `pipeline.closed_deals` + `assignments` + `rtm_divisions` | Grouped by as-of-today division. ICs **and TLs** listed (TL badge); AVP / BU Head / Topline / Bottomline hidden (Leaders page). Team header totals = the RTM card for that division (not a re-sum of the list). Plus a **Self** group (`NON_RTM_GROUPS` in `EmployeesView.tsx`) shown after the RTMs with a "Not an RTM" badge. It shows everyone with `division: "Self"` whatever their persona (today Yusufali Petiwala, Topline), and its totals are the sum of its members. Self is **not** an RTM: not in `rtm_divisions`, RTM cards or header IC actuals. |
+| Leaders | `leaders_dashboard` | Header + top deals = personal Led-By (alias match). Team Roster = as-of-today ICs in `leader_roster.json` `rollup_divisions` (Ishwari → S1, Ajay → South). `team_size` is member count. No leader is selected on load: the purple banner shows all-leaders totals (Leaders, H1 Actuals = header IC Actuals, Topline, Team Bottomline). Clicking a card switches the banner to that leader (Team, personal H1 Actuals, Topline, Bottomline) and opens the detail below; **Clear** in the banner or clicking the same card again resets it. |
+| Employees | `individuals` + `pipeline.closed_deals` + `assignments` + `rtm_divisions` | Grouped by as-of-today division. ICs **and TLs** listed (TL badge); AVP / BU Head / Topline / Bottomline hidden (Leaders page). Team header totals = the RTM card for that division (not a re-sum of the list). Plus a **Self** group (`NON_RTM_GROUPS` in `EmployeesView.tsx`) shown after the RTMs with a "Not an RTM" badge. It shows everyone with `division: "Self"` whatever their persona (today Yusufali Petiwala, Topline), and its totals are the sum of its members. Self is **not** an RTM: not in `rtm_divisions`, RTM cards or header IC actuals. The period buttons drive actuals **and** closed accounts/deals (column, group header counts, "With Closed Deals", account search, detail panel) via `utils/deals.pipelineForPeriod` on `pipeline.closed_deals` by `quarter`. |
 | Leaderboard | `individuals` period attainment | |
 | Help | none (static) | Sidebar for **every** role. Download user manual via `GET /api/help/manual`. FAQ is static copy from the v5 PDF. |
 | Admin | live API | Sync + roster + T1 + **Users** (add/edit role & password) |
@@ -616,6 +619,34 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-10-13 — BU detail: RTM chips and deal popup
+
+- Client: remove the "{BU} by RTM" table; show RTM deal counts on the Total Deals card like the donut legend pills (count only, no %); Led by no longer clickable; Opportunity opens the deal.
+- `components/LegendPill.tsx` extracted from `DonutChart` (now shared; focus ring, `aria-pressed`, `motion-reduce`).
+- **Popup replaced by links (same day, client):** a deal popup was built first, then removed at the client's request. Opportunity → Account page, Brand → Brand page, with the deal scrolled to and highlighted (`DrillState.deal`, `hooks/useDealHighlight.ts`, `DealRow` `highlighted` + `data-deal`). The "All accounts" / "All brands" back buttons clear `deal` because `onDrill` with a `view` replaces the whole drill.
+- Verified on local data: DCG H1 chips S1 15, S2 14, CB 12, South 43, GeoX 2 = 86 (= card). No backend change; scoping is the existing `scope_quota_data`. Deploy: copy the new `dashboard/dist`.
+
+### 2026-10-13 — RTM distribution back on the BU page; editable past history
+
+- Client asked for the old "RTM by Division" distribution (removed with the BU detail page) and for Admin to map a person's **past** teams, not only forward transfers.
+- **BU detail:** distribution table added between the RTM table and the deals table (see §11). Uses the same counted deals as the cards (team + BU Heads).
+- **History editor:** see §5.3 / §10.3. New op on the existing `PUT /api/admin/quotas` (Chrome blocks new admin paths). Verified on a temp roster copy: a 2-row history (GB until 2026-06-30, CB from 2026-07-01) re-tagged Jay Rushi's Q1 deals to GB and Q2 deals to CB; overlap, two ongoing rows, end before start, bad date, blank team and empty list → 400; unknown name → 404. Real roster untouched.
+- **"Taking lots of time" (same day):** measured: a history save is ~1 s server-side (rebuild 0.3 s, `seed_users` 0.07 s, dashboard reload 0.28 s). It *looked* slow because the confirmation is in the page banner far above the roster and the Save button greys out after saving. The editor now shows an inline "Saved. Dashboard rebuilt" note, the button reads **Saved**, and an amber warning appears when every team has an end date on or before today (no current team). The editor no longer remounts on save (draft resyncs from props) so the note survives.
+- Deploy: backend (`app/services/roster_service.py`, `app/repositories/roster_repo.py`, `app/routers/admin.py`, `scripts/assignment_history.py`) + new `dashboard/dist`.
+
+### 2026-10-12 — Employees period, BU Head line, BU detail page
+
+- Client review: (1) Employees closed accounts did not follow the period; (2) BU Heads' own deals should show on RTM/BU cards; (3) a BU page with RTM breakup and every deal.
+- **Employees:** closed accounts, deal counts, the "With Closed Deals" filter, account search and the detail panel now follow the Q1…Annual buttons (`pipelineForPeriod`). Before, only the actuals column changed.
+- **BU Head line:** client chose to keep card totals as they are and show BU Head deals on a separate line with "Total incl. BU Head". The 2026-09-28 exclusion (`counts_for_rtm`) is **not** reverted: header IC Actuals, RTM and BU totals are unchanged. Local data, H1: S1 + Ishwari Kadam 6.27, South + Ajay Patodia 10.19, GeoX + Sanjeev Kohli 2.24, GB + Yogesh Bhatia 0.05. RTM cards' closed-deal count now follows H1/H2.
+- **BU detail page:** new lazy `views/BUDetailView.tsx` replaces the inline "RTM by Division" table. Verified locally: every BU Total Value equals its card, and the RTM table sums to the card (CSN/CSG differ only at the 4th decimal).
+- Frontend only, no backend or JSON change; uses `pipeline.all_deals`, `quarter`, `counts_for_rtm` already in the API. Shared rules in `dashboard/src/utils/deals.ts`; `components/BuHeadNote.tsx`; `PerformanceCard` gained an optional `footnote`.
+- **Layout fix (same day):** `PerformanceCard` is a Tailwind `@container`; the amount sizes by the card's own width (`text-2xl @3xs:text-3xl @2xs:text-4xl`) so it never spills out of a narrow cell, and cards fill their grid row (`h-full`, footnote pinned to the bottom). RTM grid is at most **3 per row** (`sm:2 xl:3`); BU cards are equal height with the BU Head line at the bottom; the Overview Annual card fills both rows on 2xl. Employees team tables and the RTM table scroll sideways on phones;   team headers show amount + % instead of the bar below `sm`. No number changes.
+- **Client changed the BU Head choice (same day):** no separate BU Head section; their deals **and** quota are added into the team figures on the RTMs and Business Units pages (cards, tables, BU detail). Header IC Actuals, Overview and Employees unchanged (client: cards only). `BuHeadNote.tsx` and the BU detail "Show BU Head deals" toggle / BU Head column were removed; logic is `rtmTeamTotal` / `buTeamTotal` in `utils/deals.ts`. Backend `counts_for_rtm` exclusion is **not** reverted. Verified H1: every card equals its team + BU Head deal sum (CSN/CSG differ only at the 4th decimal).
+- **Leaders banner + Annual card (same day):** the Leaders banner follows the clicked leader with a Clear button (`ui.btnOnDark`), nothing selected by default. Overview Annual card moved from the narrow 4th column (curved 3px left border, empty space) to a full-width card below Q1–H2, same style as the others.
+- **Overview blank space (same day):** `PerformanceCard` no longer forces a min height on "No data yet" cards (the Q3/Q4/H2 row is short; next to a full card the grid still stretches them). New `wide` prop: the Annual card lays out in three columns from `@2xl` (amount · trend + deals · attainment progress bar, no elapsed marker per client) and stacks on phones.
+- Deploy: copy the new `dashboard/dist` only.
 
 ### 2026-10-07 — Reporting lines written on the roster
 

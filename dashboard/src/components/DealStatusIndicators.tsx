@@ -8,7 +8,7 @@ const LABELS: Record<StatusKey, string> = {
   received: "C",
 };
 
-const TITLES: Record<StatusKey, string> = {
+const CRM_STATUS_TITLES: Record<StatusKey, string> = {
   booked: "Booked",
   billed: "Billed",
   received: "Received",
@@ -27,7 +27,7 @@ function getBallClass(key: StatusKey, value: boolean | string): string {
   return "bg-slate-200";
 }
 
-function getStateLabel(key: StatusKey, value: boolean | string): string {
+function crmStateLabel(key: StatusKey, value: boolean | string): string {
   if (key === "booked") return value ? "Yes" : "Pending";
   if (value === "full") return "Full";
   if (value === "partial") return "Partial";
@@ -52,7 +52,7 @@ export function DealStatusIndicators({ crm, compact }: DealStatusIndicatorsProps
         <span
           key={key}
           className="inline-flex items-center gap-1"
-          title={`${TITLES[key]}: ${getStateLabel(key, value)}`}
+          title={`${CRM_STATUS_TITLES[key]}: ${crmStateLabel(key, value)}`}
         >
           <span className={`h-2.5 w-2.5 rounded-full ${getBallClass(key, value)} ring-1 ring-white`} />
           {!compact && <span className="text-[10px] font-semibold text-slate-500">{LABELS[key]}</span>}

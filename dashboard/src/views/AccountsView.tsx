@@ -17,6 +17,7 @@ import { DealRow } from "../components/DealRow";
 import { AccountLogo } from "../components/AccountLogo";
 import { ChartCard } from "../components/ChartCard";
 import { DonutChart } from "../components/charts/DonutChart";
+import { useDealHighlight } from "../hooks/useDealHighlight";
 import type { AccountRecord, DrillState, QuotaData } from "../types";
 import { formatCr, formatPct, formatInr, BU_COLORS } from "../utils/format";
 import { ui } from "../theme";
@@ -32,12 +33,15 @@ type SortKey = "revenue" | "bottomline" | "deals" | "gp" | "quota_share";
 function AccountDetail({
   account,
   icQuota,
+  highlightDeal,
   onSelectEmployee,
 }: {
   account: AccountRecord;
   icQuota: number;
+  highlightDeal?: string;
   onSelectEmployee: (name: string) => void;
 }) {
+  const { containerRef, isHighlighted } = useDealHighlight(highlightDeal);
   const buShare = account.by_bu.map((b) => ({
     name: b.bu,
     value: b.revenue_cr,
@@ -185,12 +189,13 @@ function AccountDetail({
 
       <div className={`${ui.card} p-5`}>
         <SectionHeader label="Closed deals" description={`${account.deals.length} opportunities`} />
-        <div className="mt-4 space-y-2">
+        <div ref={containerRef} className="mt-4 space-y-2">
           {account.deals.map((deal, i) => (
             <DealRow
               key={`${deal.opportunity_number ?? i}-${i}`}
               deal={deal}
               showBottomline
+              highlighted={isHighlighted(deal.opportunity_number)}
             />
           ))}
         </div>
@@ -284,7 +289,7 @@ export function AccountsView({ data, drill, onDrill }: AccountsViewProps) {
         <AccountDetail
           account={selected}
           icQuota={icQuota ?? 0}
-
+          highlightDeal={drill.deal}
           onSelectEmployee={(name) => onDrill({ view: "employees", employee: name })}
         />
       </div>

@@ -143,6 +143,10 @@ export interface PipelineDeal {
   employee: string;
   pipeline_led_by: string | null;
   rtm_division?: string | null;
+  /** "q1".."q4" from the sync; missing on old data, then derived from close_date. */
+  quarter?: string | null;
+  /** False when a BU Head/AVP led the deal: listed separately, never in RTM/BU totals. */
+  counts_for_rtm?: boolean;
   opf_no?: string | null;
   deal_status_raw?: string | null;
 }
@@ -359,6 +363,8 @@ export interface PipelineSummary {
   by_bu: { bu: string; deal_count: number; revenue_inr: number; revenue_cr: number; account_count: number }[];
   by_category: { category: string; deal_count: number; revenue_inr: number; revenue_cr: number }[];
   by_rtm?: { division: string; deal_count: number; revenue_inr: number; revenue_cr: number; account_count: number }[];
+  /** Every Closed Won deal on this view, already scoped to the login and the header date range. */
+  all_deals?: PipelineDeal[];
 }
 
 export interface QuotaData {
@@ -446,4 +452,6 @@ export interface DrillState {
   employee?: string;
   account?: string;
   brand?: string;
+  /** Opportunity number to scroll to and highlight on the Account / Brand detail page. */
+  deal?: string;
 }

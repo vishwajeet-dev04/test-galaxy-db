@@ -4,9 +4,10 @@ import { FilterBar } from "../components/FilterBar";
 import { DealRow } from "../components/DealRow";
 import { Avatar } from "../components/Avatar";
 import { useDashboard } from "../context/DashboardContext";
-import type { QuotaData, DrillState, Individual, ClosedAccount, PeriodKey, PeriodMetrics } from "../types";
+import type { QuotaData, DrillState, Individual, ClosedAccount, EmployeePipeline, PeriodKey, PeriodMetrics } from "../types";
 import { formatCr, formatPct, attainmentColor, attainmentBg } from "../utils/format";
 import { formatDisplayDate } from "../utils/fiscal";
+import { PERIOD_LABELS, pipelineForPeriod } from "../utils/deals";
 import { ui } from "../theme";
 
 interface EmployeesViewProps {
@@ -15,18 +16,19 @@ interface EmployeesViewProps {
   onDrill: (drill: Partial<DrillState>) => void;
 }
 
-function ClosedAccountsSection({ pipeline }: { pipeline: Individual["pipeline"] }) {
+function ClosedAccountsSection({ pipeline, period }: { pipeline: EmployeePipeline; period: PeriodKey }) {
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
+  const label = periodLabel(period);
 
   if (!pipeline.deal_count) {
     return (
       <div className="mt-6">
         <h4 className="mb-4 flex items-center gap-2 font-medium text-galaxy-navy">
           <Building2 className="h-4 w-4" />
-          Closed Accounts
+          Closed Accounts · {label}
         </h4>
         <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-8">
-          <p className="text-sm text-slate-400">No closed accounts yet</p>
+          <p className="text-sm text-slate-400">No closed accounts in {label}</p>
         </div>
       </div>
     );
@@ -38,7 +40,7 @@ function ClosedAccountsSection({ pipeline }: { pipeline: Individual["pipeline"] 
         <div>
           <h4 className="flex items-center gap-2 font-medium text-galaxy-navy">
             <Building2 className="h-4 w-4" />
-            Closed Accounts
+            Closed Accounts · {label}
           </h4>
           <p className="text-xs text-galaxy-muted">
             {pipeline.account_count} accounts · {pipeline.deal_count} deals counted
@@ -99,7 +101,8 @@ function formatAssignmentDate(value: string | null | undefined): string {
   }
 }
 
-function EmployeeDetail({ emp }: { emp: Individual }) {
+function EmployeeDetail({ emp, period }: { emp: Individual; period: PeriodKey }) {
+  const pipeline = pipelineForPeriod(emp.pipeline, period);
   const periods: { label: string; data?: PeriodMetrics }[] = [
     { label: "Q1", data: emp.q1 },
     { label: "Q2", data: emp.q2 },
@@ -128,9 +131,9 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
               Rank #{emp.rank_division}
             </span>
           )}
-          {emp.pipeline.deal_count > 0 && (
+          {pipeline.deal_count > 0 && (
             <span className="rounded-lg bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
-              {emp.pipeline.account_count} closed accounts
+              {pipeline.account_count} closed accounts in {periodLabel(period)}
             </span>
           )}
         </div>
@@ -219,7 +222,7 @@ function EmployeeDetail({ emp }: { emp: Individual }) {
         </div>
       )}
 
-      <ClosedAccountsSection pipeline={emp.pipeline} />
+      <ClosedAccountsSection pipeline={pipeline} period={period} />
     </div>
   );
 }
@@ -293,16 +296,7 @@ function teamPeriod(reports: Individual[], period: PeriodKey): PeriodMetrics {
 }
 
 function periodLabel(period: PeriodKey): string {
-  const labels: Record<PeriodKey, string> = {
-    q1: "Q1",
-    q2: "Q2",
-    h1: "H1",
-    q3: "Q3",
-    q4: "Q4",
-    h2: "H2",
-    annual: "Annual",
-  };
-  return labels[period];
+  return PERIOD_LABELS[period];
 }
 
 export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
@@ -330,6 +324,13 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
   );
   const personas = useMemo(() => [...new Set(data.individuals.map((e) => e.persona))].sort(), [data]);
 
+  // Closed accounts/deals follow the period buttons, like the actuals column beside them.
+  const periodPipelines = useMemo(
+    () => new Map(data.individuals.map((e) => [e.name, pipelineForPeriod(e.pipeline, period)])),
+    [data.individuals, period]
+  );
+  const pipelineOf = (emp: Individual): EmployeePipeline => periodPipelines.get(emp.name) ?? emp.pipeline;
+
   const filtered = useMemo(() => {
     return data.individuals.filter((e) => {
       if (["Total", "Total Opportunity"].includes(e.name)) return false;
@@ -340,18 +341,19 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
         const isHrushikesh = /hrushikesh/i.test(e.name);
         if (!e.division || (!EMPLOYEE_DIVISIONS.has(e.division) && !isHrushikesh)) return false;
       }
+      const pipe = periodPipelines.get(e.name) ?? e.pipeline;
       const q = search.toLowerCase();
       if (q) {
         const nameMatch = e.name.toLowerCase().includes(q);
-        const accountMatch = e.pipeline.closed_accounts.some((a) => a.account.toLowerCase().includes(q));
+        const accountMatch = pipe.closed_accounts.some((a) => a.account.toLowerCase().includes(q));
         if (!nameMatch && !accountMatch) return false;
       }
       if (divisionFilter && e.division !== divisionFilter) return false;
       if (personaFilter && e.persona !== personaFilter) return false;
-      if (hasDealsOnly && e.pipeline.deal_count === 0) return false;
+      if (hasDealsOnly && pipe.deal_count === 0) return false;
       return true;
     });
-  }, [data.individuals, search, divisionFilter, personaFilter, hasDealsOnly]);
+  }, [data.individuals, periodPipelines, search, divisionFilter, personaFilter, hasDealsOnly]);
 
   const rtmByDivision = useMemo(
     () => new Map((data.rtm_divisions ?? []).map((r) => [r.division, r])),
@@ -388,12 +390,12 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
           periodQuota,
           periodActuals,
           periodAttainment: periodQuota ? (periodActuals / periodQuota) * 100 : 0,
-          pipelineDeals: employees.reduce((s, e) => s + e.pipeline.deal_count, 0),
-          pipelineAccounts: employees.reduce((s, e) => s + e.pipeline.account_count, 0),
+          pipelineDeals: employees.reduce((s, e) => s + (periodPipelines.get(e.name)?.deal_count ?? 0), 0),
+          pipelineAccounts: employees.reduce((s, e) => s + (periodPipelines.get(e.name)?.account_count ?? 0), 0),
         };
       })
       .sort((a, b) => sortDivisions(a.division, b.division));
-  }, [filtered, period, rtmByDivision]);
+  }, [filtered, period, periodPipelines, rtmByDivision]);
 
   const toggleDivision = (div: string) => {
     setCollapsed((prev) => ({ ...prev, [div]: !prev[div] }));
@@ -404,7 +406,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
       <div>
         <h2 className={ui.pageTitle}>Employees</h2>
         <p className={ui.pageSub}>
-          Grouped by RTM division (plus Self) · period selector drives actuals column · closed-won accounts from pipeline
+          Grouped by RTM division (plus Self) · the period buttons drive actuals, closed accounts and deals
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
           <span className="font-semibold text-slate-600">CRM indicators:</span>
@@ -415,7 +417,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
         </div>
       </div>
 
-      {selectedEmp && <EmployeeDetail emp={selectedEmp} />}
+      {selectedEmp && <EmployeeDetail emp={selectedEmp} period={period} />}
 
       <FilterBar
         search={search}
@@ -484,7 +486,8 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
             <div key={group.division} className={ui.tableWrap}>
               <button
                 onClick={() => toggleDivision(group.division)}
-                className="flex w-full items-center gap-4 border-b border-galaxy-border bg-galaxy-surface/50 px-5 py-4 text-left transition hover:bg-galaxy-surface"
+                aria-expanded={!isCollapsed}
+                className="flex w-full items-center gap-3 border-b border-galaxy-border bg-galaxy-surface/50 px-4 py-4 text-left transition hover:bg-galaxy-surface focus:outline-none focus:ring-4 focus:ring-inset focus:ring-galaxy-navy/10 sm:gap-4 sm:px-5"
               >
                 {isCollapsed ? (
                   <ChevronRight className="h-5 w-5 shrink-0 text-galaxy-navy" />
@@ -492,10 +495,10 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                   <ChevronDown className="h-5 w-5 shrink-0 text-galaxy-navy" />
                 )}
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-galaxy-navy/10">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-galaxy-navy/10">
                     <Users className="h-4 w-4 text-galaxy-navy" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="flex flex-wrap items-center gap-2 font-semibold text-galaxy-navy">
                       {group.division}
                       {!group.isRtm && <span className={ui.badge}>Not an RTM</span>}
@@ -508,6 +511,12 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                         </span>
                       )}
                     </p>
+                    <p className="mt-0.5 font-mono text-xs sm:hidden">
+                      <span className="font-medium text-galaxy-navy">{formatCr(group.periodActuals)}</span>
+                      <span className={`ml-2 ${attainmentColor(group.periodQuota > 0 ? group.periodAttainment : null)}`}>
+                        {group.periodQuota > 0 ? formatPct(group.periodAttainment) : "—"}
+                      </span>
+                    </p>
                   </div>
                 </div>
                 <div className="hidden text-right sm:block">
@@ -517,7 +526,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                     : <p className="text-xs text-galaxy-muted">{periodLabel(period)} quota n/a</p>
                   }
                 </div>
-                <div className="w-28">
+                <div className="hidden w-28 shrink-0 sm:block">
                   <div className="h-2 overflow-hidden rounded-full bg-gray-200">
                     <div
                       className={`h-full rounded-full ${attainmentBg(group.periodQuota > 0 ? group.periodAttainment : null)}`}
@@ -531,12 +540,13 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
               </button>
 
               {!isCollapsed && (
+                <div className="overflow-x-auto">
                 <table className="w-full min-w-[720px] text-sm">
                   <thead>
                     <tr className={ui.tableHead}>
                       <th className="px-4 py-3">Employee</th>
                       <th className="px-4 py-3">Persona</th>
-                      <th className="px-4 py-3">Closed Accounts</th>
+                      <th className="px-4 py-3">{periodLabel(period)} Closed Accounts</th>
                       <th className="px-4 py-3 text-right">{periodLabel(period)} Actuals</th>
                       <th className="px-4 py-3 text-right">{periodLabel(period)} Quota</th>
                       <th className="px-4 py-3 text-right">{periodLabel(period)} Att%</th>
@@ -557,6 +567,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                       const rows = [{ emp: lead, nested: false as const }, ...(open ? reports.map((emp) => ({ emp, nested: true as const })) : [])];
                       return rows.map(({ emp, nested }) => {
                         const rowPd = nested || reports.length === 0 ? periodData(emp, period) : pd;
+                        const accounts = pipelineOf(emp).closed_accounts;
                         const att = rowPd.attainment_pct ?? 0;
                         const isSelected = emp.name === selected;
                         return (
@@ -601,14 +612,14 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                             <td className="px-4 py-3 text-center">
                               {!nested && reports.length > 0 ? (
                                 <span className="text-xs text-galaxy-muted">{reports.length} people</span>
-                              ) : emp.pipeline?.closed_accounts?.length > 0 ? (
+                              ) : accounts.length > 0 ? (
                                 <div className="flex flex-col items-center justify-center">
                                   <span className="font-medium text-galaxy-navy text-xs">
-                                    {emp.pipeline.closed_accounts[0].account} &times;{emp.pipeline.closed_accounts[0].deal_count}
+                                    {accounts[0].account} &times;{accounts[0].deal_count}
                                   </span>
-                                  {emp.pipeline.closed_accounts.length > 1 && (
+                                  {accounts.length > 1 && (
                                     <span className="mt-0.5 text-[10px] text-galaxy-muted">
-                                      +{emp.pipeline.closed_accounts.length - 1} more account{emp.pipeline.closed_accounts.length > 2 ? "s" : ""}
+                                      +{accounts.length - 1} more account{accounts.length > 2 ? "s" : ""}
                                     </span>
                                   )}
                                 </div>
@@ -643,6 +654,7 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           );

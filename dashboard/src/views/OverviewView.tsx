@@ -104,44 +104,19 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
           label="Performance by Period"
           description="Fiscal performance tracking"
         />
-        {/*
-          Layout: 3-col × 2-row grid for Q1/Q2/H1 + Q3/Q4/H2, Annual tall card in col 4.
-          On < xl: 3 cols, Annual spans full width below.
-          On xl+: 4 cols, Annual at col-start-4 spanning both rows.
-        */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 2xl:grid-rows-2 2xl:[grid-template-columns:repeat(3,minmax(0,1fr))_minmax(0,250px)]">
-          {/* Row 1 — Q1, Q2, H1 */}
-          <div className="2xl:col-start-1 2xl:row-start-1">
-            {q1Props && <PerformanceCard {...q1Props} />}
-          </div>
-          <div className="2xl:col-start-2 2xl:row-start-1">
-            {q2Props && <PerformanceCard {...q2Props} />}
-          </div>
-          <div className="2xl:col-start-3 2xl:row-start-1">
-            {h1Props && <PerformanceCard {...h1Props} />}
-          </div>
-
-          {/* Row 2 — Q3, Q4, H2 */}
-          <div className="2xl:col-start-1 2xl:row-start-2">
-            {q3Props && <PerformanceCard {...q3Props} />}
-          </div>
-          <div className="2xl:col-start-2 2xl:row-start-2">
-            {q4Props && <PerformanceCard {...q4Props} />}
-          </div>
-          <div className="2xl:col-start-3 2xl:row-start-2">
-            {h2Props && <PerformanceCard {...h2Props} showTargetOnNoData={true} />}
-          </div>
-
-          {/* Annual — full-width below on small screens; narrow col 4 spanning rows 1–2 on 2xl */}
-          <div className="col-span-full 2xl:col-span-1 2xl:col-start-4 2xl:row-start-1 2xl:row-span-2 2xl:flex 2xl:items-center">
-            {annualProps && (
-              <PerformanceCard
-                {...annualProps}
-                compact={true}
-                className="2xl:w-full border-l-[3px] border-l-galaxy-navy bg-slate-50/60"
-              />
-            )}
-          </div>
+        {/* Q1, Q2, H1 then Q3, Q4, H2 (1 / 2 / 3 per row by width); Annual full width below on every size. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {q1Props && <PerformanceCard {...q1Props} />}
+          {q2Props && <PerformanceCard {...q2Props} />}
+          {h1Props && <PerformanceCard {...h1Props} />}
+          {q3Props && <PerformanceCard {...q3Props} />}
+          {q4Props && <PerformanceCard {...q4Props} />}
+          {h2Props && <PerformanceCard {...h2Props} showTargetOnNoData={true} />}
+          {annualProps && (
+            <div className="col-span-full">
+              <PerformanceCard {...annualProps} wide />
+            </div>
+          )}
         </div>
       </section>
 

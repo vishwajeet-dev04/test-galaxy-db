@@ -5,8 +5,9 @@ import { StatusFlag } from "../components/StatusFlag";
 import { PerformanceCard } from "../components/PerformanceCard";
 import { Avatar } from "../components/Avatar";
 import { getPeriodElapsedLabel } from "../utils/fiscal";
-import type { QuotaData, DrillState } from "../types";
+import type { QuotaData, DrillState, StatusFlag as StatusFlagType } from "../types";
 import { formatCr, formatPct, attainmentColor } from "../utils/format";
+import { rtmTeamTotal, statusFor, type CardTotal } from "../utils/deals";
 import { ui } from "../theme";
 
 const RTM_ORDER = ["S1", "S2", "CB", "GB", "South"];
@@ -33,6 +34,20 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
   const [minAttainment, setMinAttainment] = useState("");
   const [rtmPeriod, setRtmPeriod] = useState<"h1" | "h2">("h1");
 
+  const allDeals = data.pipeline?.all_deals;
+  // This page shows each RTM with its BU Heads added back; status stays an H1 flag like the API's.
+  const totals = useMemo(() => {
+    const map = new Map<string, { period: CardTotal; annual: CardTotal; status: StatusFlagType }>();
+    for (const d of rtmDivisions) {
+      map.set(d.division, {
+        period: rtmTeamTotal(d, rtmPeriod, individuals, allDeals),
+        annual: rtmTeamTotal(d, "annual", individuals, allDeals),
+        status: statusFor(rtmTeamTotal(d, "h1", individuals, allDeals).attainment_pct),
+      });
+    }
+    return map;
+  }, [rtmDivisions, rtmPeriod, individuals, allDeals]);
+
   useEffect(() => {
     if (drill.division) {
       if (!expandedRtms.includes(drill.division)) {
@@ -51,13 +66,13 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
   const filteredRtms = useMemo(() => {
     return rtmDivisions.filter((d) => {
       if (search && !d.division.toLowerCase().includes(search.toLowerCase())) return false;
-      const att = d[rtmPeriod].attainment_pct ?? 0;
+      const att = totals.get(d.division)?.period.attainment_pct ?? 0;
       if (minAttainment === "low" && att >= 30) return false;
       if (minAttainment === "mid" && (att < 30 || att >= 50)) return false;
       if (minAttainment === "high" && att < 50) return false;
       return true;
     });
-  }, [rtmDivisions, search, minAttainment, rtmPeriod]);
+  }, [rtmDivisions, search, minAttainment, totals]);
 
   return (
     <div className="space-y-6">
@@ -79,27 +94,30 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
         ))}
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {rtmDivisions.map((d) => {
-          const att = d[rtmPeriod].attainment_pct ?? 0;
-          const hasActuals = (d[rtmPeriod].actuals ?? 0) > 0;
+          const total = totals.get(d.division)?.period;
+          const actuals = total?.actuals ?? 0;
+          const hasActuals = actuals > 0;
           return (
             <button
               key={d.division}
               onClick={() => toggleRtm(d.division)}
-              className={`text-left transition ${
-                expandedRtms.includes(d.division) ? "ring-2 ring-galaxy-navy/30 rounded-xl" : ""
+              aria-expanded={expandedRtms.includes(d.division)}
+              className={`flex h-full flex-col rounded-xl text-left transition focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 ${
+                expandedRtms.includes(d.division) ? "ring-2 ring-galaxy-navy/30" : ""
               }`}
             >
               <PerformanceCard
                 period={rtmPeriod.toUpperCase() as "H1" | "H2"}
                 title={`${d.division} Actual/ Quota`}
-                actuals={hasActuals ? (d[rtmPeriod].actuals ?? 0) : null}
-                quota={d[rtmPeriod].quota ?? 0}
-                attainmentPct={att}
+                actuals={hasActuals ? actuals : null}
+                quota={total?.quota ?? 0}
+                attainmentPct={total?.attainment_pct ?? 0}
                 periodElapsedLabel={getPeriodElapsedLabel(rtmPeriod.toUpperCase() as "H1" | "H2")}
                 quotaOnly={!hasActuals}
-                closedDeals={d.closed_deals}
+                closedDeals={total?.deals ?? d.closed_deals}
+                className="flex-1"
               />
             </button>
           );
@@ -126,7 +144,8 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
         ]}
       />
 
-      <div className={`${ui.tableWrap} overflow-x-auto`}>
+      <div className={ui.tableWrap}>
+        <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className={ui.tableHead}>
@@ -143,24 +162,25 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
           <tbody>
             {filteredRtms.map((d) => {
               const isExpanded = expandedRtms.includes(d.division);
+              const row = totals.get(d.division);
               return (
                 <Fragment key={d.division}>
                   <tr onClick={() => toggleRtm(d.division)} className={`${ui.tableRow} cursor-pointer hover:bg-galaxy-surface/50`}>
                     <td className="px-4 py-3 font-medium text-galaxy-navy">{d.division}</td>
                     <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{d.employee_count}</td>
-                    <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(d[rtmPeriod].quota)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(row?.period.quota)}</td>
                     <td className="px-4 py-3 text-right font-mono font-medium text-galaxy-navy">
-                      {formatCr(d[rtmPeriod].actuals)}
+                      {formatCr(row?.period.actuals)}
                     </td>
                     <td
-                      className={`px-4 py-3 text-right font-mono font-medium ${attainmentColor(d[rtmPeriod].attainment_pct)}`}
+                      className={`px-4 py-3 text-right font-mono font-medium ${attainmentColor(row?.period.attainment_pct ?? null)}`}
                     >
-                      {formatPct(d[rtmPeriod].attainment_pct)}
+                      {formatPct(row?.period.attainment_pct)}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusFlag status={d.status} />
+                      <StatusFlag status={row?.status ?? d.status} />
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(d.annual.quota)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-galaxy-muted">{formatCr(row?.annual.quota)}</td>
                     <td className="px-4 py-3 text-center">
                       <ChevronDown
                         className={`h-4 w-4 shrink-0 text-galaxy-muted transition-transform ${
@@ -188,12 +208,7 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
                                     <Avatar name={emp.name} size="sm" />
                                     <div className="min-w-0 flex-1">
                                       <p className="font-medium text-galaxy-navy">{emp.name}</p>
-                                      <p className="text-xs text-galaxy-muted">
-                                        {emp.persona}
-                                        {emp.counts_for_rtm === false && (
-                                          <span className="text-slate-400"> · Not counted in RTM total</span>
-                                        )}
-                                      </p>
+                                      <p className="text-xs text-galaxy-muted">{emp.persona}</p>
                                     </div>
                                     <p className="font-mono text-sm text-galaxy-muted">{formatCr(emp[rtmPeriod]?.actuals)}</p>
                                     <p className={`font-mono text-sm ${attainmentColor(att)}`}>{formatPct(att)}</p>
@@ -210,6 +225,7 @@ export function DivisionsView({ data, drill, onDrill }: DivisionsViewProps) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
