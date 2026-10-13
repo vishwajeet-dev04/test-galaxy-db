@@ -14,7 +14,9 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "backend" / "galaxy.db"
+# Docker points this at a mounted directory: SQLite keeps -wal/-shm next to the file,
+# so a single-file bind mount is not enough.
+DB_PATH = Path(os.environ.get("GALAXY_DEALS_DB") or ROOT / "backend" / "galaxy.db")
 
 # Running jobs older than this are treated as dead (worker recycle / crash).
 _STALE_JOB_MINUTES = 45

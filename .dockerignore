@@ -1,0 +1,22 @@
+# Secrets and local runtime data never go into an image.
+.git
+.env
+backend/.env
+**/*.env.local
+*.db
+*.db-shm
+*.db-wal
+backend/data/quota_data.json
+backend/users_export.json
+backend/migrate_users.py
+
+# Local tooling and build output
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+dashboard/dist
+dashboard/tsconfig.tsbuildinfo
+dashboard/public/data
+.cache
+.DS_Store
