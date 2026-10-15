@@ -8,7 +8,11 @@ export interface HelpFaqSection {
   items: HelpFaqItem[];
 }
 
-/** FAQ copied from Galaxy Sales Performance User Manual v5, section 6. */
+/**
+ * FAQ from Galaxy Performance Tracker User Manual 1.1, section 6.
+ * Screen names follow the app, not the PDF: the PDF's "Forgot Password" link and "Admin → Aliases"
+ * screen do not exist (Admin maps Vtiger names), and "User Management" is Admin → Users.
+ */
 export const HELP_FAQ: HelpFaqSection[] = [
   {
     title: "Data and numbers",
@@ -16,7 +20,7 @@ export const HELP_FAQ: HelpFaqSection[] = [
       {
         question: "Why are there three different revenue totals on the Overview page?",
         answer:
-          "Each total measures something different. IC Actuals = RTM ICs only. Including Others = IC Actuals plus BU Heads, AVPs and Self sellers (every Closed Won deal). BU Donut = RTM-team deals by category. See the User Manual (section 2.1) for a full explanation.",
+          "Each total measures something different. IC Actuals = RTM ICs and TLs only, BU Heads excluded. Including Others = IC Actuals plus BU Heads, AVPs and Self sellers. BU Donut = amount by category from RTM-team deals only. See the User Manual (section 2.1) for a full explanation.",
       },
       {
         question: "My deal closed in Vtiger but it is not showing on the dashboard.",
@@ -36,7 +40,12 @@ export const HELP_FAQ: HelpFaqSection[] = [
       {
         question: "Why is BU attainment different from RTM attainment for the same period?",
         answer:
-          "RTM counts IC deals only. BU counts every deal in that category — including those led by BU Heads and support staff. A large deal led by a BU Head appears in BU actuals but not RTM actuals.",
+          "RTM counts IC and TL deals only. BU counts every deal in that category from RTM-team members. BU Heads’ own deals are excluded from both, so the totals should align.",
+      },
+      {
+        question: "My deal’s Bottomline shows ₹0.00. Why?",
+        answer:
+          "The dashboard uses only the Actual Bottomline field from Vtiger — not the Estimated Bottomline. If Finance has not yet entered the Actual Bottomline for your deal in Vtiger, it shows ₹0.00 until they do.",
       },
     ],
   },
@@ -46,7 +55,7 @@ export const HELP_FAQ: HelpFaqSection[] = [
       {
         question: "Why do I only see my own data?",
         answer:
-          "You have a User (IC) role, scoped to your own performance data. Contact Admin if you need broader access — role changes require management approval.",
+          "You have a User (IC) role. Overview, RTM and BU cards show only your personal slice. Contact Admin if you need broader access — role changes require management approval.",
       },
       {
         question: "A deal I contributed to is not in my attainment total.",
@@ -55,7 +64,12 @@ export const HELP_FAQ: HelpFaqSection[] = [
       },
       {
         question: "My H2 quota shows “–” or zero.",
-        answer: "H2 quotas are set at the start of the second half. If it is still blank, contact Admin.",
+        answer: "H2 quotas are set by Finance at the start of the second half. If it is still blank, contact Admin.",
+      },
+      {
+        question: "I was moved to a different RTM. Will my old deals still appear?",
+        answer:
+          "Yes — deal attribution follows the close date. Deals you led before the move count under your old RTM for those periods; deals after the move count under the new RTM. Your quota history is preserved.",
       },
     ],
   },
@@ -65,7 +79,7 @@ export const HELP_FAQ: HelpFaqSection[] = [
       {
         question: "How often is the dashboard updated?",
         answer:
-          "Only when Admin manually runs a Vtiger sync. There is no automatic sync. The last sync timestamp is shown on the Overview page.",
+          "Only when Admin manually runs a Vtiger sync. There is no automatic sync. The last sync timestamp is shown on the Admin sync panel.",
       },
       {
         question: "Can I trigger a sync myself?",
@@ -75,7 +89,7 @@ export const HELP_FAQ: HelpFaqSection[] = [
       {
         question: "The sync ran but my numbers have not changed.",
         answer:
-          "No new Closed Won deals were found in Vtiger for that quarter since the last sync. Check deal stages in Vtiger.",
+          "No new Closed Won deals were found in Vtiger since the last sync. Check deal stages in Vtiger.",
       },
     ],
   },
@@ -84,16 +98,18 @@ export const HELP_FAQ: HelpFaqSection[] = [
     items: [
       {
         question: "I need to update my quota. Who do I contact?",
-        answer: "Contact your Admin. Changes take effect immediately after saving — no sync required.",
+        answer:
+          "Contact Admin. Quota changes are Finance-owned and take effect immediately after saving — no sync required.",
       },
       {
         question: "The quota shown for me is wrong.",
         answer:
-          "Contact Admin. Verify against your Target Letter first — the dashboard quota comes directly from there.",
+          "Contact Admin. Verify against your Target Letter first — the dashboard quota is set directly from Finance’s figures.",
       },
       {
-        question: "My annual quota differs from H1 + H2 added together.",
-        answer: "The annual quota may have been entered as an explicit override. Contact Admin to verify.",
+        question: "My annual quota is not equal to H1 + H2 added together.",
+        answer:
+          "This is correct. H1, H2 and Annual are independent Finance-owned figures. They are not auto-summed. Contact Admin if any of them needs correcting.",
       },
     ],
   },
@@ -102,12 +118,21 @@ export const HELP_FAQ: HelpFaqSection[] = [
     items: [
       {
         question: "I cannot see the Admin menu.",
-        answer:
-          "You do not have the Admin role. Contact Admin if you need this access — role changes require management approval.",
+        answer: "You do not have the Admin role. Contact Admin if you need this access.",
       },
       {
         question: "I cannot log in.",
-        answer: "Contact Admin to reset your account.",
+        answer: "Contact Admin to reset your password in Admin → Users.",
+      },
+      {
+        question: "My session expired in the middle of my work.",
+        answer:
+          "Sessions last 2.5 hours. After that you are automatically signed out. Log in again to continue. If your laptop went to sleep, the sign-out happens when you return.",
+      },
+      {
+        question: "I cannot see the Leaders page.",
+        answer:
+          "The Leaders page is hidden for IC (User) and Team Lead roles. Only Leader, Admin and CEO roles can see it.",
       },
     ],
   },
@@ -117,17 +142,17 @@ export const HELP_FAQ: HelpFaqSection[] = [
       {
         question: "A rep’s actuals show zero even though they have closed deals.",
         answer:
-          "Almost always a name alias issue. The rep’s Vtiger name does not match the alias table. Ask Admin to add the mapping.",
+          "Almost always a name alias issue. The rep’s Vtiger name does not match the alias table. Ask Admin to add the correct mapping.",
       },
       {
         question: "A new rep joined. What needs to happen before their deals appear?",
         answer:
-          "Admin must: (1) Add them to Admin → Quota roster with division, role, and quota figures. (2) Map their Vtiger name to the roster name. Then run a sync.",
+          "Admin must: (1) Add them to Admin → Quota roster with RTM division, type and quota figures. (2) Map their Vtiger name to the roster name. (3) Create their login in Admin → Users. Then run a sync.",
       },
       {
         question: "A rep left the company. What happens to their deals?",
         answer:
-          "Set them to Inactive in Admin → Quota roster. Do not delete — historical deals are preserved for past periods.",
+          "Set them to Inactive in Admin → Quota roster. Do not delete — historical deals are preserved. Their login should also be set to Inactive in Admin → Users.",
       },
     ],
   },

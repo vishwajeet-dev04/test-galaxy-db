@@ -5,6 +5,7 @@ import { Breadcrumbs } from "./components/Breadcrumbs";
 import { UserMenu } from "./components/UserMenu";
 import { DateRangeFilter } from "./components/DateRangeFilter";
 import { DashboardProvider } from "./context/DashboardContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useAuth } from "./context/AuthContext";
 import { useQuotaData } from "./hooks/useQuotaData";
 import { LoginView } from "./views/LoginView";
@@ -224,20 +225,22 @@ function DashboardApp() {
           )}
 
           <div className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            {drill.view === "overview" && <OverviewView data={data} onDrill={onDrill} />}
-            {drill.view === "divisions" && <DivisionsView data={data} drill={drill} onDrill={onDrill} />}
-            {drill.view === "bu" && <BUView data={data} drill={drill} onDrill={onDrill} />}
-            {drill.view === "accounts" && <AccountsView data={data} drill={drill} onDrill={onDrill} />}
-            {drill.view === "brands" && <BrandsView data={data} drill={drill} onDrill={onDrill} />}
-            {drill.view === "leaders" && canSeeLeaders && <LeadersView data={data} />}
-            {drill.view === "employees" && <EmployeesView data={data} drill={drill} onDrill={onDrill} />}
-            {drill.view === "leaderboard" && <LeaderboardView data={data} onDrill={onDrill} />}
-            {drill.view === "help" && (
-              <Suspense fallback={<p className="text-sm text-galaxy-muted">Loading Help…</p>}>
-                <HelpView />
-              </Suspense>
-            )}
-            {drill.view === "admin" && isAdmin && <AdminUploadsView onDataRefresh={refresh} />}
+            <ErrorBoundary area={drill.view} resetKey={JSON.stringify(drill)}>
+              {drill.view === "overview" && <OverviewView data={data} onDrill={onDrill} />}
+              {drill.view === "divisions" && <DivisionsView data={data} drill={drill} onDrill={onDrill} />}
+              {drill.view === "bu" && <BUView data={data} drill={drill} onDrill={onDrill} />}
+              {drill.view === "accounts" && <AccountsView data={data} drill={drill} onDrill={onDrill} />}
+              {drill.view === "brands" && <BrandsView data={data} drill={drill} onDrill={onDrill} />}
+              {drill.view === "leaders" && canSeeLeaders && <LeadersView data={data} />}
+              {drill.view === "employees" && <EmployeesView data={data} drill={drill} onDrill={onDrill} />}
+              {drill.view === "leaderboard" && <LeaderboardView data={data} onDrill={onDrill} />}
+              {drill.view === "help" && (
+                <Suspense fallback={<p className="text-sm text-galaxy-muted">Loading Help…</p>}>
+                  <HelpView />
+                </Suspense>
+              )}
+              {drill.view === "admin" && isAdmin && <AdminUploadsView onDataRefresh={refresh} />}
+            </ErrorBoundary>
           </div>
         </main>
       </div>

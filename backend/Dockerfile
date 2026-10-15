@@ -19,8 +19,10 @@ COPY files files
 COPY config config.defaults
 COPY docker/backend-entrypoint.sh /usr/local/bin/backend-entrypoint.sh
 
+# sed: a Windows checkout can turn the script to CRLF, and "#!/bin/sh\r" fails with "no such file".
 RUN useradd --system --uid 10001 --home /app galaxy \
     && mkdir -p config backend/data var \
+    && sed -i 's/\r$//' /usr/local/bin/backend-entrypoint.sh \
     && chmod 0755 /usr/local/bin/backend-entrypoint.sh \
     && chown -R galaxy:galaxy /app
 

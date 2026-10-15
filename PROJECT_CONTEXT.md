@@ -22,7 +22,7 @@ The dashboard is **Galaxy Sales Intelligence — Individual Contributor's Perfor
 
 | Layer | Tech |
 |---|---|
-| Frontend | React 19, Vite 6, TypeScript, Tailwind 4, Recharts, lucide-react. **No React Router** — views switch on `drill.view` in `App.tsx`. |
+| Frontend | React 19, Vite 6, TypeScript, Tailwind 4, Recharts, lucide-react. **No React Router** — views switch on `drill.view` in `App.tsx`. PWA via `vite-plugin-pwa` (app shell only, `/api` never cached; installable only on HTTPS or localhost). |
 | Backend | FastAPI, Pydantic Settings, SQLAlchemy 2, python-jose (JWT HS256, **150 min** access, no refresh token yet), bcrypt |
 | Users DB | SQLAlchemy. SQLite locally (`backend/galaxy.db`). Postgres on the Azure VM when `DATABASE_URL` is set. |
 | Deals DB | **Always** stdlib sqlite3 via `scripts/deal_store.py` (`backend/galaxy.db` table `crm_deals`). Not Postgres. `GALAXY_DEALS_DB` overrides the path (Docker uses `/app/var/galaxy.db`). |
@@ -249,7 +249,7 @@ All JSON. JWT: `Authorization: Bearer <token>` except login and health.
 | GET | `/api/auth/me` | user | Current user |
 | GET | `/api/quota?from=&to=` | user | Scoped dashboard JSON. Dates recompute **actuals** only. Default UI = This Year (FY). |
 | GET | `/api/users/me/scope` | user | `{ username, role, employee_name, can_upload, sees_all }` |
-| GET | `/api/help/manual` | user | Download `files/docs/Galaxy_Sales_Performance_User_Manual_v5.pdf` (any logged-in role) |
+| GET | `/api/help/manual` | user | Download `files/docs/Galaxy_Performance_Tracker_User_Manual_1.1.pdf` (any logged-in role). File name lives only in `docs_service.MANUAL_FILENAME`; the Help page reads it from `Content-Disposition`. |
 | GET | `/api/admin/status` | admin | Deal counts + quota file exists + latest sync job. Alias kept; Chrome can 403 paths containing `status`. UI uses `GET /quotas` instead. |
 | GET | `/api/admin/uploads/status` | admin | Alias of `/status` |
 | GET | `/api/admin/quotas` | admin | Roster + `bu_annual_quotas` + `accounts` (login list, up to 100) + `crm` (deal counts + latest sync job). Chrome is not asked for `/users`/`/logins`/`/directory`/`status`. |
@@ -431,7 +431,7 @@ FY 26-27: Q1 2026-04-01→06-30, Q2 07-01→09-30, Q3 10-01→12-31, Q4 2027-01-
 | Leaders | `leaders_dashboard` | Header + top deals = personal Led-By (alias match). Team Roster = as-of-today ICs in `leader_roster.json` `rollup_divisions` (Ishwari → S1, Ajay → South). `team_size` is member count. No leader is selected on load: the purple banner shows all-leaders totals (Leaders, H1 Actuals = header IC Actuals, Topline, Team Bottomline). Clicking a card switches the banner to that leader (Team, personal H1 Actuals, Topline, Bottomline) and opens the detail below; **Clear** in the banner or clicking the same card again resets it. |
 | Employees | `individuals` + `pipeline.closed_deals` + `assignments` + `rtm_divisions` | Grouped by as-of-today division. ICs **and TLs** listed (TL badge); AVP / BU Head / Topline / Bottomline hidden (Leaders page). Team header totals = the RTM card for that division (not a re-sum of the list). Plus a **Self** group (`NON_RTM_GROUPS` in `EmployeesView.tsx`) shown after the RTMs with a "Not an RTM" badge. It shows everyone with `division: "Self"` whatever their persona (today Yusufali Petiwala, Topline), and its totals are the sum of its members. Self is **not** an RTM: not in `rtm_divisions`, RTM cards or header IC actuals. The period buttons drive actuals **and** closed accounts/deals (column, group header counts, "With Closed Deals", account search, detail panel) via `utils/deals.pipelineForPeriod` on `pipeline.closed_deals` by `quarter`. |
 | Leaderboard | `individuals` period attainment | |
-| Help | none (static) | Sidebar for **every** role. Download user manual via `GET /api/help/manual`. FAQ is static copy from the v5 PDF. |
+| Help | none (static) | Sidebar for **every** role. Download user manual via `GET /api/help/manual`. FAQ is static copy from the manual 1.1 PDF §6 (`content/helpFaq.ts`), with screen names corrected to the app. |
 | Admin | live API | Sync + roster + T1 + **Users** (add/edit role & password) |
 
 Blank page is usually a **missing nested field**, not empty CRM data.
@@ -524,7 +524,7 @@ Update this list when you fix or add defects. Ordered by severity.
 
 1. **T1 import full-replaces the roster.** Names missing from the sheet (and their history) are deleted. An RTM mismatch is treated as a transfer dated **today** (cannot distinguish a data correction from a move).
 2. **After a transfer, RTM attainment mixes two clocks.** Quotas = as-of-today members; actuals = deal close-date RTM. A Sep S1→GB move leaves Q1 deals on S1 but removes that IC’s quota from S1. Employees groups people by today; each person row shows their **full** IC actuals, while the team header uses the RTM card (close-date RTM), so after a transfer the rows under a team need not add up to its header.
-3. **Production is HTTP-only** (Galaxy Nginx **8081**; Apache **80** is Vtiger). Login and JWT in cleartext. TLS is an ops change, not in this code drop. Open Galaxy at `:8081` only — HTML 403s are Apache, not FastAPI.
+3. **Production is HTTP-only** (Galaxy Nginx **8081**; Apache **80** is Vtiger). Login and JWT in cleartext. TLS is an ops change, not in this code drop. It also blocks the PWA: browsers only register the service worker / offer "Install" on HTTPS (or localhost). Open Galaxy at `:8081` only — HTML 403s are Apache, not FastAPI.
 4. **Leaders header is personal Led-By, not a team rollup of actuals.** Top deals stay that person’s Closed Won. **Team Roster** is as-of-today ICs in `rollup_divisions` (not `division` when that is a BU, e.g. Ajay/DCG). Cloud/CSN heads may have an empty roster because those codes are not RTM divisions. Date-filter `_rebuild_leaders` alias-matches Led By (Ishwari Santosh Kadam → Ishwari Kadam). Leaders with no own deals (currently Dipti Karpe, Vineet Gadia, Rocky Braganza, all with 0 Led-By deals in Vtiger) show a "no Closed Won deals of their own" banner on the detail page and "No own deals" on the card instead of bare zeros (client decision 2026-09-28: keep personal figures).
 
 ### P1
@@ -682,6 +682,29 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-10-15 — Blank page on Help after deploy
+
+- Cause: Help and BU detail are `React.lazy` chunks. A tab (or a browser holding an old `index.html` from the pre-Docker Nginx) asks for chunk names the new image no longer has → 404 → the rejected import unmounted the whole tree (no error boundary) → empty page.
+- `utils/chunkReload.ts`: `vite:preloadError` listener reloads once (30 s guard in `sessionStorage`, so a really missing chunk cannot loop).
+- `components/ErrorBoundary.tsx`: root boundary in `main.tsx` (full-screen card) and a page boundary around the view area in `App.tsx` (`resetKey` = drill state, so navigating clears it without remounting healthy pages). Chunk errors show "Galaxy has been updated — Reload"; other crashes show Reload + Try again and log `ui_crash` with the view.
+- Immediate workaround for users still on an old copy: Ctrl+Shift+R.
+
+### 2026-10-14 — User manual 1.1
+
+- Replaced `files/docs/Galaxy_Sales_Performance_User_Manual_v5.pdf` with `Galaxy_Performance_Tracker_User_Manual_1.1.pdf` (7.1 MB; cover page still says "Version: 1.0"). `docs_service.MANUAL_FILENAME` updated; `HelpView` no longer hard-codes the name (reads `Content-Disposition`).
+- `helpFaq.ts` synced to manual §6: new Qs on ₹0.00 Bottomline, RTM move, session expiry (2.5 h), hidden Leaders page; reworded three-totals, BU vs RTM, annual ≠ H1+H2. The PDF mentions a "Forgot Password" link and an "Admin → Aliases" screen that do not exist — FAQ points to Admin / Admin → Users instead.
+- `backend/Dockerfile` strips CR from the entrypoint: a Windows working copy had turned it CRLF and the container crash-looped with `exec … no such file or directory`.
+- Docker: `files/` is baked into the backend image, so a manual change needs `docker compose up -d --build`.
+
+### 2026-10-13 — PWA (installable app)
+
+- `vite-plugin-pwa` (`registerType: "prompt"`). Workbox precaches the app shell only; `/api/` and `/data/` are excluded from caching and navigation fallback because API data is role-scoped and changes on every Sync. Google Fonts and `/avatars/` are runtime-cached.
+- Manifest and `<meta name="theme-color">` read `--color-galaxy-navy` / `--color-galaxy-surface` from `src/index.css` in `vite.config.ts` (no duplicated hex).
+- Icons in `dashboard/public/` (`pwa-*.png`, `maskable-icon-512x512.png`, `apple-touch-icon-180x180.png`, `favicon.ico`) generated from the red "G" mark, source `dashboard/pwa-icon-source.png`. Regenerate: `npx @vite-pwa/assets-generator --preset minimal-2023 <copy of source in public/>`.
+- `components/PwaStatus.tsx` (mounted in `main.tsx`, outside the auth gate): "new version" toast with Reload (checks hourly) and an offline banner (`hooks/useOnlineStatus.ts`).
+- `docker/nginx.conf`: `/sw.js` and `/manifest.webmanifest` served `no-cache`, `=404` instead of the SPA fallback.
+- Verified: build OK; Docker `web` on :8088 serves sw.js / manifest with the right MIME + `no-cache`. Browser install check not completed. **Production needs HTTPS before phones can install it** (known issue 3).
 
 ### 2026-10-13 — Docker (compose: db + backend + web)
 

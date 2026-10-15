@@ -6,6 +6,23 @@ import { authHeaders, useAuth } from "../context/AuthContext";
 import { httpErrorMessage, isSessionExpiredStatus, notifySessionExpired } from "../utils/apiError";
 import { ui } from "../theme";
 
+const FALLBACK_MANUAL_NAME = "Galaxy_User_Manual.pdf";
+
+/** The server owns the manual's file name (docs_service.MANUAL_FILENAME); read it from the response. */
+function attachmentFilename(header: string | null): string | null {
+  if (!header) return null;
+  const encoded = header.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1].trim().replace(/^"|"$/g, ""));
+    } catch (err) {
+      console.warn("help_manual_filename_undecodable", err);
+    }
+  }
+  const plain = header.match(/filename="?([^";]+)"?/i);
+  return plain ? plain[1].trim() : null;
+}
+
 export function HelpView() {
   const { token } = useAuth();
   const [downloading, setDownloading] = useState(false);
@@ -34,7 +51,7 @@ export function HelpView() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "Galaxy_Sales_Performance_User_Manual_v5.pdf";
+      a.download = attachmentFilename(res.headers.get("Content-Disposition")) ?? FALLBACK_MANUAL_NAME;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {

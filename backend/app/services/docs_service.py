@@ -6,7 +6,7 @@ from pathlib import Path
 
 from app.config import settings
 
-MANUAL_FILENAME = "Galaxy_Sales_Performance_User_Manual_v5.pdf"
+MANUAL_FILENAME = "Galaxy_Performance_Tracker_User_Manual_1.1.pdf"
 
 
 class DocsServiceError(Exception):
