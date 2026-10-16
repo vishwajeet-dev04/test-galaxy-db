@@ -483,14 +483,16 @@ def _rebuild_period_metrics(rtm: list[dict], deals: list[dict]) -> dict[str, Any
         }
 
     q2_a = _gt("q2")[1]
+    q3_a = _gt("q3")[1]
+    q4_a = _gt("q4")[1]
     h2_a = _gt("h2")[1]
     ann_a = _gt("annual")[1]
     return {
         "q1": _snap("q1"),
         "q2": _snap("q2", show_att=q2_a > 0),
         "h1": _snap("h1"),
-        "q3": {**_snap("q3", show_att=False), "estimated": True},
-        "q4": {**_snap("q4", show_att=False), "estimated": True},
+        "q3": _snap("q3", show_att=q3_a > 0),
+        "q4": _snap("q4", show_att=q4_a > 0),
         "h2": _snap("h2", show_att=h2_a > 0),
         "annual": _snap("annual", show_att=ann_a > 0),
     }
@@ -853,7 +855,7 @@ def _apply_deals_to_view(data: dict[str, Any], deals: list[dict]) -> dict[str, A
     top, at_risk = _rebuild_top_and_risk(individuals)
 
     grand = {}
-    for period in ("q1", "q2", "h1", "h2", "annual"):
+    for period in ("q1", "q2", "q3", "q4", "h1", "h2", "annual"):
         q = sum(float((d.get(period) or {}).get("quota") or 0) for d in rtm)
         a = sum(float((d.get(period) or {}).get("actuals") or 0) for d in rtm)
         grand[period] = {"quota": round(q, 4), "actuals": round(a, 4), "attainment_pct": _att(a, q)}

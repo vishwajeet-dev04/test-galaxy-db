@@ -585,7 +585,7 @@ def build_bu_level(cat_div_actuals: dict, deals: list[dict] | None = None) -> li
 def build_grand_total(rtm_divisions: list[dict]) -> dict:
     """Sum all RTM division subtotals."""
     result = {}
-    for period in ("q1", "q2", "h1", "h2", "annual"):
+    for period in ("q1", "q2", "q3", "q4", "h1", "h2", "annual"):
         total_quota = sum((d.get(period) or {}).get("quota") or 0 for d in rtm_divisions)
         total_actuals = sum((d.get(period) or {}).get("actuals") or 0 for d in rtm_divisions)
         att = _att(total_actuals, total_quota)
@@ -644,8 +644,8 @@ def build_period_metrics(
         "q1": _snap("q1"),
         "q2": _snap("q2", show_att=(grand_total.get("q2", {}).get("actuals") or 0) > 0),
         "h1": _snap("h1"),
-        "q3": {**_snap("q3", show_att=False), "estimated": True},
-        "q4": {**_snap("q4", show_att=False), "estimated": True},
+        "q3": _snap("q3", show_att=(grand_total.get("q3", {}).get("actuals") or 0) > 0),
+        "q4": _snap("q4", show_att=(grand_total.get("q4", {}).get("actuals") or 0) > 0),
         "h2": _snap("h2", show_att=(grand_total.get("h2", {}).get("actuals") or 0) > 0),
         "annual": _snap("annual", show_att=(grand_total.get("annual", {}).get("actuals") or 0) > 0),
     }

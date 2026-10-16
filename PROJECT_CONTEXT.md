@@ -1,6 +1,6 @@
 # Galaxy Performance Tracker — Project Context
 
-**Last updated:** 2026-10-13  
+**Last updated:** 2026-10-16  
 **Branch:** `feature/vtiger`  
 **Purpose:** Hand-off document. Read this first. Do not re-derive architecture from scratch.
 
@@ -541,7 +541,7 @@ Update this list when you fix or add defects. Ordered by severity.
 11. **BU H1/Q1 quotas are derived** from annual × IC mix, not uploaded.
 12. **No automated tests** for assignment overlap, future transfer, T1 merge, or DevSpec math.
 13. Unmapped name **Rima Ingle** (tiny Amount) drops out of RTM unless aliased.
-14. Q3/Q4 have no deals; period objects `"estimated": true`.
+14. Q3/Q4 Overview cards show when RTM actuals > 0 (same `show_attainment` rule as Q2/H2). Individual Q3/Q4 quotas may still be half of H2 (`estimated` on IC period objects).
 15. STLY / SAM / TAM still have no source data.
 16. **`requirements.txt` is unpinned** (`sqlalchemy>=2.0.0` etc.). SQLAlchemy 2.1 changed the default Postgres driver to psycopg 3; a fresh non-Docker install with `DATABASE_URL=postgresql://…` would fail with `No module named 'psycopg'`. Use `postgresql+psycopg2://…` in any new `.env`, or pin versions.
 
@@ -682,6 +682,12 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-10-16 — Overview Q3/Q4 "No data yet" with real deals
+
+- Cause: `build_period_metrics` and `scoping._rebuild_period_metrics` hardcoded `show_att=False` for Q3/Q4 (from when those quarters had no deals). Overview treats that as `quotaOnly` → "No data yet". `build_grand_total` and the scoping grand loop also omitted q3/q4, so even after flipping the flag the admin payload had zero IC totals for those cards.
+- Fix: include q3/q4 in grand totals; set `show_attainment` from actuals > 0 (same as Q2/H2). No frontend change.
+- After deploy: **Admin → Rebuild dashboard** so `quota_data.json` regenerates.
 
 ### 2026-10-15 — Blank page on Help after deploy
 
