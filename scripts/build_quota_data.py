@@ -49,7 +49,7 @@ QUOTA_RULES_PATH = ROOT / "config" / "quota_rules.json"
 ALIASES_PATH = ROOT / "config" / "pipeline_aliases.json"
 LEADER_ROSTER_PATH = ROOT / "config" / "leader_roster.json"
 
-RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"]
+RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"]
 BU_CARD_ORDER = ["DCG", "CSN", "PS", "CSG", "Cloud"]
 
 # Roster types that head a team rather than sell in it. Their own Closed Won deals and quota
@@ -61,11 +61,11 @@ RTM_HEAD_TYPES = frozenset({"AVP", "BU Head", "BU Head / TL", "Topline", "Bottom
 COMPANY_ANNUAL_QUOTA_CR = 1250.0
 
 _DEFAULT_CATEGORY_ANNUAL_QUOTAS: dict[str, dict[str, float]] = {
-    "DCG":   {"S1": 455, "S2": 225, "CB": 40,  "GB": 11, "South": 14, "GeoX": 10},
-    "CSN":   {"S1": 90,  "S2": 30,  "CB": 24,  "GB": 20, "South": 1,  "GeoX": 20},
-    "PS":    {"S1": 2,   "S2": 3,   "CB": 10,  "GB": 5,  "South": 1,  "GeoX": 5},
-    "CSG":   {"S1": 37,  "S2": 42,  "CB": 30,  "GB": 0,  "South": 18, "GeoX": 8},
-    "Cloud": {"S1": 37,  "S2": 42,  "CB": 30,  "GB": 0,  "South": 18, "GeoX": 8},
+    "DCG":   {"S1": 455, "S2": 225, "CB": 40,  "GB": 11, "South": 14, "DataCentre": 0, "GeoX": 10},
+    "CSN":   {"S1": 90,  "S2": 30,  "CB": 24,  "GB": 20, "South": 1,  "DataCentre": 0, "GeoX": 20},
+    "PS":    {"S1": 2,   "S2": 3,   "CB": 10,  "GB": 5,  "South": 1,  "DataCentre": 0, "GeoX": 5},
+    "CSG":   {"S1": 37,  "S2": 42,  "CB": 30,  "GB": 0,  "South": 18, "DataCentre": 0, "GeoX": 8},
+    "Cloud": {"S1": 37,  "S2": 42,  "CB": 30,  "GB": 0,  "South": 18, "DataCentre": 0, "GeoX": 8},
 }
 
 # Pipeline Category → BU (used for deal records)

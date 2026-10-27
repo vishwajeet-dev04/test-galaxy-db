@@ -50,7 +50,7 @@ _assignment_history = roster_service.assignment_history
 
 IC_QUOTAS_PATH = roster_repo.IC_QUOTAS_PATH
 QUOTA_RULES_PATH = roster_repo.QUOTA_RULES_PATH
-RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"]
+RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"]
 
 
 class AssignmentRow(BaseModel):

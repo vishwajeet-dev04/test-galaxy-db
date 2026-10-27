@@ -46,7 +46,7 @@ EMPLOYEE_MAPPING_PATH = ROOT / "data" / "Employee_Mapping.csv"
 TARGET_QUOTA_PATH = ROOT / "data" / "Target_Quota.csv"
 OUTPUT_PATH = ROOT / "backend" / "data" / "quota_data.json"
 
-RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South", "GeoX"}
+RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"}
 
 
 def _load_config_json(filename: str, default):
@@ -426,7 +426,7 @@ def parse_v3_closed_deals(xl):
         ws, ["TOTAL", "GRAND"], search_cols=(1, 2, 3), start_row=3, fallback=12
     )
 
-    RTM_DIVISION_NAMES = ["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"]
+    RTM_DIVISION_NAMES = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX", "Geo X"]
     div_rows: dict = {}
     for r in range(2, min(ws.max_row + 1, 200)):
         for c in (1, 2):
@@ -447,7 +447,7 @@ def parse_v3_closed_deals(xl):
         "q2":     _int(ws.cell(row=total_row, column=COL_Q2).value),
         "h1":     _int(ws.cell(row=total_row, column=COL_H1).value),
         "annual": _int(ws.cell(row=total_row, column=COL_ANNUAL).value),
-        "by_division": {div: _div(div) for div in ["S1", "S2", "CB", "GB", "South", "GeoX"]},
+        "by_division": {div: _div(div) for div in ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"]},
     }
 
 
@@ -612,7 +612,7 @@ def parse_business_plan_quotas():
         return quotas
 
     xl = pd.ExcelFile(BUSINESS_PLAN_PATH)
-    divisions = ["S1 ", "S2 ", "CB ", "GB ", "South ", "GeoX "]
+    divisions = ["S1 ", "S2 ", "CB ", "GB ", "South ", "DataCentre ", "GeoX "]
 
     for div in divisions:
         if div in xl.sheet_names:
@@ -1919,7 +1919,7 @@ def main(
     h1_actuals = ic_h1["actuals"] or 0
     period_metrics = build_period_metrics(bu_level, rtm_subtotals, pipeline, target_quota, grand_total, closed_deals_by_period=v3_closed_deals)
 
-    rtm_order = ["S1", "S2", "CB", "GB", "South", "GeoX"]
+    rtm_order = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"]
     rtm_divisions = []
     for div_name in rtm_order:
         d = next((x for x in rtm_subtotals if x["division"] == div_name), None)

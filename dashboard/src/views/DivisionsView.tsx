@@ -10,7 +10,7 @@ import { formatCr, formatPct, attainmentColor } from "../utils/format";
 import { rtmTeamTotal, statusFor, type CardTotal } from "../utils/deals";
 import { ui } from "../theme";
 
-const RTM_ORDER = ["S1", "S2", "CB", "GB", "South"];
+const RTM_ORDER = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"];
 
 interface DivisionsViewProps {
   data: QuotaData;

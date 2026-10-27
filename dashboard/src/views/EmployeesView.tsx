@@ -238,15 +238,15 @@ interface DivisionGroup {
   isRtm: boolean;
 }
 
-const RTM_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South"]);
-const EMPLOYEE_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"]);
+const RTM_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South", "DataCentre"]);
+const EMPLOYEE_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX", "Geo X"]);
 // Roster divisions shown as their own Employees group but never treated as an RTM:
 // no RTM card, no RTM quota/actuals roll-up, not in rtm_divisions.
 const NON_RTM_GROUPS = new Set(["Self"]);
 // TLs stay in the list (TL badge); BU heads / AVPs / topline leaders live on the Leaders page.
 const HIDDEN_EMPLOYEE_PERSONAS = new Set(["AVP", "BU Head", "BU Head / TL", "Topline", "Bottomline", "Other"]);
 
-const RTM_ORDER = ["S1", "S2", "CB", "GB", "South", "GeoX", "Geo X"];
+const RTM_ORDER = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX", "Geo X"];
 const sortDivisions = (a: string | null | undefined, b: string | null | undefined) => {
   const strA = a || "";
   const strB = b || "";

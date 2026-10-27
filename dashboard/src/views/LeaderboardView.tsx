@@ -33,7 +33,7 @@ const SORT_OPTIONS: { label: string; value: SortKey }[] = [
 const RANK_ICONS = [Trophy, Medal, Award];
 const rankColors = ["text-amber-500", "text-gray-400", "text-amber-700"];
 
-const RTM_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South"]);
+const RTM_DIVISIONS = new Set(["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"]);
 
 function getPeriodMetrics(emp: Individual, sortBy: SortKey) {
   switch (sortBy) {

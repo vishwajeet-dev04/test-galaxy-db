@@ -205,7 +205,7 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
             title={
               <span className="inline-flex items-center gap-1.5">
                 Closed Opportunities by RTM
-                <InfoTooltip text="Closed-won revenue grouped by RTM (S1, S2, CB, GB, South). Status dot = H1 attainment (green ≥50%, amber 30–50%, red <30%)" />
+                <InfoTooltip text="Closed-won revenue grouped by RTM (S1, S2, CB, GB, South, DataCentre, GeoX). Status dot = H1 attainment (green ≥50%, amber 30–50%, red <30%)" />
               </span>
             }
             subtitle="Revenue share by RTM"

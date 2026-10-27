@@ -19,7 +19,7 @@ SKIP_PATTERNS = re.compile(
     r"(employee name|ic subtotal|subtotal|division|fy 25|fy 26|^-+$)",
     re.IGNORECASE,
 )
-RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South", "GeoX"}
+RTM_DIVISIONS = {"S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"}
 # Non-RTM division fixes for known heads/AVPs
 DIVISION_FIXES = {
     "Yogesh Bhatia": "GB",

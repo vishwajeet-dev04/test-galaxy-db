@@ -966,7 +966,7 @@
   },
   "Ajay Patodia": {
     "_tracker_name": "Ajay Patodia",
-    "division": "South",
+    "division": "DataCentre",
     "type": "BU Head",
     "reporting_manager": "Sanjay Patodia",
     "q1_quota": 0.0,
@@ -978,7 +978,7 @@
     "annual_quota": 0.0,
     "assignments": [
       {
-        "division": "South",
+        "division": "DataCentre",
         "start_date": null,
         "end_date": null
       }

@@ -94,7 +94,7 @@ function formatSyncComplete(st: SyncStatus): string {
   return db ? `${stored} deals. Database: ${db}.` : `${stored} deals.`;
 }
 
-const DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"];
+const DIVISIONS = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"];
 const TYPES = ["IC", "TL", "AVP", "BU Head", "BU Head / TL", "Self", "Other"];
 const QUOTA_KEYS = ["q1_quota", "q2_quota", "h1_quota", "q3_quota", "q4_quota", "h2_quota", "annual_quota"] as const;
 const FIXED_HALF_KEYS = new Set(["h1_quota", "h2_quota", "annual_quota"]);
@@ -553,7 +553,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
   const isRunning = syncStatus?.running || syncBusy || syncStatus?.status === "running";
   const dealCounts = status?.deals || syncStatus?.deals || {};
   const buNames = Object.keys(buQuotas);
-  const buDivs = ["S1", "S2", "CB", "GB", "South", "GeoX"];
+  const buDivs = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"];
 
   return (
     <div className="space-y-8">

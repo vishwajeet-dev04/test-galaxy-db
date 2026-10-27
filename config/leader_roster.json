@@ -4,11 +4,11 @@
     "initial": "AP",
     "name": "Ajay Patodia",
     "dept": "DCG BU HEAD",
-    "division": "South",
+    "division": "DataCentre",
     "bu": "DCG",
     "scope_depts": ["DCG BU HEAD", "South sales", "South sales- Team Lead", "DCG - South Sale"],
-    "fallback_divisions": ["South"],
-    "rollup_divisions": ["South"]
+    "fallback_divisions": ["DataCentre", "South"],
+    "rollup_divisions": ["DataCentre", "South"]
   },
   {
     "initial": "DK",

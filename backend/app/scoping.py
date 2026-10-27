@@ -23,7 +23,7 @@ if _scripts not in sys.path:
     sys.path.insert(0, _scripts)
 import assignment_history  # noqa: E402
 
-RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "GeoX"]
+RTM_DIVISIONS = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"]
 BU_CARD_ORDER = ["DCG", "CSN", "PS", "CSG", "Cloud"]
 LEADER_ROLES = {"leader", "tl", "avp", "bu_head"}
 LEADER_TYPES = {"TL", "AVP", "BU Head", "BU Head / TL", "Topline", "Bottomline", "Other"}

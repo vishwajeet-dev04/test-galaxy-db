@@ -26,6 +26,7 @@ const DIVISION_GRADIENT: Record<string, string> = {
   CB: "from-violet-600 to-purple-800",
   GB: "from-emerald-600 to-teal-800",
   South: "from-amber-500 to-orange-600",
+  DataCentre: "from-slate-600 to-sky-800",
   DCG: "from-slate-700 to-galaxy-navy",
   GeoX: "from-orange-500 to-amber-700",
   Cloud: "from-cyan-500 to-sky-700",

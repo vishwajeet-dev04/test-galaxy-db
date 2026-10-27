@@ -9,7 +9,7 @@ import type {
   StatusFlag,
 } from "../types";
 
-export const RTM_DIVISION_ORDER = ["S1", "S2", "CB", "GB", "South", "GeoX"] as const;
+export const RTM_DIVISION_ORDER = ["S1", "S2", "CB", "GB", "South", "DataCentre", "GeoX"] as const;
 const RTM_SET = new Set<string>(RTM_DIVISION_ORDER);
 
 export const PERIOD_QUARTERS: Record<PeriodKey, ReadonlySet<string>> = {

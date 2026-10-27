@@ -44,6 +44,7 @@
       "CB": 40.0,
       "GB": 11.0,
       "South": 14.0,
+      "DataCentre": 0.0,
       "GeoX": 10.0
     },
     "CSN": {
@@ -52,6 +53,7 @@
       "CB": 24.0,
       "GB": 20.0,
       "South": 1.0,
+      "DataCentre": 0.0,
       "GeoX": 20.0
     },
     "PS": {
@@ -60,6 +62,7 @@
       "CB": 10.0,
       "GB": 5.0,
       "South": 1.0,
+      "DataCentre": 0.0,
       "GeoX": 5.0
     },
     "CSG": {
@@ -68,6 +71,7 @@
       "CB": 30.0,
       "GB": 0.0,
       "South": 18.0,
+      "DataCentre": 0.0,
       "GeoX": 8.0
     },
     "Cloud": {
@@ -76,6 +80,7 @@
       "CB": 30.0,
       "GB": 0.0,
       "South": 18.0,
+      "DataCentre": 0.0,
       "GeoX": 8.0
     }
   }
