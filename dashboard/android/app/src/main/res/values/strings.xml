@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Galaxy</string>
+    <string name="title_activity_main">Galaxy</string>
+    <string name="package_name">com.goapl.galaxy</string>
+    <string name="custom_url_scheme">com.goapl.galaxy</string>
+</resources>

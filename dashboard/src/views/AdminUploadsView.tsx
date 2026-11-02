@@ -23,6 +23,7 @@ import { SectionHeader } from "../components/SectionHeader";
 import { ui } from "../theme";
 import { formatDisplayDate, toISODate } from "../utils/fiscal";
 import { apiFetch, httpErrorMessage, isSessionExpiredStatus, notifySessionExpired } from "../utils/apiError";
+import { apiUrl } from "../utils/apiBase";
 
 interface SyncStatus {
   configured: boolean;
@@ -453,7 +454,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
 
   const downloadTemplate = async () => {
     try {
-      const res = await fetch("/api/admin/templates/data", { headers: authHeaders(token) });
+      const res = await fetch(apiUrl("/api/admin/templates/data"), { headers: authHeaders(token) });
       if (!res.ok) {
         const raw = await res.text();
         if (isSessionExpiredStatus(res.status, raw)) notifySessionExpired();

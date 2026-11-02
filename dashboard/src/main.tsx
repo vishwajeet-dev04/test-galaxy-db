@@ -5,9 +5,12 @@ import { AuthProvider } from "./context/AuthContext";
 import { PwaStatus } from "./components/PwaStatus";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { installChunkReload } from "./utils/chunkReload";
+import { isNativeApp } from "./utils/apiBase";
 import "./index.css";
 
 installChunkReload();
+
+const native = isNativeApp();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -16,6 +19,6 @@ createRoot(document.getElementById("root")!).render(
         <App />
       </AuthProvider>
     </ErrorBoundary>
-    <PwaStatus />
+    {!native && <PwaStatus />}
   </StrictMode>
 );

@@ -11,6 +11,15 @@ dashboard/dist/
 dashboard/.env
 dashboard/.env.local
 dashboard/tsconfig.tsbuildinfo
+# Capacitor Android: keep the project; ignore local build / IDE caches
+dashboard/android/.gradle/
+dashboard/android/app/build/
+dashboard/android/build/
+dashboard/android/local.properties
+dashboard/android/.idea/
+dashboard/android/captures/
+dashboard/android/*.iml
+dashboard/android/app/*.iml
 .env
 *.env
 !*.env.example

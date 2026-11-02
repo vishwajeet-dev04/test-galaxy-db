@@ -22,7 +22,7 @@ The dashboard is **Galaxy Sales Intelligence — Individual Contributor's Perfor
 
 | Layer | Tech |
 |---|---|
-| Frontend | React 19, Vite 6, TypeScript, Tailwind 4, Recharts, lucide-react. **No React Router** — views switch on `drill.view` in `App.tsx`. PWA via `vite-plugin-pwa` (app shell only, `/api` never cached; installable only on HTTPS or localhost). |
+| Frontend | React 19, Vite 6, TypeScript, Tailwind 4, Recharts, lucide-react. **No React Router** — views switch on `drill.view` in `App.tsx`. PWA via `vite-plugin-pwa` (app shell only, `/api` never cached; installable only on HTTPS or localhost). **Android APK:** Capacitor (`com.goapl.galaxy`) ships `dist` in the APK; API → staging `http://20.219.14.83:8081` (`apiBase` + cleartext). Build from `dashboard/android` in Android Studio. |
 | Backend | FastAPI, Pydantic Settings, SQLAlchemy 2, python-jose (JWT HS256, **150 min** access, no refresh token yet), bcrypt |
 | Users DB | SQLAlchemy. SQLite locally (`backend/galaxy.db`). Postgres on the Azure VM when `DATABASE_URL` is set. |
 | Deals DB | **Always** stdlib sqlite3 via `scripts/deal_store.py` (`backend/galaxy.db` table `crm_deals`). Not Postgres. `GALAXY_DEALS_DB` overrides the path (Docker uses `/app/var/galaxy.db`). |
@@ -75,7 +75,9 @@ galaxy_db/
 │   │   ├── hooks/useQuotaData.ts
 │   │   ├── utils/fiscal.ts    # FY calendar (IST, 1 Apr)
 │   │   └── types.ts
-│   └── vite.config.ts          # Proxy /api → :8080
+│   ├── vite.config.ts          # Proxy /api → :8080
+│   ├── capacitor.config.ts     # Android shell → staging URL (cleartext)
+│   └── android/                # Capacitor Android project (open in Android Studio → Build APK)
 ├── scripts/
 │   ├── assignment_history.py  # RTM history: as-of-today, division_on, apply_transfer
 │   ├── build_quota_data.py     # Current JSON builder
@@ -682,6 +684,12 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-11-02 — Capacitor Android APK shell (staging HTTP)
+
+- Client wants a shareable APK without HTTPS. First build loaded remote URL and CSS failed in WebView.
+- Fix: ship `dist` inside the APK (no `server.url`); API via `apiBase` → `http://20.219.14.83:8081`. Cleartext + `allowMixedContent`. CORS defaults include Capacitor origins (`https://localhost`, etc.). PWA register skipped on native.
+- npm: `cap:sync`, `cap:open`. Rebuild APK after `npm run build && npm run cap:sync`. Staging backend must be redeployed (or CORS env updated) for native login.
 
 ### 2026-11-02 — Overview includes BU Heads (match RTMs)
 

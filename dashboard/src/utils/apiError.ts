@@ -1,3 +1,5 @@
+import { apiUrl } from "./apiBase";
+
 export function apiDetail(body: unknown, fallback: string): string {
   if (!body || typeof body !== "object") return fallback;
   const detail = (body as { detail?: unknown }).detail;
@@ -45,13 +47,20 @@ export async function readApiBody(res: Response): Promise<{ json: unknown; raw: 
   }
 }
 
+function resolveFetchInput(input: RequestInfo | URL): RequestInfo | URL {
+  if (typeof input === "string") return apiUrl(input);
+  if (input instanceof URL) return new URL(apiUrl(input.pathname + input.search + input.hash));
+  return input;
+}
+
 export async function apiFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<{ res: Response; json: unknown; raw: string }> {
+  const resolved = resolveFetchInput(input);
   let last: { res: Response; json: unknown; raw: string } | null = null;
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const res = await fetch(input, init);
+    const res = await fetch(resolved, init);
     const parsed = await readApiBody(res);
     last = { res, json: parsed.json, raw: parsed.raw };
     if (!looksLikeHtml(parsed.raw)) break;

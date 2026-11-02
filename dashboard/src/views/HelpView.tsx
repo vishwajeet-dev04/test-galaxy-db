@@ -4,6 +4,7 @@ import { HELP_FAQ } from "../content/helpFaq";
 import { SectionHeader } from "../components/SectionHeader";
 import { authHeaders, useAuth } from "../context/AuthContext";
 import { httpErrorMessage, isSessionExpiredStatus, notifySessionExpired } from "../utils/apiError";
+import { apiUrl } from "../utils/apiBase";
 import { ui } from "../theme";
 
 const FALLBACK_MANUAL_NAME = "Galaxy_User_Manual.pdf";
@@ -35,7 +36,7 @@ export function HelpView() {
     setDownloading(true);
     setError(null);
     try {
-      const res = await fetch("/api/help/manual", { headers: authHeaders(token) });
+      const res = await fetch(apiUrl("/api/help/manual"), { headers: authHeaders(token) });
       if (!res.ok) {
         const raw = await res.text();
         if (isSessionExpiredStatus(res.status, raw)) notifySessionExpired();

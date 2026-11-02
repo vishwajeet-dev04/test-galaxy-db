@@ -43,6 +43,10 @@ class Settings(BaseSettings):
         "http://127.0.0.1:4173",
         "http://20.219.14.83",
         "http://20.219.14.83:8081",
+        # Capacitor Android WebView origins (bundled APK → staging API)
+        "https://localhost",
+        "http://localhost",
+        "capacitor://localhost",
     ]
     root: Path = ROOT
     files_dir: Path = ROOT / "files"
