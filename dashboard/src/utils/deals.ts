@@ -220,6 +220,25 @@ export function rtmTeamTotal(
   return { actuals, quota, attainment_pct: attainment(actuals, quota), deals: teamDeals + heads.count };
 }
 
+/** Sum of every RTM card for a period (team ICs/TLs + BU Heads). Used by Overview so it matches RTMs. */
+export function sumRtmTeamTotals(
+  rows: RTMDivision[] | undefined,
+  period: PeriodKey,
+  individuals: Individual[],
+  allDeals: PipelineDeal[] | undefined,
+): CardTotal {
+  let actuals = 0;
+  let quota = 0;
+  let deals = 0;
+  for (const row of rows ?? []) {
+    const t = rtmTeamTotal(row, period, individuals, allDeals);
+    actuals += t.actuals;
+    quota += t.quota ?? 0;
+    deals += t.deals;
+  }
+  return { actuals, quota, attainment_pct: attainment(actuals, quota), deals };
+}
+
 /**
  * Business Unit card figures with BU Head deals added. Quota is unchanged: BU quotas are set per
  * BU and RTM in Admin, and a BU Head has no BU quota of their own.

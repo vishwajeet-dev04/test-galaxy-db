@@ -1,6 +1,6 @@
 # Galaxy Performance Tracker — Project Context
 
-**Last updated:** 2026-10-27  
+**Last updated:** 2026-11-02  
 **Branch:** `feature/vtiger`  
 **Purpose:** Hand-off document. Read this first. Do not re-derive architecture from scratch.
 
@@ -423,10 +423,10 @@ FY 26-27: Q1 2026-04-01→06-30, Q2 07-01→09-30, Q3 10-01→12-31, Q4 2027-01-
 
 | Page | JSON | Notes |
 |---|---|---|
-| Overview | `kpis`, `period_metrics`, `rtm_divisions`, `top_attainers`, `at_risk_ics`, `pipeline.summary` | Period cards: Q1, Q2, H1 / Q3, Q4, H2 in a 1/2/3-column grid; the Annual card is full width below on every screen size. |
+| Overview | `rtm_divisions` + `individuals` + `pipeline.all_deals` (via `rtmTeamTotal` / `buTeamTotal` / `sumRtmTeamTotals`); bottom/top lists still from `at_risk_ics` / `top_attainers` | Period cards and Closed Opportunity donuts use the **same team + BU Head totals as RTMs/BU pages** (client 2026-10-30). Header **IC Actuals** still excludes BU Heads (Excel). Period grid: Q1, Q2, H1 / Q3, Q4, H2; Annual full width below. |
 | RTMs | `rtm_divisions` / `division_aggregates` + `pipeline.all_deals` | S1 → S2 → CB → GB → South → DataCentre → GeoX. Cards and the RTM table **include BU Heads** (deals + quota, see the row below). Card closed-deal count follows H1/H2 from `all_deals`. Status flag is recomputed from the combined H1 attainment (`statusFor`, same 30/50 thresholds as `_status_flag`). |
 | Business Units | `bu_level`, `rtm_by_bu` + `pipeline.all_deals` | Annual from Admin; H1/Q1 derived from IC mix. **Actuals = RTM-team deals only** (`rtm_division` in the seven RTMs). Deals led by non-RTM people (Jitesh/Cloud, Self) are left out. In the API the BU total = RTM total = header IC actuals (BU Heads out); filter lives in `build_quota_data.compute_actuals_by_cat_div` + `build_bu_level` and `scoping._rebuild_bu` / `_rebuild_rtm_by_bu` (`_is_rtm_deal`). The page then adds BU Head deals on top (see below). Clicking a card opens `BUDetailView` (lazy, `drill.bu`): Total Value card (= the BU card) + Total Deals card with per-RTM **deal-count chips** (`LegendPill`, fixed colour per RTM; clicking one filters the deals table, again clears it; built from the API-scoped deals, so non-admins only see their own RTM), a "{BU} — RTM by Division" distribution table (Q1, Q2, H1, Q3, Q4, H2, Annual Quota, Annual Actuals, Total row; always full year, from counted deals via `rtmQuarterBreakdown` + `rtm_by_bu` annual quota), and a deals table (team + BU Head deals) with search, RTM filter, sort and 25-row paging. In the deals table the Opportunity name opens that deal's **Account** page and the Brand cell opens the **Brand** page (`drill.deal` = opportunity number; `useDealHighlight` scrolls to that `DealRow` under "Closed deals" and highlights it ~3 s, reduced-motion aware). Account/Brand keys use the same `"Unknown"` / `"Other"` fallbacks as `build_accounts` / `build_brands` (all 474 local deals resolve). Led by is plain text. Period buttons share `DashboardContext.period`. |
-| BU Heads on RTM/BU pages | `pipeline.all_deals` + `individuals` | Client 2026-10-12: BU Heads' values go **into** the team figures on the RTMs and Business Units pages only. `utils/deals.ts`: `rtmTeamTotal` = API row + BU Head deals (`counts_for_rtm === false`, by `rtm_division`) + BU Head period quota (individuals with `counts_for_rtm === false`, as-of-today `division`); `buTeamTotal` = `bu_level` + BU Head deals by `bu`, quota unchanged (BU quotas are per BU/RTM from Admin). **Header IC Actuals, Overview, Employees team headers, Leaderboard and the backend stay excluding BU Heads**, so they still match the client Excel; the RTM card therefore no longer equals the Employees team header (by choice). H1 local: S1 62.44, South 23.51, GeoX 6.11 / quota 15.0, GB 8.22; header stays 158.78. TL/user scopes contain no heads, so nothing is added for them. |
+| BU Heads on RTM/BU/Overview | `pipeline.all_deals` + `individuals` | Client 2026-10-12 (RTM/BU) + 2026-10-30 (Overview): BU Heads go **into** RTMs, Business Units, and Overview period cards/donuts via `rtmTeamTotal` / `buTeamTotal` / `sumRtmTeamTotals`. **Header IC Actuals, Employees team headers, Leaderboard and the backend stay excluding BU Heads** (Excel). TL/user scopes contain no heads, so nothing is added for them. |
 | Accounts / Brands | nested `deals`, `by_bu`, `gp_pct` | |
 | Leaders | `leaders_dashboard` | Header + top deals = personal Led-By (alias match). Team Roster = as-of-today ICs in `leader_roster.json` `rollup_divisions` (Ishwari → S1, Ajay → DataCentre + South). `team_size` is member count. No leader is selected on load: the purple banner shows all-leaders totals (Leaders, H1 Actuals = header IC Actuals, Topline, Team Bottomline). Clicking a card switches the banner to that leader (Team, personal H1 Actuals, Topline, Bottomline) and opens the detail below; **Clear** in the banner or clicking the same card again resets it. |
 | Employees | `individuals` + `pipeline.closed_deals` + `assignments` + `rtm_divisions` | Grouped by as-of-today division. ICs **and TLs** listed (TL badge); AVP / BU Head / Topline / Bottomline hidden (Leaders page). Team header totals = the RTM card for that division (not a re-sum of the list). Plus a **Self** group (`NON_RTM_GROUPS` in `EmployeesView.tsx`) shown after the RTMs with a "Not an RTM" badge. It shows everyone with `division: "Self"` whatever their persona (today Yusufali Petiwala, Topline), and its totals are the sum of its members. Self is **not** an RTM: not in `rtm_divisions`, RTM cards or header IC actuals. The period buttons drive actuals **and** closed accounts/deals (column, group header counts, "With Closed Deals", account search, detail panel) via `utils/deals.pipelineForPeriod` on `pipeline.closed_deals` by `quarter`. |
@@ -682,6 +682,11 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-11-02 — Overview includes BU Heads (match RTMs)
+
+- Client (2026-10-30): individual RTMs match CRM, but Overview total ≠ sum of RTMs. Cause: Overview used `period_metrics` / raw RTM-BU actuals (no heads); RTM cards use `rtmTeamTotal` (heads in).
+- Fix (frontend only): Overview period cards via `sumRtmTeamTotals`; RTM/BU donuts via `rtmTeamTotal` / `buTeamTotal`. Header IC Actuals unchanged. No rebuild required; redeploy web image / dist.
 
 ### 2026-10-27 — DataCentre RTM for Ajay Patodia
 

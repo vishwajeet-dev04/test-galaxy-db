@@ -6,67 +6,71 @@ import { PerformerList } from "../components/PerformerList";
 import { PerformanceCard } from "../components/PerformanceCard";
 import { InfoTooltip } from "../components/InfoTooltip";
 import { DonutChart } from "../components/charts/DonutChart";
-import type { QuotaData, DrillState, PeriodMetrics, PeriodSnapshot } from "../types";
+import type { QuotaData, DrillState, PeriodSnapshot } from "../types";
 import { formatCr, formatPct } from "../utils/format";
 import {
   getPeriodElapsedLabel,
   type PerformancePeriodKey,
   PERFORMANCE_PERIOD_OPTIONS,
 } from "../utils/fiscal";
+import { buTeamTotal, rtmTeamTotal, sumRtmTeamTotals } from "../utils/deals";
 
 interface OverviewViewProps {
   data: QuotaData;
   onDrill: (drill: Partial<DrillState>) => void;
 }
 
-type PeriodActualsRow = Record<PerformancePeriodKey, PeriodMetrics>;
+const PERIOD_LABELS: Record<PerformancePeriodKey, "Q1" | "Q2" | "H1" | "Q3" | "Q4" | "H2" | "Annual"> = {
+  q1: "Q1",
+  q2: "Q2",
+  h1: "H1",
+  q3: "Q3",
+  q4: "Q4",
+  h2: "H2",
+  annual: "Annual",
+};
 
-function periodActuals(row: PeriodActualsRow, key: PerformancePeriodKey): number {
-  return row[key]?.actuals ?? 0;
-}
-
-function periodCardProps(key: PerformancePeriodKey, snapshot: PeriodSnapshot | undefined) {
-  if (!snapshot) return null;
-  const labels: Record<PerformancePeriodKey, "Q1" | "Q2" | "H1" | "Q3" | "Q4" | "H2" | "Annual"> = {
-    q1: "Q1",
-    q2: "Q2",
-    h1: "H1",
-    q3: "Q3",
-    q4: "Q4",
-    h2: "H2",
-    annual: "Annual",
-  };
-  const label = labels[key];
-  const quotaOnly = !snapshot.show_attainment || (snapshot.ic_actuals ?? 0) <= 0;
+/** Overview period cards: same total as summing RTM cards (ICs/TLs + BU Heads). */
+function periodCardProps(
+  key: PerformancePeriodKey,
+  snapshot: PeriodSnapshot | undefined,
+  data: QuotaData,
+) {
+  const label = PERIOD_LABELS[key];
+  const total = sumRtmTeamTotals(
+    data.rtm_divisions,
+    key,
+    data.individuals ?? [],
+    data.pipeline?.all_deals,
+  );
+  const quotaOnly = total.actuals <= 0;
   return {
     period: label,
-    actuals: quotaOnly ? null : snapshot.ic_actuals,
-    quota: snapshot.ic_quota,
-    attainmentPct: snapshot.ic_attainment_pct,
-    closedDeals: snapshot.closed_deals,
-    // Fix 1: Annual now uses getPeriodElapsedLabel which returns "X% of year complete"
+    actuals: quotaOnly ? null : total.actuals,
+    quota: total.quota ?? 0,
+    attainmentPct: total.attainment_pct,
+    closedDeals: total.deals,
     periodElapsedLabel: getPeriodElapsedLabel(label),
     quotaOnly,
-    stlyActuals: snapshot.stly_actuals_cr,
+    stlyActuals: snapshot?.stly_actuals_cr,
   };
 }
 
-
-
 export function OverviewView({ data, onDrill }: OverviewViewProps) {
-  const { bu_level, period_metrics, rtm_divisions, at_risk_ics, top_attainers } = data;
+  const { bu_level, period_metrics, rtm_divisions, at_risk_ics, top_attainers, individuals } = data;
+  const allDeals = data.pipeline?.all_deals;
 
   const [selectedChartPeriod, setSelectedChartPeriod] = useState<PerformancePeriodKey>("q1");
 
   const getChartData = () => {
     const rtmData = (rtm_divisions ?? []).map((d) => ({
       name: d.division,
-      value: periodActuals(d, selectedChartPeriod),
+      value: rtmTeamTotal(d, selectedChartPeriod, individuals ?? [], allDeals).actuals,
     }));
     const buData = (bu_level ?? [])
       .map((b) => ({
         name: b.bu,
-        value: periodActuals(b, selectedChartPeriod),
+        value: buTeamTotal(b, selectedChartPeriod, allDeals).actuals,
       }))
       .sort((a, b) => {
         const order = ["DCG", "CSN", "PS", "CSG", "Cloud"];
@@ -82,20 +86,18 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
   const topByPct = top_attainers?.by_attainment_pct ?? [];
   const topByValue = top_attainers?.by_value_closed ?? [];
 
-  // Fix 2: Bottom performers — same data source as at_risk_ics but sorted ascending by attainment
   const bottomPerformers = [...(at_risk_ics ?? [])].sort(
     (a, b) => (a.h1_attainment_pct ?? 0) - (b.h1_attainment_pct ?? 0)
   ).slice(0, 5);
 
-  // Pre-computed per-period card props — used by the explicit-placement grid below
   const pm = period_metrics;
-  const q1Props = periodCardProps("q1", pm?.q1);
-  const q2Props = periodCardProps("q2", pm?.q2);
-  const h1Props = periodCardProps("h1", pm?.h1);
-  const q3Props = periodCardProps("q3", pm?.q3);
-  const q4Props = periodCardProps("q4", pm?.q4);
-  const h2Props = periodCardProps("h2", pm?.h2);
-  const annualProps = periodCardProps("annual", pm?.annual);
+  const q1Props = periodCardProps("q1", pm?.q1, data);
+  const q2Props = periodCardProps("q2", pm?.q2, data);
+  const h1Props = periodCardProps("h1", pm?.h1, data);
+  const q3Props = periodCardProps("q3", pm?.q3, data);
+  const q4Props = periodCardProps("q4", pm?.q4, data);
+  const h2Props = periodCardProps("h2", pm?.h2, data);
+  const annualProps = periodCardProps("annual", pm?.annual, data);
 
   return (
     <div className="space-y-8 lg:space-y-10">
@@ -120,7 +122,6 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
         </div>
       </section>
 
-      {/* Fix 2: Replace "Needs Attention" card grid with "Bottom Performance" table */}
       {bottomPerformers.length > 0 && (
         <section className="space-y-4">
           <SectionHeader
@@ -200,12 +201,11 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
           }
         />
         <div className="grid gap-5 lg:grid-cols-2">
-          {/* Fix 4: RTM donut chart with colour-coded status indicators in legend */}
           <ChartCard
             title={
               <span className="inline-flex items-center gap-1.5">
                 Closed Opportunities by RTM
-                <InfoTooltip text="Closed-won revenue grouped by RTM (S1, S2, CB, GB, South, DataCentre, GeoX). Status dot = H1 attainment (green ≥50%, amber 30–50%, red <30%)" />
+                <InfoTooltip text="Closed-won revenue by RTM including BU Heads (same as RTM cards). Status dot = H1 attainment (green ≥50%, amber 30–50%, red <30%)" />
               </span>
             }
             subtitle="Revenue share by RTM"
@@ -222,7 +222,7 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
             title={
               <span className="inline-flex items-center gap-1.5">
                 Closed Opportunities by BU
-                <InfoTooltip text="Closed-won revenue grouped by business unit category" />
+                <InfoTooltip text="Closed-won revenue by business unit including BU Heads (same as BU cards)" />
               </span>
             }
             subtitle="Revenue share by business unit"
