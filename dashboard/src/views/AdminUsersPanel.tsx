@@ -266,13 +266,13 @@ export function AdminUsersPanel({
   const rowBusy = saving || deletingId != null;
 
   return (
-    <div className={`${ui.card} space-y-5 p-6`}>
+    <div className={`${ui.card} space-y-4 p-4 sm:p-6`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SectionHeader
           label="Users"
           description="Create, edit, or delete logins. Employee name must match the quota roster for IC scoping."
         />
-        <button type="button" onClick={openCreate} className={ui.btnPrimary}>
+        <button type="button" onClick={openCreate} className={`${ui.btnPrimary} w-full sm:w-auto`}>
           <Plus className="h-4 w-4" />
           Add user
         </button>
@@ -296,7 +296,7 @@ export function AdminUsersPanel({
             className={ui.input}
           />
         </label>
-        <button type="submit" className={`${ui.btnPrimary} sm:w-auto`}>
+        <button type="submit" className={`${ui.btnPrimary} w-full sm:w-auto`}>
           Search
         </button>
       </form>
@@ -322,7 +322,7 @@ export function AdminUsersPanel({
             <table className="min-w-full text-sm">
               <thead className={ui.tableHead}>
                 <tr>
-                  <th className="px-3 py-2">Username</th>
+                  <th className="sticky left-0 z-10 bg-slate-50/95 px-3 py-2 backdrop-blur-sm">Username</th>
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">Role</th>
@@ -334,7 +334,7 @@ export function AdminUsersPanel({
               <tbody>
                 {items.map((u) => (
                   <tr key={u.id} className="border-b border-galaxy-border/60">
-                    <td className="px-3 py-2 font-medium text-galaxy-navy">{u.username}</td>
+                    <td className="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-galaxy-navy">{u.username}</td>
                     <td className="px-3 py-2">{u.full_name}</td>
                     <td className="px-3 py-2 text-galaxy-muted">{u.email}</td>
                     <td className="px-3 py-2">
@@ -390,8 +390,13 @@ export function AdminUsersPanel({
                 <span className={`${ui.badge} mt-2 inline-flex ${u.is_active ? "" : "opacity-70"}`}>
                   {u.is_active ? "Active" : "Inactive"}
                 </span>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  <button type="button" onClick={() => openEdit(u)} disabled={rowBusy} className={ui.btnGhost}>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(u)}
+                    disabled={rowBusy}
+                    className={`${ui.btnGhost} min-h-10 w-full justify-center sm:w-auto`}
+                  >
                     <Pencil className="h-4 w-4" />
                     Edit
                   </button>
@@ -399,7 +404,7 @@ export function AdminUsersPanel({
                     type="button"
                     onClick={() => askDelete(u)}
                     disabled={rowBusy || u.id === me?.id}
-                    className={ui.btnGhost}
+                    className={`${ui.btnGhost} min-h-10 w-full justify-center sm:w-auto`}
                     title={u.id === me?.id ? "You cannot delete your own account" : "Delete user"}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -559,10 +564,15 @@ export function AdminUsersPanel({
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" onClick={closeForm} disabled={saving} className={ui.btnGhost}>
+              <button
+                type="button"
+                onClick={closeForm}
+                disabled={saving}
+                className={`${ui.btnGhost} min-h-10 w-full justify-center sm:w-auto`}
+              >
                 Cancel
               </button>
-              <button type="submit" disabled={saving} className={ui.btnPrimary}>
+              <button type="submit" disabled={saving} className={`${ui.btnPrimary} w-full sm:w-auto`}>
                 {saving ? "Saving…" : isCreate ? "Create user" : "Save changes"}
               </button>
             </div>
@@ -598,7 +608,7 @@ export function AdminUsersPanel({
                 type="button"
                 onClick={() => setConfirmDelete(null)}
                 disabled={deletingId != null}
-                className={ui.btnGhost}
+                className={`${ui.btnGhost} min-h-10 w-full justify-center sm:w-auto`}
               >
                 Cancel
               </button>
@@ -606,7 +616,7 @@ export function AdminUsersPanel({
                 type="button"
                 onClick={() => void onConfirmDelete()}
                 disabled={deletingId != null}
-                className={ui.btnPrimary}
+                className={`${ui.btnPrimary} w-full sm:w-auto`}
               >
                 {deletingId === confirmDelete.id ? "Deleting…" : "Delete user"}
               </button>

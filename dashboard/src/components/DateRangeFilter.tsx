@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   dateRangePresets,
   formatDisplayDate,
@@ -8,6 +8,7 @@ import {
   toISODate,
   type DateRangeValue,
 } from "../utils/fiscal";
+import { ui } from "../theme";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
@@ -34,6 +35,8 @@ const PANEL_WIDTH = MONTH_WIDTH * 2 + MONTH_GAP + PANEL_PAD + PRESET_WIDTH;
 interface DateRangeFilterProps {
   value: DateRangeValue;
   onApply: (next: DateRangeValue) => void;
+  /** Stretch the trigger across the header row on phones. */
+  fullWidth?: boolean;
 }
 
 function daysInMonth(year: number, month: number) {
@@ -51,6 +54,20 @@ function addMonths(year: number, month: number, delta: number) {
   return { year: d.getFullYear(), month: d.getMonth() };
 }
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return mobile;
+}
+
 function MonthGrid({
   year,
   month,
@@ -60,6 +77,7 @@ function MonthGrid({
   fillRange,
   onPick,
   onHover,
+  large = false,
 }: {
   year: number;
   month: number;
@@ -69,6 +87,7 @@ function MonthGrid({
   fillRange: boolean;
   onPick: (iso: string) => void;
   onHover: (iso: string | null) => void;
+  large?: boolean;
 }) {
   const first = new Date(year, month, 1).getDay();
   const count = daysInMonth(year, month);
@@ -79,13 +98,16 @@ function MonthGrid({
   const previewEnd = hover && hover !== start ? hover : end;
   const lo = start <= previewEnd ? start : previewEnd;
   const hi = start <= previewEnd ? previewEnd : start;
-  const gridStyle = { gridTemplateColumns: `repeat(7, ${CELL}px)` };
+  const cellPx = large ? 40 : CELL;
+  const gridStyle = { gridTemplateColumns: `repeat(7, minmax(0, 1fr))` };
 
   return (
-    <div style={{ width: MONTH_WIDTH }} className="shrink-0">
-      <p className="mb-2 text-center text-sm font-semibold text-galaxy-navy">
-        {MONTHS[month]} {year}
-      </p>
+    <div className={large ? "w-full" : "shrink-0"} style={large ? undefined : { width: MONTH_WIDTH }}>
+      {!large && (
+        <p className="mb-2 text-center text-sm font-semibold text-galaxy-navy">
+          {MONTHS[month]} {year}
+        </p>
+      )}
       <div
         className="grid text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400"
         style={gridStyle}
@@ -98,7 +120,14 @@ function MonthGrid({
       </div>
       <div className="grid" style={gridStyle}>
         {cells.map((iso, i) => {
-          if (!iso) return <span key={`e-${i}`} className="h-8 w-8" />;
+          if (!iso)
+            return (
+              <span
+                key={`e-${i}`}
+                className="mx-auto"
+                style={{ width: cellPx, height: cellPx }}
+              />
+            );
           const selected = iso === start || iso === end;
           const mid = fillRange && iso >= lo && iso <= hi;
           return (
@@ -107,13 +136,16 @@ function MonthGrid({
               type="button"
               onClick={() => onPick(iso)}
               onMouseEnter={() => onHover(iso)}
-              className={`h-8 w-8 text-xs ${
+              className={`mx-auto flex items-center justify-center text-xs focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 ${
+                large ? "text-sm" : ""
+              } ${
                 selected
                   ? "rounded-full bg-galaxy-navy font-semibold text-white"
                   : mid
-                    ? "bg-sky-100 text-galaxy-navy"
+                    ? "rounded-full bg-sky-100 text-galaxy-navy"
                     : "rounded-full text-slate-700 hover:bg-slate-100"
               }`}
+              style={{ width: cellPx, height: cellPx, minWidth: cellPx, minHeight: cellPx }}
             >
               {Number(iso.slice(-2))}
             </button>
@@ -124,7 +156,8 @@ function MonthGrid({
   );
 }
 
-export function DateRangeFilter({ value, onApply }: DateRangeFilterProps) {
+export function DateRangeFilter({ value, onApply, fullWidth = false }: DateRangeFilterProps) {
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const [picking, setPicking] = useState<"start" | "end">("start");
@@ -141,7 +174,7 @@ export function DateRangeFilter({ value, onApply }: DateRangeFilterProps) {
 
   const place = () => {
     const btn = btnRef.current;
-    if (!btn) return;
+    if (!btn || isMobile) return;
     const r = btn.getBoundingClientRect();
     const width = Math.min(PANEL_WIDTH, window.innerWidth - 16);
     let left = r.right - width;
@@ -162,25 +195,34 @@ export function DateRangeFilter({ value, onApply }: DateRangeFilterProps) {
     setPicking("start");
     setHover(null);
     place();
-  }, [open, value]);
+  }, [open, value, isMobile]);
 
   useEffect(() => {
     if (!open) return;
+    const prev = document.body.style.overflow;
+    if (isMobile) document.body.style.overflow = "hidden";
     const onDoc = (e: MouseEvent) => {
+      if (isMobile) return;
       const t = e.target as Node;
       if (rootRef.current?.contains(t) || panelRef.current?.contains(t)) return;
       setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     const onReposition = () => place();
     document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
     window.addEventListener("resize", onReposition);
     window.addEventListener("scroll", onReposition, true);
     return () => {
+      document.body.style.overflow = prev;
       document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
     };
-  }, [open]);
+  }, [open, isMobile]);
 
   const rightMonth = addMonths(leftMonth.year, leftMonth.month, 1);
   const fillRange = daySpan(draft.start, draft.end) <= 62;
@@ -222,106 +264,223 @@ export function DateRangeFilter({ value, onApply }: DateRangeFilterProps) {
     setOpen(false);
   };
 
-  const panel = open
-    ? createPortal(
-        <div
-          ref={panelRef}
-          className="fixed z-[200] overflow-hidden rounded-2xl border border-galaxy-border bg-white shadow-2xl"
-          style={{ top: pos.top, left: pos.left, width: Math.min(PANEL_WIDTH, window.innerWidth - 16) }}
-        >
-          <div className="flex">
-            <div className="p-4">
-              <div className="mb-3 flex items-center justify-between" style={{ width: MONTH_WIDTH * 2 + MONTH_GAP }}>
-                <button
-                  type="button"
-                  onClick={() => setLeftMonth((m) => addMonths(m.year, m.month, -1))}
-                  className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
-                  aria-label="Previous month"
+  const close = () => setOpen(false);
+
+  const desktopPanel =
+    open && !isMobile
+      ? createPortal(
+          <div
+            ref={panelRef}
+            className="fixed z-[200] overflow-hidden rounded-2xl border border-galaxy-border bg-white shadow-2xl"
+            style={{ top: pos.top, left: pos.left, width: Math.min(PANEL_WIDTH, window.innerWidth - 16) }}
+            role="dialog"
+            aria-label="Date range"
+          >
+            <div className="flex">
+              <div className="p-4">
+                <div
+                  className="mb-3 flex items-center justify-between"
+                  style={{ width: MONTH_WIDTH * 2 + MONTH_GAP }}
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <p className="text-xs font-medium text-slate-500">
-                  {formatDisplayDate(draft.start)} – {formatDisplayDate(draft.end)}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setLeftMonth((m) => addMonths(m.year, m.month, 1))}
-                  className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
-                  aria-label="Next month"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex" style={{ gap: MONTH_GAP }}>
-                <MonthGrid
-                  year={leftMonth.year}
-                  month={leftMonth.month}
-                  start={draft.start}
-                  end={draft.end}
-                  hover={hover}
-                  fillRange={fillRange}
-                  onPick={pickDay}
-                  onHover={setHover}
-                />
-                <MonthGrid
-                  year={rightMonth.year}
-                  month={rightMonth.month}
-                  start={draft.start}
-                  end={draft.end}
-                  hover={hover}
-                  fillRange={fillRange}
-                  onPick={pickDay}
-                  onHover={setHover}
-                />
-              </div>
-              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                <p className="text-xs text-slate-500">
-                  Timezone: <span className="font-semibold text-galaxy-navy">IST</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={apply}
-                  className="rounded-lg bg-galaxy-navy px-4 py-1.5 text-sm font-semibold text-white"
-                >
-                  Update
-                </button>
-              </div>
-            </div>
-            <div className="shrink-0 border-l border-slate-100 bg-slate-50 py-2" style={{ width: PRESET_WIDTH }}>
-              {presets.map((p) => {
-                const active = draft.preset === p.preset;
-                return (
                   <button
-                    key={p.preset}
                     type="button"
-                    onClick={() => applyPreset(p)}
-                    className={`block w-full px-4 py-1.5 text-left text-[13px] ${
-                      active ? "bg-sky-100 font-semibold text-galaxy-navy" : "text-slate-600 hover:bg-white"
-                    }`}
+                    onClick={() => setLeftMonth((m) => addMonths(m.year, m.month, -1))}
+                    className="min-h-10 min-w-10 rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                    aria-label="Previous month"
                   >
-                    {p.label}
+                    <ChevronLeft className="h-4 w-4" />
                   </button>
-                );
-              })}
+                  <p className="text-xs font-medium text-slate-500">
+                    {formatDisplayDate(draft.start)} – {formatDisplayDate(draft.end)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setLeftMonth((m) => addMonths(m.year, m.month, 1))}
+                    className="min-h-10 min-w-10 rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                    aria-label="Next month"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="flex" style={{ gap: MONTH_GAP }}>
+                  <MonthGrid
+                    year={leftMonth.year}
+                    month={leftMonth.month}
+                    start={draft.start}
+                    end={draft.end}
+                    hover={hover}
+                    fillRange={fillRange}
+                    onPick={pickDay}
+                    onHover={setHover}
+                  />
+                  <MonthGrid
+                    year={rightMonth.year}
+                    month={rightMonth.month}
+                    start={draft.start}
+                    end={draft.end}
+                    hover={hover}
+                    fillRange={fillRange}
+                    onPick={pickDay}
+                    onHover={setHover}
+                  />
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                  <p className="text-xs text-slate-500">
+                    Timezone: <span className="font-semibold text-galaxy-navy">IST</span>
+                  </p>
+                  <button type="button" onClick={apply} className={ui.btnPrimary}>
+                    Update
+                  </button>
+                </div>
+              </div>
+              <div className="shrink-0 border-l border-slate-100 bg-slate-50 py-2" style={{ width: PRESET_WIDTH }}>
+                {presets.map((p) => {
+                  const active = draft.preset === p.preset;
+                  return (
+                    <button
+                      key={p.preset}
+                      type="button"
+                      onClick={() => applyPreset(p)}
+                      className={`block w-full px-4 py-2.5 text-left text-sm focus:outline-none focus:ring-4 focus:ring-inset focus:ring-galaxy-navy/10 ${
+                        active ? "bg-sky-100 font-semibold text-galaxy-navy" : "text-slate-600 hover:bg-white"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body,
-      )
-    : null;
+          </div>,
+          document.body,
+        )
+      : null;
+
+  const mobileSheet =
+    open && isMobile
+      ? createPortal(
+          <div className="fixed inset-0 z-[200] flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="Date range">
+            <button
+              type="button"
+              className="absolute inset-0 bg-galaxy-navy/40 motion-reduce:transition-none"
+              aria-label="Close date picker"
+              onClick={close}
+            />
+            <div
+              ref={panelRef}
+              className="relative flex max-h-[90dvh] translate-y-0 flex-col rounded-t-2xl border border-galaxy-border bg-white shadow-2xl motion-safe:transition-transform motion-reduce:transition-none"
+              style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <p className="text-sm font-semibold text-galaxy-navy">Date range</p>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                <div className="flex flex-wrap gap-2">
+                  {presets.map((p) => {
+                    const active = draft.preset === p.preset;
+                    return (
+                      <button
+                        key={p.preset}
+                        type="button"
+                        onClick={() => applyPreset(p)}
+                        className={`min-h-10 rounded-full px-3.5 py-2 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 ${
+                          active
+                            ? "bg-galaxy-navy text-white"
+                            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setLeftMonth((m) => addMonths(m.year, m.month, -1))}
+                    className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <p className="text-sm font-semibold text-galaxy-navy">
+                    {MONTHS[leftMonth.month]} {leftMonth.year}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setLeftMonth((m) => addMonths(m.year, m.month, 1))}
+                    className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                    aria-label="Next month"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="mt-2">
+                  <MonthGrid
+                    year={leftMonth.year}
+                    month={leftMonth.month}
+                    start={draft.start}
+                    end={draft.end}
+                    hover={hover}
+                    fillRange={fillRange}
+                    onPick={pickDay}
+                    onHover={setHover}
+                    large
+                  />
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 px-4 pt-3">
+                <p className="text-center text-xs text-slate-500">
+                  {formatDisplayDate(draft.start)} – {formatDisplayDate(draft.end)}
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  IST
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={close}
+                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-galaxy-border bg-white px-4 text-sm font-semibold text-galaxy-navy hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
+                  >
+                    Cancel
+                  </button>
+                  <button type="button" onClick={apply} className={`${ui.btnPrimary} min-h-11 flex-1`}>
+                    Update
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
-    <div ref={rootRef} className="relative shrink-0">
+    <div ref={rootRef} className={`relative shrink-0 ${fullWidth ? "w-full md:w-auto" : ""}`}>
       <button
         ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 rounded-xl border border-galaxy-border bg-white px-3 py-2 text-sm font-semibold text-galaxy-navy shadow-sm hover:bg-slate-50"
+        className={`inline-flex min-h-10 items-center gap-2 rounded-xl border border-galaxy-border bg-white px-3 py-2 text-sm font-semibold text-galaxy-navy shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 ${
+          fullWidth ? "w-full justify-center md:w-auto md:justify-start" : ""
+        }`}
       >
         <CalendarDays className="h-4 w-4 shrink-0 text-galaxy-primary" />
-        <span className="max-w-[160px] truncate">{value.label}</span>
+        <span className={`truncate ${fullWidth ? "max-w-none" : "max-w-[160px]"}`}>{value.label}</span>
       </button>
-      {panel}
+      {desktopPanel}
+      {mobileSheet}
     </div>
   );
 }

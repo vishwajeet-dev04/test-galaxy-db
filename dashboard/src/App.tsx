@@ -139,11 +139,12 @@ function DashboardApp() {
 
         <main className="flex min-w-0 flex-1 flex-col lg:ml-0">
           <header className="sticky top-0 z-30 overflow-visible border-b border-galaxy-border/50 bg-white/70 px-4 py-3 backdrop-blur-2xl sm:px-6 lg:px-8 lg:py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-6">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex flex-col gap-3">
+              {/* Row 1: menu | title | user (date sits beside on md+) */}
+              <div className="flex items-center gap-2 sm:gap-3">
                 <button
                   type="button"
-                  className="rounded-lg p-2 text-galaxy-navy hover:bg-slate-100 lg:hidden"
+                  className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg text-galaxy-navy hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 lg:hidden"
                   onClick={() => setMobileNavOpen(true)}
                   aria-label="Open menu"
                 >
@@ -153,51 +154,65 @@ function DashboardApp() {
                   {hasBreadcrumbs ? (
                     <Breadcrumbs drill={drill} onNavigate={onDrill} />
                   ) : (
-                    <div>
-                      <h2 className="text-lg font-semibold tracking-tight text-galaxy-navy sm:text-xl">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-semibold tracking-tight text-galaxy-navy sm:text-xl">
                         {viewMeta.title}
                       </h2>
-                      <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">{viewMeta.subtitle}</p>
+                      <p className="mt-0.5 hidden truncate text-xs text-slate-500 sm:block sm:text-sm">
+                        {viewMeta.subtitle}
+                      </p>
                     </div>
                   )}
                 </div>
+                <div className="hidden md:block">
+                  <DateRangeFilter value={dateRange} onApply={setDateRange} />
+                </div>
+                <UserMenu />
               </div>
 
-              <DateRangeFilter value={dateRange} onApply={setDateRange} />
-              <UserMenu />
+              {/* Row 2 (phones): full-width date trigger */}
+              <div className="md:hidden">
+                <DateRangeFilter value={dateRange} onApply={setDateRange} fullWidth />
+              </div>
 
-              <div className="hidden flex-wrap items-center gap-2 xl:flex">
-                <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
-                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatPctCard(data.kpis.header_h1_attainment_pct ?? data.kpis.h1_attainment_pct)}</p>
-                </div>
-                <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals</p>
-                  <p className="font-mono text-sm font-bold text-galaxy-navy">{formatCr(data.kpis.header_ic_actuals)}</p>
-                </div>
-                {canSeeLeaders && data.kpis.header_pipeline_cr != null && (
-                  <div className="rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">IC Actuals Including Others</p>
-                    <p className="font-mono text-sm font-bold text-emerald-700">
-                      {formatCr(data.kpis.header_pipeline_cr)}
+              {/* Compact KPI strip from md; full wrap at xl */}
+              <div className="-mx-1 hidden overflow-x-auto px-1 md:block xl:overflow-visible">
+                <div className="flex w-max flex-nowrap items-stretch gap-2 xl:w-auto xl:flex-wrap">
+                  <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
+                    <p className="font-mono text-sm font-bold text-galaxy-navy">
+                      {formatPctCard(data.kpis.header_h1_attainment_pct ?? data.kpis.h1_attainment_pct)}
                     </p>
                   </div>
-                )}
-                <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Employees</p>
-                  <p className="font-mono text-sm font-bold text-galaxy-navy">{data.kpis.total_employees}</p>
-                  <p className="text-[9px] text-slate-400">{data.kpis.total_divisions} RTMs · {data.kpis.total_bus} BUs</p>
-                </div>
-                <div className="group relative rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100 cursor-default">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Closed Opps</p>
-                  <p className="font-mono text-sm font-bold text-emerald-700">{data.kpis.header_closed_opps ?? 0}</p>
-
-                  {/* Hover Tooltip (positioned below to avoid top-edge clipping) */}
-                  <div className="pointer-events-none absolute top-full right-0 z-20 mt-2 hidden w-max rounded-lg bg-galaxy-navy px-3 py-1.5 text-[11px] font-medium leading-relaxed text-white shadow-lg group-hover:block">
-                    All Closed Won: {data.kpis.header_closed_opps ?? 0}
-                    {data.kpis.total_deals_h1 != null ? ` · RTM IC: ${data.kpis.total_deals_h1}` : ""}
-                    {/* Arrow pointing up */}
-                    <div className="absolute right-8 bottom-full border-4 border-transparent border-b-galaxy-navy" />
+                  <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals</p>
+                    <p className="font-mono text-sm font-bold text-galaxy-navy">{formatCr(data.kpis.header_ic_actuals)}</p>
+                  </div>
+                  <div className="group relative shrink-0 cursor-default rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Closed Opps</p>
+                    <p className="font-mono text-sm font-bold text-emerald-700">{data.kpis.header_closed_opps ?? 0}</p>
+                    <div className="pointer-events-none absolute top-full right-0 z-20 mt-2 hidden w-max rounded-lg bg-galaxy-navy px-3 py-1.5 text-[11px] font-medium leading-relaxed text-white shadow-lg group-hover:block">
+                      All Closed Won: {data.kpis.header_closed_opps ?? 0}
+                      {data.kpis.total_deals_h1 != null ? ` · RTM IC: ${data.kpis.total_deals_h1}` : ""}
+                      <div className="absolute right-8 bottom-full border-4 border-transparent border-b-galaxy-navy" />
+                    </div>
+                  </div>
+                  {canSeeLeaders && data.kpis.header_pipeline_cr != null && (
+                    <div className="hidden shrink-0 rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100 xl:block">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                        IC Actuals Including Others
+                      </p>
+                      <p className="font-mono text-sm font-bold text-emerald-700">
+                        {formatCr(data.kpis.header_pipeline_cr)}
+                      </p>
+                    </div>
+                  )}
+                  <div className="hidden shrink-0 rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100 xl:block">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Employees</p>
+                    <p className="font-mono text-sm font-bold text-galaxy-navy">{data.kpis.total_employees}</p>
+                    <p className="text-[9px] text-slate-400">
+                      {data.kpis.total_divisions} RTMs · {data.kpis.total_bus} BUs
+                    </p>
                   </div>
                 </div>
               </div>

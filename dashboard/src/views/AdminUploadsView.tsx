@@ -578,13 +578,13 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         </div>
       )}
 
-      <div className={`${ui.card} space-y-5 p-6`}>
-        <div className="flex items-center justify-between">
+      <div className={`${ui.card} space-y-4 p-4 sm:p-6`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <SectionHeader
             label="Sync from Vtiger CRM"
             description="Pulls Closed Won for the full FY (Q1–Q4)."
           />
-          <div className="flex items-center gap-1.5 text-xs font-medium">
+          <div className="flex shrink-0 items-center gap-1.5 text-xs font-medium">
             {!syncStatusReady ? (
               <span className="text-slate-400">Checking…</span>
             ) : !syncStatus ? (
@@ -606,7 +606,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {["q1", "q2", "q3", "q4"].map((q) => (
             <div key={q} className="rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-100">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{q}</p>
@@ -614,7 +614,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
               <p className="text-[10px] text-slate-400">deals in database</p>
             </div>
           ))}
-          <div className="rounded-xl bg-galaxy-navy/5 px-3 py-2 ring-1 ring-galaxy-navy/10">
+          <div className="col-span-2 rounded-xl bg-galaxy-navy/5 px-3 py-2 ring-1 ring-galaxy-navy/10 sm:col-span-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-galaxy-navy/60">Total</p>
             <p className="font-mono text-lg font-semibold text-galaxy-navy">{dealCounts.total ?? 0}</p>
             <p className="text-[10px] text-slate-400">Closed Won</p>
@@ -638,12 +638,12 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           </p>
         )}
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           <button
             type="button"
             onClick={() => void triggerSync()}
             disabled={isRunning || busy || !syncStatus?.configured}
-            className={ui.btnPrimary}
+            className={`${ui.btnPrimary} w-full sm:w-auto`}
           >
             {isRunning ? (
               <>
@@ -661,7 +661,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
             type="button"
             onClick={() => void rebuild()}
             disabled={busy || isRunning}
-            className="inline-flex items-center gap-2 rounded-xl border border-galaxy-border bg-white px-4 py-2.5 text-sm font-semibold text-galaxy-navy hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-galaxy-border bg-white px-4 py-2.5 text-sm font-semibold text-galaxy-navy hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             <RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
             Rebuild dashboard
@@ -669,14 +669,14 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
         </div>
       </div>
 
-      <form onSubmit={(e) => void saveQuotas(e)} className={`${ui.card} space-y-5 p-6`}>
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <form onSubmit={(e) => void saveQuotas(e)} className={`${ui.card} space-y-4 p-4 sm:p-6`}>
+        <div className="flex flex-col gap-4">
           <SectionHeader
             label="Quota roster"
             description="H1, H2 and Annual are independent Finance figures. Changing a team asks when they joined it. A move keeps the old team until that date. A wrong label is corrected with no date."
           />
-          <div className="flex items-center gap-3">
-            <div className="relative w-52">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="relative w-full sm:w-52">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="search"
@@ -690,7 +690,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
             <select
               value={divFilter}
               onChange={(e) => setDivFilter(e.target.value)}
-              className="rounded-xl border border-galaxy-border bg-white px-3 py-2 text-sm"
+              className={`${ui.select} w-full sm:w-auto`}
             >
               <option value="all">All divisions ({people.length})</option>
               {DIVISIONS.filter(Boolean).map((d) => (
@@ -703,7 +703,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={busy || isRunning}
-              className="inline-flex items-center gap-2 rounded-xl border border-galaxy-border bg-white px-3 py-2 text-sm font-semibold text-galaxy-navy hover:bg-slate-50 disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-galaxy-border bg-white px-3 py-2.5 text-sm font-semibold text-galaxy-navy hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               <FileSpreadsheet className="h-4 w-4" />
               Import T1
@@ -711,7 +711,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
             <button
               type="button"
               onClick={() => void downloadTemplate()}
-              className="inline-flex items-center gap-2 rounded-xl border border-galaxy-border bg-white px-3 py-2 text-sm font-semibold text-galaxy-navy hover:bg-slate-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-galaxy-border bg-white px-3 py-2.5 text-sm font-semibold text-galaxy-navy hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 sm:w-auto"
             >
               <Download className="h-4 w-4" />
               Template
@@ -729,7 +729,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
             <button
               type="submit"
               disabled={busy || isRunning}
-              className="inline-flex items-center gap-2 rounded-xl bg-galaxy-navy px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              className={`${ui.btnPrimary} w-full sm:ml-auto sm:w-auto`}
             >
               <Save className="h-4 w-4" />
               {busy ? "Saving…" : "Save quotas & refresh"}
@@ -749,8 +749,8 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           <table className="min-w-full text-sm">
             <thead className={ui.tableHead}>
               <tr>
-                <th className="px-3 py-2" />
-                <th className="px-3 py-2">Name</th>
+                <th className="sticky left-0 z-10 bg-slate-50/95 px-3 py-2 backdrop-blur-sm" />
+                <th className="sticky left-8 z-10 bg-slate-50/95 px-3 py-2 backdrop-blur-sm sm:left-10">Name</th>
                 <th className="px-3 py-2">RTM/BU</th>
                 <th className="px-3 py-2">Joined</th>
                 <th className="px-3 py-2">Type</th>
@@ -807,14 +807,14 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           </table>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">
-          <label className="text-xs">
+        <div className="flex flex-col gap-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="w-full text-xs sm:w-auto">
             <span className="mb-1 block font-semibold uppercase tracking-wider text-slate-400">Add person</span>
             <input
               value={newRow.name}
               onChange={(e) => setNewRow((r) => ({ ...r, name: e.target.value }))}
               placeholder="Full name (canonical)"
-              className="w-48 rounded-lg border border-galaxy-border px-2 py-1.5 text-sm"
+              className={`${ui.field} w-full sm:w-48`}
             />
           </label>
           <select
@@ -827,7 +827,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
                 assignments: [{ division: e.target.value, start_date: null, end_date: null }],
               }))
             }
-            className="rounded-lg border border-galaxy-border px-2 py-1.5 text-sm"
+            className={`${ui.select} w-full sm:w-auto`}
           >
             {DIVISIONS.filter(Boolean).map((d) => (
               <option key={d} value={d}>
@@ -838,7 +838,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           <select
             value={newRow.type}
             onChange={(e) => setNewRow((r) => ({ ...r, type: e.target.value }))}
-            className="rounded-lg border border-galaxy-border px-2 py-1.5 text-sm"
+            className={`${ui.select} w-full sm:w-auto`}
           >
             {TYPES.map((t) => (
               <option key={t} value={t}>
@@ -846,24 +846,28 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
               </option>
             ))}
           </select>
-          {QUOTA_KEYS.map((key) => (
-            <label key={key} className="text-xs">
-              <span className="mb-1 block uppercase tracking-wider text-slate-400">{key.replace("_quota", "").toUpperCase()}</span>
-              <input
-                type="number"
-                step="0.01"
-                value={newRow[key] ?? 0}
-                onChange={(e) => setNewRow((r) => ({ ...r, [key]: Number(e.target.value) }))}
-                className={`w-20 rounded-lg border px-2 py-1.5 text-right font-mono text-sm ${
-                  FIXED_HALF_KEYS.has(key) ? "border-amber-200 bg-amber-50" : "border-galaxy-border"
-                }`}
-              />
-            </label>
-          ))}
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            {QUOTA_KEYS.map((key) => (
+              <label key={key} className="text-xs">
+                <span className="mb-1 block uppercase tracking-wider text-slate-400">
+                  {key.replace("_quota", "").toUpperCase()}
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newRow[key] ?? 0}
+                  onChange={(e) => setNewRow((r) => ({ ...r, [key]: Number(e.target.value) }))}
+                  className={`w-full rounded-lg border px-2 py-2 text-right font-mono text-sm focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 sm:w-20 ${
+                    FIXED_HALF_KEYS.has(key) ? "border-amber-200 bg-amber-50" : "border-galaxy-border"
+                  }`}
+                />
+              </label>
+            ))}
+          </div>
           <button
             type="button"
             onClick={addPerson}
-            className="inline-flex items-center gap-1 rounded-xl border border-galaxy-border bg-white px-3 py-1.5 text-sm font-semibold text-galaxy-navy"
+            className="inline-flex w-full min-h-10 items-center justify-center gap-1 rounded-xl border border-galaxy-border bg-white px-3 py-2 text-sm font-semibold text-galaxy-navy hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             Add
@@ -872,7 +876,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
       </form>
 
       {buNames.length > 0 && (
-        <div className={`${ui.card} space-y-4 p-6`}>
+        <div className={`${ui.card} space-y-4 p-4 sm:p-6`}>
           <SectionHeader
             label="BU annual quotas (₹ Cr)"
             description="Used on the Business Units page. Saved together with the IC roster."
@@ -881,7 +885,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
             <table className="min-w-full text-sm">
               <thead className={ui.tableHead}>
                 <tr>
-                  <th className="px-3 py-2">BU</th>
+                  <th className="sticky left-0 z-10 bg-slate-50/95 px-3 py-2 backdrop-blur-sm">BU</th>
                   {buDivs.map((d) => (
                     <th key={d} className="px-3 py-2 text-right">
                       {d}
@@ -892,7 +896,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
               <tbody>
                 {buNames.map((bu) => (
                   <tr key={bu} className="border-b border-slate-100">
-                    <td className="px-3 py-1.5 font-semibold text-galaxy-navy">{bu}</td>
+                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-semibold text-galaxy-navy">{bu}</td>
                     {buDivs.map((d) => (
                       <td key={d} className="px-3 py-1.5 text-right">
                         <input
@@ -953,17 +957,17 @@ function RosterPersonRows({
   return (
     <Fragment>
       <tr className="border-b border-slate-100">
-        <td className="px-2 py-1.5">
+        <td className="sticky left-0 z-10 bg-white px-2 py-1.5">
           <button
             type="button"
             onClick={onToggleHistory}
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-galaxy-navy"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-galaxy-navy focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
             aria-label={`Toggle assignment history for ${p.name}`}
           >
             {historyOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </button>
         </td>
-        <td className="px-3 py-1.5 font-medium text-galaxy-navy">{p.name}</td>
+        <td className="sticky left-8 z-10 bg-white px-3 py-1.5 font-medium text-galaxy-navy sm:left-10">{p.name}</td>
         <td className="px-3 py-1.5">
           <select
             value={p.division}

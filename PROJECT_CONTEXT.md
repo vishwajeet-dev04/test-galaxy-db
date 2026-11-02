@@ -685,6 +685,14 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 
 ## 20. Session log
 
+### 2026-11-02 — Mobile UX polish (calendar, header, Admin)
+
+- Phone date filter: `DateRangeFilter` uses a full-width bottom sheet under `max-md` (one month grid, preset chips, sticky Update/Cancel, body scroll lock); desktop keeps the dual-month + side presets popover.
+- App header: stacked rows on mobile (menu | title | user; full-width date on row 2); compact scrollable KPI strip from `md` (H1 / IC Actuals / Closed Opps), full set at `xl`.
+- Admin Uploads/Users: consistent `ui.card` padding, `grid-cols-2` sync stats on phone, full-width actions under `sm`, sticky first table columns, stacked add-person / user forms.
+- Light pass: Overview period select, RTM/Employees period chips (`min-h-10`), Login padding + Sign in focus/disabled.
+- Frontend-only. Staging web: rebuild image. APK: `npm run build && npm run cap:sync` then Generate APKs.
+
 ### 2026-11-02 — Capacitor Android APK shell (staging HTTP)
 
 - Client wants a shareable APK without HTTPS. First build loaded remote URL and CSS failed in WebView.

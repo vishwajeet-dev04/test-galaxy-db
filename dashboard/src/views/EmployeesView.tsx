@@ -452,12 +452,12 @@ export function EmployeesView({ data, drill, onDrill }: EmployeesViewProps) {
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Period</span>
+        <span className="w-full text-xs font-semibold uppercase tracking-wider text-slate-400 sm:w-auto">Period</span>
         {(["q1", "q2", "h1", "q3", "q4", "h2", "annual"] as PeriodKey[]).map((p) => (
           <button
             key={p}
             onClick={() => setPeriod(p)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            className={`min-h-10 rounded-full px-3.5 py-2 text-xs font-semibold transition focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 motion-reduce:transition-none ${
               period === p
                 ? "bg-galaxy-navy text-white shadow-sm"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"

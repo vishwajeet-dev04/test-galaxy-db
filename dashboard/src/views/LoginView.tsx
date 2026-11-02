@@ -25,9 +25,9 @@ export function LoginView() {
   };
 
   return (
-    <div className="app-shell flex min-h-screen items-center justify-center p-6">
+    <div className="app-shell flex min-h-screen items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
-        <div className="rounded-3xl border border-galaxy-border/80 bg-white p-8 shadow-[0_8px_40px_rgba(15,23,42,0.08)]">
+        <div className="rounded-3xl border border-galaxy-border/80 bg-white p-5 shadow-[0_8px_40px_rgba(15,23,42,0.08)] sm:p-8">
           <div className="text-center">
             <img src="/galaxy-logo.webp" alt="Galaxy" className="mx-auto h-12 object-contain" />
             <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-galaxy-primary">
@@ -100,7 +100,7 @@ export function LoginView() {
             <button
               type="submit"
               disabled={busy}
-              className="w-full rounded-xl bg-galaxy-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-galaxy-navy-dark disabled:opacity-60"
+              className="w-full min-h-11 rounded-xl bg-galaxy-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-galaxy-navy-dark focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Signing in…" : "Sign in"}
             </button>

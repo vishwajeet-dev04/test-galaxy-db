@@ -190,7 +190,7 @@ export function OverviewView({ data, onDrill }: OverviewViewProps) {
             <select
               value={selectedChartPeriod}
               onChange={(e) => setSelectedChartPeriod(e.target.value as PerformancePeriodKey)}
-              className="rounded-lg border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 focus:border-galaxy-blue focus:ring-1 focus:ring-galaxy-blue"
+              className="min-h-10 w-full rounded-xl border border-galaxy-border bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-galaxy-navy/30 focus:border-galaxy-navy/40 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 sm:w-auto"
             >
               {PERFORMANCE_PERIOD_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>

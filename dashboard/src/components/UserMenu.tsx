@@ -27,7 +27,7 @@ export function UserMenu() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2.5 rounded-xl border border-galaxy-border/80 bg-white py-1.5 pl-1.5 pr-2.5 shadow-sm transition hover:border-galaxy-navy/25 hover:bg-slate-50"
+        className="flex min-h-10 items-center gap-2.5 rounded-xl border border-galaxy-border/80 bg-white py-1.5 pl-1.5 pr-2.5 shadow-sm transition hover:border-galaxy-navy/25 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10"
         aria-expanded={open}
         aria-haspopup="menu"
       >

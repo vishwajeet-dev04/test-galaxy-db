@@ -7,7 +7,7 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ label, description, action, rightContent }: SectionHeaderProps) {
   return (
-    <div className="flex items-end justify-between gap-4">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
       <div>
         <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-galaxy-navy">{label}</h2>
         {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
