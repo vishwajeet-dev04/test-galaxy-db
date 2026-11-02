@@ -140,44 +140,88 @@ function DashboardApp() {
         <main className="flex min-w-0 flex-1 flex-col lg:ml-0">
           <header className="sticky top-0 z-30 overflow-visible border-b border-galaxy-border/50 bg-white/70 px-4 py-3 backdrop-blur-2xl sm:px-6 lg:px-8 lg:py-4">
             <div className="flex flex-col gap-3">
-              {/* Row 1: menu | title | user (date sits beside on md+) */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                <button
-                  type="button"
-                  className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg text-galaxy-navy hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 lg:hidden"
-                  onClick={() => setMobileNavOpen(true)}
-                  aria-label="Open menu"
-                >
-                  <Menu className="h-5 w-5" />
-                </button>
-                <div className="min-w-0 flex-1">
-                  {hasBreadcrumbs ? (
-                    <Breadcrumbs drill={drill} onNavigate={onDrill} />
-                  ) : (
-                    <div className="min-w-0">
-                      <h2 className="truncate text-lg font-semibold tracking-tight text-galaxy-navy sm:text-xl">
-                        {viewMeta.title}
-                      </h2>
-                      <p className="mt-0.5 hidden truncate text-xs text-slate-500 sm:block sm:text-sm">
-                        {viewMeta.subtitle}
+              {/* One bar on desktop: title left · date + user + KPIs right (vertically centered) */}
+              <div className="flex items-center justify-between gap-3 sm:gap-4 lg:gap-6">
+                <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+                  <button
+                    type="button"
+                    className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg text-galaxy-navy hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-galaxy-navy/10 lg:hidden"
+                    onClick={() => setMobileNavOpen(true)}
+                    aria-label="Open menu"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </button>
+                  <div className="min-w-0">
+                    {hasBreadcrumbs ? (
+                      <Breadcrumbs drill={drill} onNavigate={onDrill} />
+                    ) : (
+                      <div className="min-w-0">
+                        <h2 className="truncate text-lg font-semibold tracking-tight text-galaxy-navy sm:text-xl">
+                          {viewMeta.title}
+                        </h2>
+                        <p className="mt-0.5 hidden truncate text-xs text-slate-500 sm:block sm:text-sm">
+                          {viewMeta.subtitle}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                  <div className="hidden md:block">
+                    <DateRangeFilter value={dateRange} onApply={setDateRange} />
+                  </div>
+                  <UserMenu />
+
+                  <div className="hidden items-center gap-2 xl:flex">
+                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
+                      <p className="font-mono text-sm font-bold text-galaxy-navy">
+                        {formatPctCard(data.kpis.header_h1_attainment_pct ?? data.kpis.h1_attainment_pct)}
                       </p>
                     </div>
-                  )}
+                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">IC Actuals</p>
+                      <p className="font-mono text-sm font-bold text-galaxy-navy">{formatCr(data.kpis.header_ic_actuals)}</p>
+                    </div>
+                    {canSeeLeaders && data.kpis.header_pipeline_cr != null && (
+                      <div className="rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
+                          IC Actuals Including Others
+                        </p>
+                        <p className="font-mono text-sm font-bold text-emerald-700">
+                          {formatCr(data.kpis.header_pipeline_cr)}
+                        </p>
+                      </div>
+                    )}
+                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Employees</p>
+                      <p className="font-mono text-sm font-bold text-galaxy-navy">{data.kpis.total_employees}</p>
+                      <p className="text-[9px] text-slate-400">
+                        {data.kpis.total_divisions} RTMs · {data.kpis.total_bus} BUs
+                      </p>
+                    </div>
+                    <div className="group relative cursor-default rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Closed Opps</p>
+                      <p className="font-mono text-sm font-bold text-emerald-700">{data.kpis.header_closed_opps ?? 0}</p>
+                      <div className="pointer-events-none absolute top-full right-0 z-20 mt-2 hidden w-max rounded-lg bg-galaxy-navy px-3 py-1.5 text-[11px] font-medium leading-relaxed text-white shadow-lg group-hover:block">
+                        All Closed Won: {data.kpis.header_closed_opps ?? 0}
+                        {data.kpis.total_deals_h1 != null ? ` · RTM IC: ${data.kpis.total_deals_h1}` : ""}
+                        <div className="absolute right-8 bottom-full border-4 border-transparent border-b-galaxy-navy" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="hidden md:block">
-                  <DateRangeFilter value={dateRange} onApply={setDateRange} />
-                </div>
-                <UserMenu />
               </div>
 
-              {/* Row 2 (phones): full-width date trigger */}
+              {/* Phones: full-width date */}
               <div className="md:hidden">
                 <DateRangeFilter value={dateRange} onApply={setDateRange} fullWidth />
               </div>
 
-              {/* Compact KPI strip from md; full wrap at xl */}
-              <div className="-mx-1 hidden overflow-x-auto px-1 md:block xl:overflow-visible">
-                <div className="flex w-max flex-nowrap items-stretch gap-2 xl:w-auto xl:flex-wrap">
+              {/* Tablet (md–lg): compact KPI strip — hidden on phone and xl desktop */}
+              <div className="-mx-1 hidden overflow-x-auto px-1 md:block xl:hidden">
+                <div className="flex w-max flex-nowrap items-stretch gap-2">
                   <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">H1 Attainment</p>
                     <p className="font-mono text-sm font-bold text-galaxy-navy">
@@ -196,23 +240,6 @@ function DashboardApp() {
                       {data.kpis.total_deals_h1 != null ? ` · RTM IC: ${data.kpis.total_deals_h1}` : ""}
                       <div className="absolute right-8 bottom-full border-4 border-transparent border-b-galaxy-navy" />
                     </div>
-                  </div>
-                  {canSeeLeaders && data.kpis.header_pipeline_cr != null && (
-                    <div className="hidden shrink-0 rounded-xl bg-emerald-50/80 px-3 py-2 text-center ring-1 ring-emerald-100 xl:block">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">
-                        IC Actuals Including Others
-                      </p>
-                      <p className="font-mono text-sm font-bold text-emerald-700">
-                        {formatCr(data.kpis.header_pipeline_cr)}
-                      </p>
-                    </div>
-                  )}
-                  <div className="hidden shrink-0 rounded-xl bg-slate-50 px-3 py-2 text-center ring-1 ring-slate-100 xl:block">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Employees</p>
-                    <p className="font-mono text-sm font-bold text-galaxy-navy">{data.kpis.total_employees}</p>
-                    <p className="text-[9px] text-slate-400">
-                      {data.kpis.total_divisions} RTMs · {data.kpis.total_bus} BUs
-                    </p>
                   </div>
                 </div>
               </div>
