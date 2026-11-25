@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-import re
+import secrets
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -16,7 +16,6 @@ from app.seed import PRIVILEGED
 logger = logging.getLogger("galaxy.users")
 
 ALLOWED_ROLES = frozenset({"user", "tl", "leader", "admin", "ceo"})
-USERNAME_RE = re.compile(r"^[a-z][a-z0-9._-]{1,62}$")
 MIN_PASSWORD_LEN = 8
 PRIVILEGED_USERNAMES = frozenset(str(row["username"]) for row in PRIVILEGED)
 
@@ -82,34 +81,42 @@ def list_users(
     return user_repo.list_users(db, page=page, page_size=page_size, q=q)
 
 
+def _password_hash_for_role(role: str, password: str | None) -> str:
+    if role == "admin":
+        if not password or not str(password).strip():
+            raise UserServiceError("Password is required for admin accounts")
+        return hash_password(_validate_password(password))
+    # Non-admins: unusable random hash (magic-link only)
+    return hash_password(secrets.token_urlsafe(32))
+
+
 def create_user(
     db: Session,
     *,
     actor: User,
-    username: str,
+    username: str | None,
     email: str,
     full_name: str,
     role: str,
-    password: str,
+    password: str | None,
     employee_name: str | None,
 ) -> User:
-    username = _norm_username(username)
     email = _norm_email(email)
+    # Email is the login identity; ignore client username when present.
+    username = email
     full_name = _norm_name(full_name)
     emp = _norm_name(employee_name) or None if employee_name else None
     role = _validate_role(role)
-    _validate_password(password)
 
-    if not USERNAME_RE.match(username):
-        _log_fail(actor.id, "create", "invalid_username")
-        raise UserServiceError("Username must start with a letter and use only lowercase letters, digits, . _ -")
     if not email or "@" not in email:
         raise UserServiceError("A valid email is required")
+    if len(email) > 255:
+        raise UserServiceError("Email is too long")
     if not full_name:
         raise UserServiceError("Full name is required")
     if user_repo.get_by_username(db, username):
         _log_fail(actor.id, "create", "username_taken")
-        raise UserServiceError("That username is already in use", 409)
+        raise UserServiceError("That email is already in use", 409)
     if _email_taken(db, email):
         _log_fail(actor.id, "create", "email_taken")
         raise UserServiceError("That email is already in use", 409)
@@ -120,7 +127,7 @@ def create_user(
         full_name=full_name,
         role=role,
         employee_name=emp,
-        hashed_password=hash_password(password),
+        hashed_password=_password_hash_for_role(role, password),
         is_active=True,
     )
     created = user_repo.add(db, user)
@@ -145,11 +152,13 @@ def update_user(
         _log_fail(actor.id, "update", "not_found")
         raise UserServiceError("User not found", 404)
 
+    previous_role = user.role
     new_role = _validate_role(role) if role is not None else user.role
     new_active = user.is_active if is_active is None else bool(is_active)
     is_self = user.id == actor.id
-    was_admin = user.role == "admin" and user.is_active
+    was_admin = previous_role == "admin" and user.is_active
     remains_admin = new_role == "admin" and new_active
+    promoting_to_admin = previous_role != "admin" and new_role == "admin"
 
     if is_self and (new_role != "admin" or not new_active):
         _log_fail(actor.id, "update", "self_lockout")
@@ -163,9 +172,17 @@ def update_user(
         email_n = _norm_email(email)
         if not email_n or "@" not in email_n:
             raise UserServiceError("A valid email is required")
+        if len(email_n) > 255:
+            raise UserServiceError("Email is too long")
         if _email_taken(db, email_n, exclude_id=user.id):
             _log_fail(actor.id, "update", "email_taken")
             raise UserServiceError("That email is already in use", 409)
+        # Email is the sign-in id — keep username in lockstep.
+        other = user_repo.get_by_username(db, email_n)
+        if other is not None and other.id != user.id:
+            _log_fail(actor.id, "update", "username_taken")
+            raise UserServiceError("That email is already in use", 409)
+        user.username = email_n
         user.email = email_n
 
     if full_name is not None:
@@ -183,8 +200,13 @@ def update_user(
     if is_active is not None:
         user.is_active = new_active
 
-    if password is not None and password.strip() != "":
-        user.hashed_password = hash_password(_validate_password(password))
+    pwd = (password or "").strip()
+    if pwd:
+        if new_role != "admin":
+            raise UserServiceError("Only admin accounts can set a password")
+        user.hashed_password = hash_password(_validate_password(pwd))
+    elif promoting_to_admin:
+        raise UserServiceError("Password is required when setting role to admin")
 
     return user_repo.save(db, user)
 
@@ -199,7 +221,10 @@ def delete_user(db: Session, *, actor: User, user_id: int) -> None:
         _log_fail(actor.id, "delete", "self_lockout")
         raise UserServiceError("You cannot delete your own account")
 
-    if user.username in PRIVILEGED_USERNAMES:
+    privileged_ids = PRIVILEGED_USERNAMES | {
+        str(row["email"]).strip().lower() for row in PRIVILEGED if row.get("email")
+    }
+    if user.username in privileged_ids or (user.email or "").strip().lower() in privileged_ids:
         _log_fail(actor.id, "delete", "privileged")
         raise UserServiceError("Privileged accounts cannot be deleted. Deactivate them instead.")
 

@@ -36,11 +36,13 @@ def user_out(user: Any) -> UserOut:
 
 
 class AdminUserCreate(BaseModel):
-    username: str = Field(min_length=2, max_length=64)
+    # username optional — server sets username = email
+    username: Optional[str] = Field(default=None, max_length=255)
     email: str = Field(min_length=3, max_length=255)
     full_name: str = Field(min_length=1, max_length=255)
     role: str
-    password: str = Field(min_length=8)
+    # Required only when role is admin (enforced in user_service)
+    password: Optional[str] = None
     employee_name: Optional[str] = None
 
 
@@ -61,8 +63,29 @@ class AdminUserList(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    username: str = Field(min_length=1)
+    # Prefer email; username kept for backward-compatible form clients
+    email: Optional[str] = None
+    username: Optional[str] = None
     password: str = Field(min_length=1)
+
+
+class EmailLookupRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+
+
+class EmailLookupResponse(BaseModel):
+    email: str
+    role: str
+    requires_password: bool
+    full_name: str
+
+
+class MagicLinkRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+
+
+class MagicLinkConsumeRequest(BaseModel):
+    token: str = Field(min_length=8, max_length=512)
 
 
 class LoginResponse(BaseModel):

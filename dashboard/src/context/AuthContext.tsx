@@ -20,7 +20,10 @@ interface AuthState {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  /** Admin password login — `email` (or legacy username) + password. */
+  login: (email: string, password: string) => Promise<void>;
+  /** Apply tokens from magic-link consume (or any LoginResponse). */
+  applySession: (accessToken: string, user: AuthUser) => void;
   logout: () => void;
   /** Why the user was signed out without clicking Sign out (shown on the login page). */
   sessionNotice: string | null;
@@ -55,11 +58,11 @@ function tokenExpiryMs(token: string): number | null {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-async function apiLogin(username: string, password: string) {
+async function apiLogin(email: string, password: string) {
   const { res, json, raw } = await apiFetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email, password }),
   });
   if (!res.ok) {
     throw new Error(httpErrorMessage(res.status, json, raw, "Login failed"));
@@ -174,14 +177,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [expireSession]);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const data = await apiLogin(username.trim().toLowerCase(), password);
-    localStorage.setItem(TOKEN_KEY, data.access_token);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  const applySession = useCallback((accessToken: string, nextUser: AuthUser) => {
+    localStorage.setItem(TOKEN_KEY, accessToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
     setSessionNotice(null);
-    setToken(data.access_token);
-    setUser(data.user);
+    setToken(accessToken);
+    setUser(nextUser);
   }, []);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const data = await apiLogin(email.trim().toLowerCase(), password);
+      applySession(data.access_token, data.user);
+    },
+    [applySession],
+  );
 
   const value = useMemo<AuthState>(
     () => ({
@@ -189,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       loading,
       login,
+      applySession,
       logout,
       sessionNotice,
       isAdmin: user?.role === "admin",
@@ -196,7 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       seesAll: user?.role === "admin" || user?.role === "ceo",
       canSeeLeaders: !!user && user.role !== "user" && user.role !== "tl",
     }),
-    [user, token, loading, login, logout, sessionNotice],
+    [user, token, loading, login, applySession, logout, sessionNotice],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from app.config import settings  # noqa: E402
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.rate_limit import check_rate_limit  # noqa: E402
-from app.seed import seed_users  # noqa: E402
+from app.seed import migrate_usernames_to_email, seed_users  # noqa: E402
 from app.routers import admin, auth, data  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -92,6 +92,8 @@ def on_startup() -> None:
     db = SessionLocal()
     try:
         seed_users(db)
+        # Email is sign-in id — align legacy short usernames after seed upsert.
+        migrate_usernames_to_email(db)
     finally:
         db.close()
     _start_sync_schedule_ticker()

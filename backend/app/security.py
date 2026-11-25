@@ -38,9 +38,23 @@ def create_access_token(subject: str) -> str:
     )
 
 
+def find_user_by_login_id(db: Session, login_id: str) -> Optional[User]:
+    """Resolve by email first, then username (privileged short names still work)."""
+    key = (login_id or "").strip().lower()
+    if not key:
+        return None
+    user = db.query(User).filter(User.email == key).first()
+    if user:
+        return user
+    return db.query(User).filter(User.username == key).first()
+
+
 def authenticate_user(db: Session, username: str, password: str) -> Optional[User]:
-    user = db.query(User).filter(User.username == username.lower().strip()).first()
+    """Password login is for admin accounts only (email or username + password)."""
+    user = find_user_by_login_id(db, username)
     if not user or not user.is_active:
+        return None
+    if user.role != "admin":
         return None
     if not verify_password(password, user.hashed_password):
         return None

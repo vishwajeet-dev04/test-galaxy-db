@@ -12,6 +12,9 @@ from fastapi import HTTPException, Request, status
 _LIMITS: dict[str, tuple[int, float]] = {
     "/api/auth/login": (10, 60.0),
     "/api/auth/token": (10, 60.0),
+    "/api/auth/lookup": (20, 60.0),
+    "/api/auth/magic-link": (10, 60.0),
+    "/api/auth/magic-link/consume": (20, 60.0),
     "/api/health": (60, 60.0),
 }
 

@@ -244,11 +244,11 @@ def _apply_quota_account(request: Request, op: QuotaAccountOp, user: User, db: S
     kind = (op.op or "").strip().lower()
     if kind == "create":
         body = AdminUserCreate(
-            username=op.username or "",
+            username=op.username,
             email=op.email or "",
             full_name=op.full_name or "",
             role=op.role or "user",
-            password=op.password or "",
+            password=op.password or None,
             employee_name=op.employee_name,
         )
         created = _create_user_impl(request, body, user, db)

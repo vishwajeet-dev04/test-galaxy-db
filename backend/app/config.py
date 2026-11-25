@@ -57,6 +57,18 @@ class Settings(BaseSettings):
     default_password: str = "Galaxy@123!"
     galaxy_docs: bool = False
 
+    # Public app URL for magic-link emails (no trailing slash)
+    galaxy_public_url: str = "http://localhost:5173"
+    magic_link_ttl_minutes: int = 15
+
+    # SMTP — Google or Outlook; leave host empty locally to log magic links instead
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_use_tls: bool = True
+
     # Vtiger CRM integration
     vtiger_url: str = ""
     vtiger_username: str = ""

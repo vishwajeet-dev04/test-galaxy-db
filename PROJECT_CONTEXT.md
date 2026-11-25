@@ -29,7 +29,7 @@ The dashboard is **Galaxy Sales Intelligence — Individual Contributor's Perfor
 | Docker | Optional. `docker-compose.yml`: `db` (Postgres 16) + `backend` (Gunicorn, 1 worker) + `web` (nginx SPA + `/api` proxy). See §12b. |
 | ETL | Python (`pandas`, `openpyxl`) in `scripts/` |
 | CRM | Vtiger REST v1, VQL, MySQL-style `LIMIT offset, count` (100 rows/page). Do **not** switch pagination back to `OFFSET`. |
-| Auth | JWT Bearer. Default demo password `Galaxy@123!` (change in production). |
+| Auth | JWT Bearer (~150 min). Email-first: magic link for non-admins; password only for `admin`. Default admin seed password `Galaxy@123!` (change in production). |
 | Local ports | Backend **8080**, frontend **5173** (Vite proxies `/api` → `127.0.0.1:8080`). If 5173 is busy, Vite may use 5174. |
 | Production | Nginx port **8081** → static `dashboard/dist`; `location ^~ /api/` → Gunicorn **8000** on localhost. Apache on **80** is Vtiger CRM — do not stop it or put Galaxy there. HTTP only today. |
 
@@ -167,7 +167,7 @@ Created on startup (`Base.metadata.create_all`). Local SQLite or Postgres via `D
 | Column | Type | Notes |
 |---|---|---|
 | `id` | INTEGER PK | autoincrement |
-| `username` | VARCHAR(64) unique | IC pattern `{firstname}{last_initial}` e.g. `richat` |
+| `username` | VARCHAR(64) unique | Equals normalized email (sign-in id). Legacy short names migrated on startup. |
 | `email` | VARCHAR(255) unique | |
 | `full_name` | VARCHAR(255) | |
 | `hashed_password` | VARCHAR(255) | bcrypt |
@@ -246,7 +246,10 @@ All JSON. JWT: `Authorization: Bearer <token>` except login and health.
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/api/health` | none | `{ status, app }` |
-| POST | `/api/auth/login` | none | JSON `{ username, password }` → `{ access_token, user }` |
+| POST | `/api/auth/lookup` | none | `{ email }` → `{ role, requires_password, … }` or 404 |
+| POST | `/api/auth/login` | none | Admin only: JSON `{ email, password }` → `{ access_token, user }` |
+| POST | `/api/auth/magic-link` | none | Non-admin: send one-time email link (15 min) |
+| POST | `/api/auth/magic-link/consume` | none | `{ token }` → `{ access_token, user }` |
 | POST | `/api/auth/token` | none | OAuth2 form (Swagger) |
 | GET | `/api/auth/me` | user | Current user |
 | GET | `/api/quota?from=&to=` | user | Scoped dashboard JSON. Dates recompute **actuals** only. Default UI = This Year (FY). |
@@ -684,6 +687,14 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-11-25 — Email magic-link login (admin password only)
+
+- Login is email-first: `POST /api/auth/lookup` → admin gets password step; others get `POST /api/auth/magic-link` (15 min, one-time) then `POST /api/auth/magic-link/consume`.
+- Password login (`POST /api/auth/login` with email+password) is **admin-only**. JWT lifetime unchanged (`ACCESS_TOKEN_EXPIRE_MINUTES`, default 150).
+- SMTP via env (`SMTP_*`); Google or Outlook. If `SMTP_HOST` empty, magic URL is logged (local). Link base: `GALAXY_PUBLIC_URL`.
+- Admin Users: email is sign-in id (`username = email` on create/update and one-shot startup migrate); UI shows Email column (no separate Username). Password fields only for role admin.
+- Capacitor deep-link out of scope.
 
 ### 2026-11-25 — Admin auto-sync schedule + Cancel sync
 

@@ -68,17 +68,19 @@ function fromUser(u: AdminUser): FormState {
   };
 }
 
-function validate(form: FormState, isCreate: boolean): FieldErrors {
+function validate(form: FormState, isCreate: boolean, previousRole?: string | null): FieldErrors {
   const errors: FieldErrors = {};
-  if (isCreate) {
-    if (!/^[a-z][a-z0-9._-]{1,62}$/.test(form.username.trim().toLowerCase())) {
-      errors.username = "Start with a letter; lowercase letters, digits, . _ -";
-    }
-  }
   if (!form.full_name.trim()) errors.full_name = "Full name is required";
   if (!form.email.trim() || !form.email.includes("@")) errors.email = "A valid email is required";
   if (!ROLES.includes(form.role as (typeof ROLES)[number])) errors.role = "Pick a role";
-  if (isCreate || form.password) {
+
+  const isAdminRole = form.role === "admin";
+  const promotingToAdmin = !isCreate && previousRole !== "admin" && isAdminRole;
+  const passwordRequired = isAdminRole && (isCreate || promotingToAdmin || !!form.password || !!form.confirm);
+
+  if (!isAdminRole && (form.password || form.confirm)) {
+    errors.password = "Only admin accounts use a password";
+  } else if (passwordRequired) {
     if (form.password.length < 8) errors.password = "At least 8 characters";
     if (form.password !== form.confirm) errors.confirm = "Passwords do not match";
   }
@@ -174,7 +176,7 @@ export function AdminUsersPanel({
     e.preventDefault();
     if (saving || !token) return;
     const isCreate = editing == null;
-    const errors = validate(form, isCreate);
+    const errors = validate(form, isCreate, editing?.role);
     setFieldErrors(errors);
     if (Object.keys(errors).length) return;
 
@@ -183,20 +185,18 @@ export function AdminUsersPanel({
     setSuccess(null);
     try {
       if (isCreate) {
+        const account: Record<string, unknown> = {
+          op: "create",
+          email: form.email.trim().toLowerCase(),
+          full_name: form.full_name.trim(),
+          role: form.role,
+          employee_name: form.employee_name.trim() || null,
+        };
+        if (form.role === "admin") account.password = form.password;
         const { res, json, raw } = await apiFetch("/api/admin/quotas", {
           method: "PUT",
           headers: { ...authHeaders(token), "Content-Type": "application/json" },
-          body: JSON.stringify({
-            account: {
-              op: "create",
-              username: form.username.trim().toLowerCase(),
-              email: form.email.trim(),
-              full_name: form.full_name.trim(),
-              role: form.role,
-              password: form.password,
-              employee_name: form.employee_name.trim() || null,
-            },
-          }),
+          body: JSON.stringify({ account }),
         });
         if (!res.ok) throw new Error(httpErrorMessage(res.status, json, raw, "Create failed"));
         setSuccess("User created");
@@ -204,13 +204,13 @@ export function AdminUsersPanel({
         const payload: Record<string, unknown> = {
           op: "update",
           id: editing.id,
-          email: form.email.trim(),
+          email: form.email.trim().toLowerCase(),
           full_name: form.full_name.trim(),
           role: form.role,
           employee_name: form.employee_name.trim(),
           is_active: form.is_active,
         };
-        if (form.password) payload.password = form.password;
+        if (form.role === "admin" && form.password) payload.password = form.password;
         const { res, json, raw } = await apiFetch("/api/admin/quotas", {
           method: "PUT",
           headers: { ...authHeaders(token), "Content-Type": "application/json" },
@@ -249,7 +249,7 @@ export function AdminUsersPanel({
       });
       if (!res.ok) throw new Error(httpErrorMessage(res.status, json, raw, "Could not delete user"));
       setConfirmDelete(null);
-      setSuccess(`Deleted ${target.username}`);
+      setSuccess(`Deleted ${target.email || target.full_name}`);
       if (items.length === 1 && page > 1) {
         setPage((p) => p - 1);
       }
@@ -292,7 +292,7 @@ export function AdminUsersPanel({
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name, username, email"
+            placeholder="Search name or email"
             className={ui.input}
           />
         </label>
@@ -322,9 +322,8 @@ export function AdminUsersPanel({
             <table className="min-w-full text-sm">
               <thead className={ui.tableHead}>
                 <tr>
-                  <th className="sticky left-0 z-10 bg-slate-50/95 px-3 py-2 backdrop-blur-sm">Username</th>
+                  <th className="sticky left-0 z-10 bg-slate-50/95 px-3 py-2 backdrop-blur-sm">Email</th>
                   <th className="px-3 py-2">Name</th>
-                  <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">Role</th>
                   <th className="px-3 py-2">Employee name</th>
                   <th className="px-3 py-2">Status</th>
@@ -334,9 +333,10 @@ export function AdminUsersPanel({
               <tbody>
                 {items.map((u) => (
                   <tr key={u.id} className="border-b border-galaxy-border/60">
-                    <td className="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-galaxy-navy">{u.username}</td>
+                    <td className="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-galaxy-navy">
+                      {u.email || "—"}
+                    </td>
                     <td className="px-3 py-2">{u.full_name}</td>
-                    <td className="px-3 py-2 text-galaxy-muted">{u.email}</td>
                     <td className="px-3 py-2">
                       <span className={ui.badge}>{u.role}</span>
                     </td>
@@ -381,11 +381,10 @@ export function AdminUsersPanel({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-semibold text-galaxy-navy">{u.full_name}</p>
-                    <p className="text-xs text-galaxy-muted">{u.username}</p>
+                    <p className="text-xs text-galaxy-muted">{u.email || "—"}</p>
                   </div>
                   <span className={ui.badge}>{u.role}</span>
                 </div>
-                <p className="mt-2 text-sm text-galaxy-muted">{u.email}</p>
                 <p className="mt-1 text-xs text-galaxy-muted">{u.employee_name || "No roster name"}</p>
                 <span className={`${ui.badge} mt-2 inline-flex ${u.is_active ? "" : "opacity-70"}`}>
                   {u.is_active ? "Active" : "Inactive"}
@@ -450,7 +449,7 @@ export function AdminUsersPanel({
             <div className="mb-4 flex items-center justify-between">
               <h3 className="flex items-center gap-2 font-semibold text-galaxy-navy">
                 <UserPlus className="h-4 w-4" />
-                {isCreate ? "Add user" : `Edit ${editing.username}`}
+                {isCreate ? "Add user" : `Edit ${editing.email || editing.full_name}`}
               </h3>
               <button type="button" onClick={closeForm} disabled={saving} className={ui.btnGhost} aria-label="Close">
                 <X className="h-4 w-4" />
@@ -466,15 +465,18 @@ export function AdminUsersPanel({
 
             <div className="space-y-3">
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-galaxy-navy">Username</span>
+                <span className="mb-1 block font-medium text-galaxy-navy">Email (sign-in id)</span>
                 <input
-                  value={form.username}
-                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                  disabled={!isCreate || saving}
-                  autoComplete="off"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  disabled={saving}
                   className={ui.field}
                 />
-                {fieldErrors.username && <span className="mt-1 block text-xs text-red-600">{fieldErrors.username}</span>}
+                {fieldErrors.email && <span className="mt-1 block text-xs text-red-600">{fieldErrors.email}</span>}
+                <span className="mt-1 block text-xs text-galaxy-muted">
+                  Non-admins sign in with a magic link to this email. Admins use email + password.
+                </span>
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium text-galaxy-navy">Full name</span>
@@ -487,21 +489,10 @@ export function AdminUsersPanel({
                 {fieldErrors.full_name && <span className="mt-1 block text-xs text-red-600">{fieldErrors.full_name}</span>}
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-galaxy-navy">Email</span>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                  disabled={saving}
-                  className={ui.field}
-                />
-                {fieldErrors.email && <span className="mt-1 block text-xs text-red-600">{fieldErrors.email}</span>}
-              </label>
-              <label className="block text-sm">
                 <span className="mb-1 block font-medium text-galaxy-navy">Role</span>
                 <select
                   value={form.role}
-                  onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, role: e.target.value, password: "", confirm: "" }))}
                   disabled={saving || (!isCreate && editing?.id === me?.id)}
                   className={`${ui.select} w-full`}
                 >
@@ -535,32 +526,42 @@ export function AdminUsersPanel({
                   Active (can sign in)
                 </label>
               )}
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium text-galaxy-navy">
-                  {isCreate ? "Password" : "New password (leave blank to keep)"}
-                </span>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                  disabled={saving}
-                  autoComplete="new-password"
-                  className={ui.field}
-                />
-                {fieldErrors.password && <span className="mt-1 block text-xs text-red-600">{fieldErrors.password}</span>}
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1 block font-medium text-galaxy-navy">Confirm password</span>
-                <input
-                  type="password"
-                  value={form.confirm}
-                  onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))}
-                  disabled={saving}
-                  autoComplete="new-password"
-                  className={ui.field}
-                />
-                {fieldErrors.confirm && <span className="mt-1 block text-xs text-red-600">{fieldErrors.confirm}</span>}
-              </label>
+              {form.role === "admin" && (
+                <>
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-galaxy-navy">
+                      {isCreate || editing?.role !== "admin"
+                        ? "Password"
+                        : "New password (leave blank to keep)"}
+                    </span>
+                    <input
+                      type="password"
+                      value={form.password}
+                      onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                      disabled={saving}
+                      autoComplete="new-password"
+                      className={ui.field}
+                    />
+                    {fieldErrors.password && (
+                      <span className="mt-1 block text-xs text-red-600">{fieldErrors.password}</span>
+                    )}
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-medium text-galaxy-navy">Confirm password</span>
+                    <input
+                      type="password"
+                      value={form.confirm}
+                      onChange={(e) => setForm((f) => ({ ...f, confirm: e.target.value }))}
+                      disabled={saving}
+                      autoComplete="new-password"
+                      className={ui.field}
+                    />
+                    {fieldErrors.confirm && (
+                      <span className="mt-1 block text-xs text-red-600">{fieldErrors.confirm}</span>
+                    )}
+                  </label>
+                </>
+              )}
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -584,7 +585,7 @@ export function AdminUsersPanel({
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-galaxy-navy/20 p-0 sm:items-center sm:p-6">
           <div className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-lg sm:rounded-2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-semibold text-galaxy-navy">Delete {confirmDelete.username}?</h3>
+              <h3 className="font-semibold text-galaxy-navy">Delete {confirmDelete.email}?</h3>
               <button
                 type="button"
                 onClick={() => setConfirmDelete(null)}
@@ -596,7 +597,8 @@ export function AdminUsersPanel({
               </button>
             </div>
             <p className="text-sm text-galaxy-muted">
-              This removes the login for {confirmDelete.full_name} ({confirmDelete.username}). They will not be able to sign in.
+              This removes the login for {confirmDelete.full_name} ({confirmDelete.email}). They will not be able to
+              sign in.
             </p>
             {confirmDelete.employee_name ? (
               <p className="mt-2 text-sm text-galaxy-muted">

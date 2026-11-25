@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import secrets
 
 from sqlalchemy.orm import Session
 
@@ -112,19 +113,29 @@ def _upsert(
 
     Privileged accounts (`sync_profile=True`) keep role/email/name in
     sync with PRIVILEGED but do not force is_active. Roster rows are insert-only.
+    Sign-in id is email: `username` column is always set to the normalized email.
     """
-    user = db.query(User).filter(User.username == username).first()
+    email_n = (email or "").strip().lower()
+    login_id = email_n or (username or "").strip().lower()
+    user = db.query(User).filter(User.email == email_n).first() if email_n else None
+    if user is None and username:
+        # Legacy short usernames (pre email-as-username)
+        user = db.query(User).filter(User.username == username.strip().lower()).first()
     if user:
         if sync_profile:
-            user.email = email
+            user.email = email_n
             user.full_name = full_name
             user.role = role
             user.employee_name = employee_name
+        if email_n and user.username != email_n:
+            clash = db.query(User).filter(User.username == email_n, User.id != user.id).first()
+            if clash is None:
+                user.username = email_n
         return
     db.add(
         User(
-            username=username,
-            email=email,
+            username=login_id,
+            email=email_n,
             full_name=full_name,
             role=role,
             employee_name=employee_name,
@@ -134,11 +145,32 @@ def _upsert(
     )
 
 
+def migrate_usernames_to_email(db: Session) -> int:
+    """One-shot: set username = email wherever they differ (email is sign-in id)."""
+    updated = 0
+    for user in db.query(User).all():
+        email_n = (user.email or "").strip().lower()
+        if not email_n or "@" not in email_n:
+            continue
+        if user.username == email_n:
+            continue
+        clash = db.query(User).filter(User.username == email_n, User.id != user.id).first()
+        if clash is not None:
+            continue
+        user.username = email_n
+        updated += 1
+    if updated:
+        db.commit()
+    return updated
+
+
 def seed_users(db: Session) -> None:
-    password = settings.default_password
+    admin_password = settings.default_password
 
     for row in PRIVILEGED:
-        _upsert(db, password=password, sync_profile=True, **row)
+        # Admins get the default password; CEO is magic-link only → unusable hash on insert
+        pwd = admin_password if row["role"] == "admin" else secrets.token_urlsafe(32)
+        _upsert(db, password=pwd, sync_profile=True, **row)
 
     # Roster from quota JSON when available
     names: dict[str, str] = {}
@@ -156,29 +188,34 @@ def seed_users(db: Session) -> None:
                 names.setdefault(n, "BU Head")
 
     leader_names = _leader_roster_names()
-    used_usernames = {r["username"] for r in PRIVILEGED}
+    used_local = {r["username"] for r in PRIVILEGED}
+    used_emails = {(r["email"] or "").strip().lower() for r in PRIVILEGED}
     blocked = {n.lower() for n in user_repo.seed_exclusion_usernames(db)}
     for name in sorted(names):
-        username = make_username(name)
-        if not username or username in used_usernames:
+        local = make_username(name)
+        if not local or local in used_local:
             # collision: append more of last name
             parts = [p for p in re.split(r"\s+", name) if p]
             last = "".join(c for c in parts[-1].lower() if c.isalpha()) if len(parts) > 1 else "x"
-            username = make_username(name) + last[1:3]
-            while username in used_usernames:
-                username += "x"
-        used_usernames.add(username)
-        if username.lower() in blocked:
+            local = make_username(name) + last[1:3]
+            while local in used_local:
+                local += "x"
+        used_local.add(local)
+        email = f"{local}@goapl.com"
+        if local.lower() in blocked or email in blocked or email in used_emails:
             continue
-        email = f"{username}@goapl.com"
+        used_emails.add(email)
+        role = _role_for(name, names[name], leader_names)
         _upsert(
             db,
-            username=username,
+            username=local,
             email=email,
             full_name=name,
-            role=_role_for(name, names[name], leader_names),
+            role=role,
             employee_name=name,
-            password=password,
+            # Non-admins: unusable hash (magic-link sign-in)
+            password=secrets.token_urlsafe(32),
         )
 
     db.commit()
+    migrate_usernames_to_email(db)
