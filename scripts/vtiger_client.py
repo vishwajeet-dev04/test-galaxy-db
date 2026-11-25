@@ -42,7 +42,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date
-from typing import Any
+from typing import Any, Callable
 
 
 VTIGER_FIELDS = [
@@ -115,16 +115,22 @@ class VtigerSession:
         access_key: str,
         timeout: int = 180,
         host_header: str | None = None,
+        should_abort: Callable[[], bool] | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.username = username
         self.access_key = access_key
         self.timeout = timeout
         self.host_header = host_header
+        self.should_abort = should_abort
         self.session_name: str | None = None
         self._account_cache: dict[str, str] = {}
         self._contact_cache: dict[str, str] = {}
         self._user_cache: dict[str, str] = {}
+
+    def _check_abort(self) -> None:
+        if self.should_abort and self.should_abort():
+            raise RuntimeError("Sync cancelled")
 
     # ------------------------------------------------------------------ auth
 
@@ -156,6 +162,7 @@ class VtigerSession:
     def _read_json(self, opener) -> dict:
         last_exc: BaseException | None = None
         for attempt in range(1, self.MAX_RETRIES + 1):
+            self._check_abort()
             try:
                 with opener() as r:
                     data = json.loads(r.read())
@@ -170,7 +177,10 @@ class VtigerSession:
                 if attempt < self.MAX_RETRIES:
                     wait = min(16, 2 ** attempt)
                     print(f"[vtiger] Request failed ({exc}); retry {attempt}/{self.MAX_RETRIES} in {wait:.1f}s")
-                    time.sleep(wait)
+                    # Sleep in 1s slices so Admin Cancel is noticed during backoff.
+                    for _ in range(int(wait)):
+                        self._check_abort()
+                        time.sleep(1)
                     continue
                 raise
         raise last_exc or RuntimeError("Vtiger request failed")
@@ -208,6 +218,7 @@ class VtigerSession:
         results: list[dict] = []
         offset = 0
         while True:
+            self._check_abort()
             sql = f"{base_sql.rstrip(';')} LIMIT {offset},{self.PAGE_SIZE};"
             page = self._query(sql)
             results.extend(page)

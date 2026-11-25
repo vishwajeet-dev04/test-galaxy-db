@@ -19,7 +19,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.environ.get("GALAXY_DEALS_DB") or ROOT / "backend" / "galaxy.db")
 
 # Running jobs older than this are treated as dead (worker recycle / crash).
-_STALE_JOB_MINUTES = 45
+# Safety net if a worker dies mid-sync; Admin Cancel is the normal unlock path.
+_STALE_JOB_MINUTES = 20
 
 PIPELINE_COLUMNS = [
     "Created Time",
@@ -269,6 +270,77 @@ def has_running_job() -> bool:
             "SELECT id FROM crm_sync_jobs WHERE status = 'running' LIMIT 1"
         ).fetchone()
         return row is not None
+    finally:
+        conn.close()
+
+
+def last_successful_finished_at() -> str | None:
+    """ISO UTC finished_at of the most recent done sync, or None."""
+    reclaim_stale_jobs()
+    conn = _connect()
+    try:
+        row = conn.execute(
+            """
+            SELECT finished_at FROM crm_sync_jobs
+            WHERE status = 'done' AND finished_at IS NOT NULL
+            ORDER BY finished_at DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        return row["finished_at"] if row else None
+    finally:
+        conn.close()
+
+
+def is_job_running(job_id: str) -> bool:
+    """Fast status check (no stale reclaim) for cancel cooperation in the sync loop."""
+    conn = _connect()
+    try:
+        row = conn.execute(
+            "SELECT status FROM crm_sync_jobs WHERE id = ?",
+            (job_id,),
+        ).fetchone()
+        return bool(row and row["status"] == "running")
+    finally:
+        conn.close()
+
+
+def cancel_running_job(job_id: str | None = None) -> str | None:
+    """
+    Mark a running sync as cancelled so Admin can start again without waiting for stale reclaim.
+    Returns the cancelled job id, or None if nothing was running.
+    """
+    reclaim_stale_jobs()
+    now_iso = datetime.utcnow().isoformat()
+    conn = _connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        if job_id:
+            row = conn.execute(
+                "SELECT id FROM crm_sync_jobs WHERE id = ? AND status = 'running'",
+                (job_id,),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT id FROM crm_sync_jobs WHERE status = 'running' ORDER BY started_at DESC LIMIT 1"
+            ).fetchone()
+        if not row:
+            conn.rollback()
+            return None
+        cancelled_id = row["id"]
+        conn.execute(
+            """
+            UPDATE crm_sync_jobs
+            SET status = 'error', last_error = ?, finished_at = ?
+            WHERE id = ? AND status = 'running'
+            """,
+            ("Cancelled by admin", now_iso, cancelled_id),
+        )
+        conn.commit()
+        return cancelled_id
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

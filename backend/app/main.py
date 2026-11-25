@@ -63,6 +63,27 @@ def _migrate_quota_json() -> None:
             _log.exception("Could not delete public quota_data.json")
 
 
+def _start_sync_schedule_ticker() -> None:
+    """Daemon loop: every ~60s check Admin auto-sync schedule (1-worker Gunicorn safe)."""
+    import threading
+    import time
+
+    from app.services import sync_schedule_service
+
+    def _loop() -> None:
+        # Brief delay so the first request handlers are up before we touch SQLite.
+        time.sleep(5)
+        while True:
+            try:
+                sync_schedule_service.maybe_run_due()
+            except Exception:
+                _log.exception("sync_schedule_ticker_failed")
+            time.sleep(60)
+
+    threading.Thread(target=_loop, daemon=True, name="crm-sync-schedule").start()
+    _log.info("crm_sync_schedule_ticker_started")
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     settings.files_dir.mkdir(parents=True, exist_ok=True)
@@ -73,6 +94,7 @@ def on_startup() -> None:
         seed_users(db)
     finally:
         db.close()
+    _start_sync_schedule_ticker()
 
 
 @app.get("/api/health")

@@ -208,7 +208,7 @@ Shared by all Gunicorn workers (not process memory).
 | `last_error` | TEXT | Safe UI message only (no stack / CRM internals) |
 | `result` | TEXT | JSON `{ quarters, deal_counts, total_deals }` |
 
-`try_start_job` uses `BEGIN IMMEDIATE`. GET status also calls `reclaim_stale_jobs()` (same 45-minute rule). `finish_job` only updates a row that is still `running`. `replace_quarter` refuses to DELETE if existing count > 0 and incoming rows == 0. CLI `vtiger_sync.py` uses the same job lock. FY windows are derived from 1 Apr of the current Indian FY (not hardcoded 2026–2027).
+`try_start_job` uses `BEGIN IMMEDIATE`. GET status also calls `reclaim_stale_jobs()` (same 20-minute rule). Admin can cancel via `PUT … { sync_cancel: true }`. `finish_job` only updates a row that is still `running`. `replace_quarter` refuses to DELETE if existing count > 0 and incoming rows == 0. CLI `vtiger_sync.py` uses the same job lock. FY windows are derived from 1 Apr of the current Indian FY (not hardcoded 2026–2027).
 
 Payload keys (pipeline shape): Opportunity Number, Organization Name, Opportunity Led By, Category, Sub Category, Brand, Amount, Estimated Bottomline, Actual Bottomline -, Expected Close Date, Deal Status, OPF No., Division (usually empty in CRM — derived at build), plus `_quarter` on load.
 
@@ -255,7 +255,7 @@ All JSON. JWT: `Authorization: Bearer <token>` except login and health.
 | GET | `/api/admin/status` | admin | Deal counts + quota file exists + latest sync job. Alias kept; Chrome can 403 paths containing `status`. UI uses `GET /quotas` instead. |
 | GET | `/api/admin/uploads/status` | admin | Alias of `/status` |
 | GET | `/api/admin/quotas` | admin | Roster + `bu_annual_quotas` + `accounts` (login list, up to 100) + `crm` (deal counts + latest sync job). Chrome is not asked for `/users`/`/logins`/`/directory`/`status`. |
-| PUT | `/api/admin/quotas` | admin | Full-replace `ic_quotas.json` when `people` is sent. `{ account: { op: create\|update\|delete } }` does login CRUD. `{ sync: true }` starts a full-FY Vtiger job (same as POST `/vtiger-sync`). An RTM change is either `transfer_start` (they moved) or `rtm_correction` (the old team was wrong). `{ history: { name, assignments[] } }` (no `people`) replaces one person's full RTM history (400 invalid rows, 404 unknown name; returns `division` + `assignments`). Then rebuild + `seed_users`. **409** if a sync job is running (roster save and history). |
+| PUT | `/api/admin/quotas` | admin | Full-replace `ic_quotas.json` when `people` is sent. `{ account: { op: create\|update\|delete } }` does login CRUD. `{ sync: true }` starts a full-FY Vtiger job (same as POST `/vtiger-sync`). `{ sync_cancel: true }` cancels the running job. `{ sync_schedule: { enabled, interval_unit, interval_value } }` saves auto-sync (no rebuild). An RTM change is either `transfer_start` (they moved) or `rtm_correction` (the old team was wrong). `{ history: { name, assignments[] } }` (no `people`) replaces one person's full RTM history (400 invalid rows, 404 unknown name; returns `division` + `assignments`). Then rebuild + `seed_users`. **409** if a sync job is running (roster save and history). |
 | GET | `/api/admin/templates/data` | admin | Download `files/Galaxy_Data_Templates.xlsx` |
 | POST | `/api/admin/quotas/import` | admin | T1 sheet → roster. Missing names are **dropped**. RTM diff → transfer dated today. |
 | POST | `/api/admin/reparse` | admin | Rebuild JSON from SQLite + config. **409** if a sync job is running. |
@@ -684,6 +684,14 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 ---
 
 ## 20. Session log
+
+### 2026-11-25 — Admin auto-sync schedule + Cancel sync
+
+- Admin can enable automatic full-FY Vtiger sync: every N days (1–30) or N weeks (1–12), always at **02:00 IST**. Manual Sync unchanged.
+- Settings in `config/crm_sync_schedule.json` (Docker seeds once like `ic_quotas.json`). `GET /api/admin/quotas` → `crm.schedule` (+ `next_run`); `PUT /api/admin/quotas` `{ "sync_schedule": { enabled, interval_unit, interval_value } }`.
+- In-process ticker on FastAPI startup (~60s) calls `sync_schedule_service.maybe_run_due()`; skips if disabled, Vtiger not configured, or a job is running. Safe with Gunicorn **1 worker**.
+- Sync start/run moved to `services/vtiger_sync_service.py` (shared by Admin button and ticker).
+- **Cancel sync:** `PUT /api/admin/quotas` `{ "sync_cancel": true }` marks the running job `error` / “Cancelled by admin”. Worker checks between retries/pages/quarters and stops. Stale reclaim lowered **45 → 20 min** as a safety net. A single in-flight HTTP call (up to 180s) may still finish before abort is noticed.
 
 ### 2026-11-02 — Mobile UX polish (calendar, header, Admin)
 

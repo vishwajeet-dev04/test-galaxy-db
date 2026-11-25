@@ -143,12 +143,19 @@ def sync(
 
     counts: dict[str, int] = {}
 
-    with VtigerSession(base_url, username, access_key, host_header=host_header) as vtiger:
+    def _should_abort() -> bool:
+        return bool(job_id) and not deal_store.is_job_running(job_id)
+
+    with VtigerSession(
+        base_url,
+        username,
+        access_key,
+        host_header=host_header,
+        should_abort=_should_abort if job_id else None,
+    ) as vtiger:
         for q in quarters:
-            if job_id:
-                job = deal_store.get_job(job_id)
-                if not job or job.get("status") != "running":
-                    raise RuntimeError("Sync interrupted")
+            if job_id and not deal_store.is_job_running(job_id):
+                raise RuntimeError("Sync cancelled")
             if q not in QUARTERS:
                 print(f"  [!] Unknown quarter '{q}' — skip")
                 continue
@@ -157,11 +164,18 @@ def sync(
             print(f"\n[sync] Fetching {q.upper()} ({start} to {end}) ...")
 
             records = vtiger.fetch_potentials(start, end, sales_stage=sales_stage)
+            if job_id and not deal_store.is_job_running(job_id):
+                raise RuntimeError("Sync cancelled")
             vtiger.resolve_references(records)
             rows = vtiger.to_pipeline_rows(records)
+            if job_id and not deal_store.is_job_running(job_id):
+                raise RuntimeError("Sync cancelled")
             stored = deal_store.replace_quarter(q, rows)
             counts[q] = stored
             print(f"  Stored {stored} deals in SQLite for {q.upper()}")
+
+    if job_id and not deal_store.is_job_running(job_id):
+        raise RuntimeError("Sync cancelled")
 
     if run_parse:
         print("\n[sync] Building quota_data.json from SQLite deals + config ...")

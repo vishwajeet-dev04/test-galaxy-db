@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 import sys
-import threading
-import urllib.error
 from datetime import datetime
 from typing import Annotated, Any, Optional
 
@@ -21,8 +19,10 @@ from app.security import require_admin
 from app.seed import seed_users
 from app.repositories import roster_repo
 from app.services.roster_service import RosterServiceError
+from app.services.sync_schedule_service import SyncScheduleError
 from app.services.user_service import UserServiceError
-from app.services import roster_service, user_service
+from app.services.vtiger_sync_service import VtigerSyncError
+from app.services import roster_service, sync_schedule_service, user_service, vtiger_sync_service
 
 router = APIRouter()
 _log = logging.getLogger("galaxy.admin")
@@ -95,12 +95,20 @@ class HistoryOp(BaseModel):
     assignments: list[AssignmentRow] = Field(max_length=50)
 
 
+class SyncScheduleBody(BaseModel):
+    enabled: bool = False
+    interval_unit: str = "days"
+    interval_value: int = 1
+
+
 class QuotaSaveRequest(BaseModel):
     people: Optional[list[IcQuotaPerson]] = None
     bu_annual_quotas: Optional[dict[str, dict[str, float]]] = None
     account: Optional[QuotaAccountOp] = None
     history: Optional[HistoryOp] = None
     sync: Optional[bool] = None
+    sync_cancel: Optional[bool] = None
+    sync_schedule: Optional[SyncScheduleBody] = None
 
 
 _atomic_write_json = roster_repo.write_json_atomic
@@ -131,7 +139,7 @@ def _sync_status_payload(job_id: Optional[str] = None) -> dict[str, Any]:
 
     job = deal_store.get_job(job_id) if job_id else deal_store.get_latest_job()
     payload: dict[str, Any] = {
-        "configured": bool(settings.vtiger_url and settings.vtiger_access_key),
+        "configured": vtiger_sync_service.vtiger_configured(),
         "deals": deals,
         "job_id": None,
         "status": None,
@@ -143,51 +151,19 @@ def _sync_status_payload(job_id: Optional[str] = None) -> dict[str, Any]:
     }
     if job:
         payload.update(job)
+    try:
+        payload["schedule"] = sync_schedule_service.get_schedule()
+    except Exception:
+        _log.exception("sync_schedule_payload_failed")
+        payload["schedule"] = None
     return payload
 
 
 def _start_vtiger_sync(quarter: str = "all") -> dict[str, Any]:
-    if not settings.vtiger_url or not settings.vtiger_access_key:
-        raise HTTPException(
-            status_code=503,
-            detail="Vtiger credentials not configured. Set VTIGER_URL, VTIGER_USERNAME, VTIGER_ACCESS_KEY in backend/.env",
-        )
-
-    quarter_map = {
-        "q1": ["q1"], "q2": ["q2"], "q3": ["q3"], "q4": ["q4"],
-        "h1": ["q1", "q2"], "h2": ["q3", "q4"],
-        "all": ["q1", "q2", "q3", "q4"],
-    }
-    quarters = quarter_map.get(quarter)
-    if not quarters:
-        raise HTTPException(status_code=400, detail=f"Invalid quarter '{quarter}'")
-
-    _scripts_path()
-    import deal_store  # type: ignore
-
-    job_id = deal_store.try_start_job(quarters)
-    if not job_id:
-        raise HTTPException(status_code=409, detail="A sync is already in progress")
-
-    thread = threading.Thread(
-        target=_run_vtiger_sync,
-        args=(job_id, quarters),
-        daemon=True,
-        name=f"vtiger-sync-{job_id[:8]}",
-    )
     try:
-        thread.start()
-    except Exception:
-        _log.exception("vtiger_sync_thread_start_failed job_id=%s", job_id)
-        deal_store.finish_job(job_id, error="Sync failed")
-        raise HTTPException(status_code=500, detail="Could not start sync") from None
-
-    return {
-        "ok": True,
-        "job_id": job_id,
-        "quarters": quarters,
-        "message": f"Vtiger sync started for {quarter.upper()}",
-    }
+        return vtiger_sync_service.start_vtiger_sync(quarter)
+    except VtigerSyncError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from None
 
 
 @router.get("/status")
@@ -305,8 +281,23 @@ def save_quotas(
     user: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    if body.sync and not body.people and body.account is None:
+    if body.sync_cancel and not body.people and body.account is None and not body.sync:
+        try:
+            out = vtiger_sync_service.cancel_vtiger_sync()
+        except VtigerSyncError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.message) from None
+        out["crm"] = _sync_status_payload()
+        return out
+    if body.sync and not body.people and body.account is None and body.sync_schedule is None:
         return _start_vtiger_sync("all")
+    if body.sync_schedule is not None and not body.people and body.account is None and not body.sync:
+        try:
+            schedule = sync_schedule_service.save_schedule(body.sync_schedule.model_dump())
+        except SyncScheduleError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.message) from None
+        crm = _sync_status_payload()
+        crm["schedule"] = schedule
+        return {"ok": True, "crm": crm}
     if body.account is not None and not body.people:
         return _apply_quota_account(request, body.account, user, db)
     if body.history is not None and not body.people:
@@ -487,65 +478,6 @@ def reparse(user: Annotated[User, Depends(require_admin)], db: Annotated[Session
         raise HTTPException(status_code=500, detail="Rebuild failed") from None
     seed_users(db)
     return UploadResult(ok=True, message="Dashboard data regenerated from SQLite deals + quotas", regenerated=True)
-
-
-def _public_sync_error(exc: BaseException) -> str:
-    text = str(exc).lower()
-    if isinstance(exc, TimeoutError) or "timed out" in text or "timeout" in text:
-        return "Vtiger CRM timed out"
-    if isinstance(exc, urllib.error.URLError) or "urlopen" in text:
-        return "Could not reach Vtiger CRM"
-    if "not configured" in text or "credentials" in text:
-        return "Vtiger credentials not configured"
-    if "refusing to replace" in text or "0 deals" in text:
-        return "CRM returned no deals for a quarter that already has data"
-    return "Sync failed"
-
-
-def _run_vtiger_sync(job_id: str, quarters: list[str]) -> None:
-    _scripts_path()
-    import deal_store  # type: ignore
-
-    try:
-        from vtiger_sync import sync as vtiger_sync  # type: ignore
-
-        if not settings.vtiger_url or not settings.vtiger_access_key:
-            raise ValueError(
-                "Vtiger credentials not configured. "
-                "Set VTIGER_URL, VTIGER_USERNAME, VTIGER_ACCESS_KEY in backend/.env"
-            )
-
-        counts = vtiger_sync(
-            vtiger_url=settings.vtiger_url,
-            username=settings.vtiger_username,
-            access_key=settings.vtiger_access_key,
-            quarters=quarters,
-            run_parse=True,
-            job_id=job_id,
-        )
-
-        from app.database import SessionLocal  # type: ignore
-
-        db = SessionLocal()
-        try:
-            seed_users(db)
-        finally:
-            db.close()
-
-        deal_store.finish_job(
-            job_id,
-            result={
-                "quarters": quarters,
-                "deal_counts": counts,
-                "total_deals": sum(counts.values()),
-            },
-        )
-    except Exception as exc:
-        _log.exception("vtiger_sync_failed job_id=%s", job_id)
-        try:
-            deal_store.finish_job(job_id, error=_public_sync_error(exc))
-        except Exception:
-            _log.exception("vtiger_sync_finish_failed job_id=%s", job_id)
 
 
 @router.get("/vtiger-sync/status")

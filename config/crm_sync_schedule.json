@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "interval_unit": "days",
+  "interval_value": 10,
+  "run_hour_ist": 2,
+  "last_auto_started_at": "2026-11-25T09:17:26Z"
+}

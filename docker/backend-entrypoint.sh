@@ -13,7 +13,7 @@ for f in pipeline_aliases.json leader_roster.json dept_to_rtm.json extracted_v1.
 done
 
 # Admin-owned config: seeded once, never overwritten, so roster / quota edits survive redeploys.
-for f in ic_quotas.json quota_rules.json; do
+for f in ic_quotas.json quota_rules.json crm_sync_schedule.json; do
   if [ ! -f "$CONFIG/$f" ] && [ -f "$DEFAULTS/$f" ]; then
     cp "$DEFAULTS/$f" "$CONFIG/$f"
     echo "[entrypoint] seeded $CONFIG/$f from image defaults"

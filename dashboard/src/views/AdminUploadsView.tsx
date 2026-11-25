@@ -25,6 +25,14 @@ import { formatDisplayDate, toISODate } from "../utils/fiscal";
 import { apiFetch, httpErrorMessage, isSessionExpiredStatus, notifySessionExpired } from "../utils/apiError";
 import { apiUrl } from "../utils/apiBase";
 
+interface SyncSchedule {
+  enabled: boolean;
+  interval_unit: "days" | "weeks";
+  interval_value: number;
+  run_hour_ist: number;
+  next_run: string | null;
+}
+
 interface SyncStatus {
   configured: boolean;
   job_id: string | null;
@@ -35,6 +43,7 @@ interface SyncStatus {
   last_error: string | null;
   deals?: Record<string, number> | null;
   quarters?: string[];
+  schedule?: SyncSchedule | null;
 }
 
 interface AdminStatus {
@@ -169,6 +178,14 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [syncStatusReady, setSyncStatusReady] = useState(false);
+  const [scheduleDraft, setScheduleDraft] = useState<{
+    enabled: boolean;
+    interval_unit: "days" | "weeks";
+    interval_value: number;
+  }>({ enabled: false, interval_unit: "days", interval_value: 1 });
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleNextRun, setScheduleNextRun] = useState<string | null>(null);
   const [newRow, setNewRow] = useState<QuotaPerson>(emptyPerson());
   const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
@@ -188,6 +205,16 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
     const { res, json, raw } = await apiFetch(input, init);
     if (!res.ok) throw new Error(httpErrorMessage(res.status, json, raw, fallback));
     return json as T;
+  };
+
+  const applyScheduleFromCrm = (schedule: SyncSchedule | null | undefined) => {
+    if (!schedule) return;
+    setScheduleDraft({
+      enabled: Boolean(schedule.enabled),
+      interval_unit: schedule.interval_unit === "weeks" ? "weeks" : "days",
+      interval_value: Number(schedule.interval_value) || 1,
+    });
+    setScheduleNextRun(schedule.next_run ?? null);
   };
 
   const parseCrm = (body: Record<string, unknown>): SyncStatus => {
@@ -212,6 +239,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
       last_error: crm.last_error ?? null,
       deals: crm.deals,
       quarters: crm.quarters,
+      schedule: crm.schedule ?? null,
     };
   };
 
@@ -292,6 +320,7 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
       setLoginSeedReady(true);
       const st = parseCrm(body);
       setSyncStatus(st);
+      applyScheduleFromCrm(st.schedule);
       if (st.running && st.job_id && !pollRef.current) {
         startPolling(st.job_id);
       }
@@ -310,6 +339,76 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
       stopPolling();
     };
   }, [token]);
+
+  const saveSchedule = async () => {
+    if (scheduleSaving || syncBusy || syncStatus?.running || syncStatus?.status === "running") return;
+    const max = scheduleDraft.interval_unit === "weeks" ? 12 : 30;
+    if (scheduleDraft.interval_value < 1 || scheduleDraft.interval_value > max) {
+      setScheduleError(
+        scheduleDraft.interval_unit === "weeks"
+          ? "Interval must be 1–12 weeks"
+          : "Interval must be 1–30 days",
+      );
+      return;
+    }
+    setScheduleSaving(true);
+    setScheduleError(null);
+    setError(null);
+    try {
+      const body = await getJson<{ ok?: boolean; crm?: SyncStatus }>(
+        "/api/admin/quotas",
+        {
+          method: "PUT",
+          headers: { ...authHeaders(token), "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sync_schedule: {
+              enabled: scheduleDraft.enabled,
+              interval_unit: scheduleDraft.interval_unit,
+              interval_value: scheduleDraft.interval_value,
+            },
+          }),
+        },
+        "Could not save sync schedule",
+      );
+      if (body.crm) {
+        setSyncStatus((prev) => ({ ...(prev || body.crm!), ...body.crm }));
+        applyScheduleFromCrm(body.crm.schedule);
+      }
+      setMessage(
+        scheduleDraft.enabled
+          ? `Auto sync saved — every ${scheduleDraft.interval_value} ${scheduleDraft.interval_unit} at 02:00 IST`
+          : "Auto sync turned off",
+      );
+    } catch (err) {
+      setScheduleError(err instanceof Error ? err.message : "Could not save sync schedule");
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
+  const cancelSync = async () => {
+    setError(null);
+    try {
+      await getJson<Record<string, unknown>>(
+        "/api/admin/quotas",
+        {
+          method: "PUT",
+          headers: { ...authHeaders(token), "Content-Type": "application/json" },
+          body: JSON.stringify({ sync_cancel: true }),
+        },
+        "Could not cancel sync",
+      );
+      stopPolling();
+      activeJobId.current = null;
+      jobFinished.current = true;
+      setSyncBusy(false);
+      setMessage("Sync cancelled. You can start Sync again when ready.");
+      const st = await fetchJobStatus();
+      setSyncStatus(st);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cancel sync");
+    }
+  };
 
   const triggerSync = async () => {
     setSyncBusy(true);
@@ -638,6 +737,90 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
           </p>
         )}
 
+        <div className="space-y-3 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-100">
+          <div>
+            <p className="text-sm font-semibold text-galaxy-navy">Automatic sync schedule</p>
+            <p className="mt-0.5 text-xs text-galaxy-muted">
+              When enabled, Galaxy starts a full FY sync on the due day at 02:00 IST. Manual Sync still works anytime.
+            </p>
+          </div>
+          {!syncStatusReady ? (
+            <p className="text-sm text-galaxy-muted">Loading schedule…</p>
+          ) : !syncStatus?.configured ? (
+            <p className="text-sm text-amber-700">Vtiger is not configured — auto sync stays off until credentials are set.</p>
+          ) : (
+            <>
+              <label className="flex min-h-10 items-center gap-2 text-sm text-galaxy-navy">
+                <input
+                  type="checkbox"
+                  checked={scheduleDraft.enabled}
+                  disabled={scheduleSaving || isRunning}
+                  onChange={(e) => setScheduleDraft((d) => ({ ...d, enabled: e.target.checked }))}
+                  className="h-4 w-4 rounded border-galaxy-border text-galaxy-navy focus:ring-galaxy-navy/30 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                Enable auto sync
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+                <label className="block min-w-0 flex-1 text-sm sm:max-w-[8rem]">
+                  <span className="mb-1 block font-medium text-galaxy-navy">Every</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={scheduleDraft.interval_unit === "weeks" ? 12 : 30}
+                    value={scheduleDraft.interval_value}
+                    disabled={scheduleSaving || isRunning || !scheduleDraft.enabled}
+                    onChange={(e) =>
+                      setScheduleDraft((d) => ({
+                        ...d,
+                        interval_value: Number(e.target.value) || 1,
+                      }))
+                    }
+                    className={ui.field}
+                  />
+                </label>
+                <label className="block min-w-0 flex-1 text-sm sm:max-w-[10rem]">
+                  <span className="mb-1 block font-medium text-galaxy-navy">Unit</span>
+                  <select
+                    value={scheduleDraft.interval_unit}
+                    disabled={scheduleSaving || isRunning || !scheduleDraft.enabled}
+                    onChange={(e) =>
+                      setScheduleDraft((d) => ({
+                        ...d,
+                        interval_unit: e.target.value === "weeks" ? "weeks" : "days",
+                      }))
+                    }
+                    className={`${ui.select} w-full`}
+                  >
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void saveSchedule()}
+                  disabled={scheduleSaving || isRunning || !syncStatus?.configured}
+                  className={`${ui.btnPrimary} w-full sm:w-auto`}
+                >
+                  {scheduleSaving ? "Saving…" : "Save schedule"}
+                </button>
+              </div>
+              <p className="text-xs text-galaxy-muted">
+                {scheduleDraft.enabled && scheduleNextRun
+                  ? `Next run: ${new Date(scheduleNextRun).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST`
+                  : scheduleDraft.enabled
+                    ? "Next run: after save, calculated from last sync"
+                    : "Auto sync is off"}
+              </p>
+              {scheduleError && (
+                <p className="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-100">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  {scheduleError}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           <button
             type="button"
@@ -657,6 +840,15 @@ export function AdminUploadsView({ onDataRefresh }: { onDataRefresh: () => void 
               </>
             )}
           </button>
+          {isRunning && (
+            <button
+              type="button"
+              onClick={() => void cancelSync()}
+              className="inline-flex w-full min-h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 focus:outline-none focus:ring-4 focus:ring-red-200/60 sm:w-auto"
+            >
+              Cancel sync
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void rebuild()}
