@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.models import SeedExclusion, User
+from app.models import MagicLoginToken, SeedExclusion, User
 
 
 def get_by_id(db: Session, user_id: int) -> User | None:
@@ -71,6 +71,11 @@ def save(db: Session, user: User) -> User:
 
 
 def delete(db: Session, user: User) -> None:
+    # magic_login_tokens.user_id has an FK to users.id. Postgres enforces it (SQLite
+    # locally does not), so tokens must go in the same transaction as the user.
+    db.query(MagicLoginToken).filter(MagicLoginToken.user_id == user.id).delete(
+        synchronize_session=False
+    )
     db.delete(user)
     db.commit()
 

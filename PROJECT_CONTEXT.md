@@ -694,6 +694,7 @@ When debugging “dashboard ≠ Vtiger report”, recompute from SQLite with §9
 - Password login (`POST /api/auth/login` with email+password) is **admin-only**. JWT lifetime unchanged (`ACCESS_TOKEN_EXPIRE_MINUTES`, default 150).
 - SMTP via env (`SMTP_*`); Google or Outlook. If `SMTP_HOST` empty, magic URL is logged (local). Link base: `GALAXY_PUBLIC_URL`.
 - Admin Users: email is sign-in id (`username = email` on create/update and one-shot startup migrate); UI shows Email column (no separate Username). Password fields only for role admin.
+- Admin delete: `user_repo.delete` removes that user's `magic_login_tokens` first (Postgres enforces the FK; SQLite locally does not). DB failures roll back, log `user_delete_failed`, and return a safe 500 "Could not delete user".
 - Capacitor deep-link out of scope.
 
 ### 2026-11-25 — Admin auto-sync schedule + Cancel sync

@@ -6,6 +6,7 @@ import logging
 import secrets
 from datetime import datetime, timezone
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models import User
@@ -240,5 +241,12 @@ def delete_user(db: Session, *, actor: User, user_id: int) -> None:
         user.username,
     )
     username = user.username
-    user_repo.delete(db, user)
-    user_repo.add_seed_exclusion(db, username)
+    try:
+        user_repo.delete(db, user)
+        user_repo.add_seed_exclusion(db, username)
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception(
+            "user_delete_failed actor_id=%s target_id=%s", actor.id, user_id
+        )
+        raise UserServiceError("Could not delete user", 500) from None
